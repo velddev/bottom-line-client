@@ -139,7 +139,6 @@ function SupplySection({
   const { data: bldg } = useQuery({
     queryKey: ['building', buildingId],
     queryFn: () => getBuilding(buildingId),
-    staleTime: 30_000,
   });
 
   const { data: recipesResp } = useQuery({
@@ -198,7 +197,11 @@ function ConfigureModal({
   });
   const mut = useMutation({
     mutationFn: () => configureBuilding(buildingId, form.recipe_id, form.workers_assigned),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['buildings', 'building'] }); onClose(); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['building', buildingId] });
+      qc.invalidateQueries({ queryKey: ['buildings'] });
+      onClose();
+    },
   });
   const selectedRecipe = (recipesResp?.recipes ?? []).find((r: RecipeInfo) => r.recipe_id === form.recipe_id);
 
