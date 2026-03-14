@@ -6,7 +6,6 @@ import DashboardScreen from './screens/DashboardScreen';
 import AgreementsScreen from './screens/AgreementsScreen';
 import ResearchScreen from './screens/ResearchScreen';
 import MarketingScreen from './screens/MarketingScreen';
-import PoliticsScreen from './screens/PoliticsScreen';
 import TilesScreen from './screens/TilesScreen';
 
 function AppRoutes() {
@@ -23,7 +22,6 @@ function AppRoutes() {
           <Route path="/agreements"  element={<AgreementsScreen />} />
           <Route path="/research"    element={<ResearchScreen />} />
           <Route path="/marketing"   element={<MarketingScreen />} />
-          <Route path="/politics"    element={<PoliticsScreen />} />
           <Route path="/map"         element={<TilesScreen />} />
           <Route path="*"            element={<Navigate to="/dashboard" replace />} />
         </Routes>

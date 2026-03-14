@@ -11,7 +11,6 @@ const NAV = [
   { to: '/agreements', label: 'Agreements'  },
   { to: '/research',   label: 'Research'    },
   { to: '/marketing',  label: 'Marketing'   },
-  { to: '/politics',   label: 'Politics'    },
   { to: '/map',        label: 'City Map'    },
 ];
 

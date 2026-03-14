@@ -13,6 +13,7 @@ import {
 import type { TileInfo, ListTilesResponse, RecipeInfo, Offering } from '../types';
 import { BUILDING_ICONS, BUILDING_TYPES, fmtMoney, fmtQuality } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
+import PoliticsPanel from '../components/PoliticsPanel';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 const CHUNK_SIZE = 20;
@@ -718,10 +719,8 @@ export default function TilesScreen() {
                 </div>
               )}
 
-              {/* Government landmark — read-only display */}
-              {isLandmark && (
-                <p className="text-xs text-gray-500">🏛️ Government landmark — not available for purchase or development.</p>
-              )}
+              {/* Government landmark — politics panel */}
+              {isLandmark && <PoliticsPanel />}
             </div>
 
             {/* Action bar for own non-landmark buildings */}
