@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MapContainer, TileLayer, Rectangle, useMapEvents } from 'react-leaflet';
-import type { LatLngBoundsExpression } from 'leaflet';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { MapContainer, TileLayer, SVGOverlay, useMapEvents } from 'react-leaflet';
+import type { Map as LeafletMap, LatLngBounds } from 'leaflet';
 import { useAuth } from '../auth';
 import { listTiles, purchaseTile, listCities } from '../api';
 import type { TileInfo, ListTilesResponse } from '../types';
@@ -9,116 +8,224 @@ import type { TileInfo, ListTilesResponse } from '../types';
 // Government player ID as defined in GovernmentPortSeeder
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 
+// Chunk size in grid cells. 120×120 grid → 6×6 = 36 chunks
+const CHUNK_SIZE = 20;
+
 function tileColor(tile: TileInfo, myPlayerId: string): string {
-  if (tile.is_reserved_for_citizens) return '#374151'; // dark gray
-  if (tile.owner_player_id === myPlayerId) return '#059669';  // green — mine
-  if (tile.owner_player_id && tile.owner_player_id !== GOVERNMENT_ID) return '#d97706'; // orange — other player
-  if (tile.is_for_sale) return '#0891b2'; // cyan — government for sale
-  return '#1e3a5f'; // dark blue — government, not for sale
+  if (tile.is_reserved_for_citizens) return '#374151';
+  if (tile.owner_player_id === myPlayerId) return '#059669';
+  if (tile.owner_player_id && tile.owner_player_id !== GOVERNMENT_ID) return '#d97706';
+  if (tile.is_for_sale) return '#0891b2';
+  return '#1e3a5f';
 }
 
-/** Converts grid (x,y) to lat/lon rectangle bounds */
-function gridToLatLng(
-  x: number, y: number,
-  originLat: number, originLon: number,
-  tileSizeMeters: number,
-): LatLngBoundsExpression {
-  // At Amsterdam's latitude:
+type TileMeta = Pick<ListTilesResponse,
+  'tile_origin_lat' | 'tile_origin_lon' | 'tile_grid_cols' | 'tile_grid_rows' | 'tile_size_meters'
+>;
+
+/** Convert a grid coordinate to lat/lon */
+function gridToLatLon(
+  x: number, y: number, meta: TileMeta,
+): { lat: number; lon: number } {
   const latPerMeter = 1 / 111_000;
   const lonPerMeter = 1 / 67_600;
-  const tileLat = tileSizeMeters * latPerMeter;
-  const tileLon = tileSizeMeters * lonPerMeter;
-
-  const south = originLat + y * tileLat;
-  const north = south + tileLat;
-  const west  = originLon + x * tileLon;
-  const east  = west + tileLon;
-
-  return [[south, west], [north, east]];
+  return {
+    lat: meta.tile_origin_lat + y * meta.tile_size_meters * latPerMeter,
+    lon: meta.tile_origin_lon + x * meta.tile_size_meters * lonPerMeter,
+  };
 }
 
-/** Component that re-queries tiles whenever the viewport changes */
-function TileLayer_({
+/** Convert map LatLngBounds to grid coordinate bounds, clamped to the city grid */
+function boundsToGrid(bounds: LatLngBounds, meta: TileMeta) {
+  const latPerMeter = 1 / 111_000;
+  const lonPerMeter = 1 / 67_600;
+  const tileLat = meta.tile_size_meters * latPerMeter;
+  const tileLon = meta.tile_size_meters * lonPerMeter;
+
+  return {
+    minX: Math.max(0, Math.floor((bounds.getWest()  - meta.tile_origin_lon) / tileLon)),
+    maxX: Math.min(meta.tile_grid_cols - 1, Math.ceil((bounds.getEast()  - meta.tile_origin_lon) / tileLon)),
+    minY: Math.max(0, Math.floor((bounds.getSouth() - meta.tile_origin_lat) / tileLat)),
+    maxY: Math.min(meta.tile_grid_rows - 1, Math.ceil((bounds.getNorth() - meta.tile_origin_lat) / tileLat)),
+  };
+}
+
+/** The inner map component: listens to viewport changes, fetches chunks, renders */
+function TileOverlay({
   cityId, meta, myPlayerId,
   selectedTile, onSelect,
 }: {
   cityId: string;
-  meta: Pick<ListTilesResponse, 'tile_origin_lat' | 'tile_origin_lon' | 'tile_grid_cols' | 'tile_grid_rows' | 'tile_size_meters'>;
+  meta: TileMeta;
   myPlayerId: string;
   selectedTile: TileInfo | null;
-  onSelect: (t: TileInfo) => void;
+  onSelect: (t: TileInfo | null) => void;
 }) {
-  const [bounds, setBounds] = useState({ minX: 0, minY: 0, maxX: 59, maxY: 59 });
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Convert map viewport to grid bounds
-  const updateBounds = (map: ReturnType<typeof useMapEvents>) => {
-    const b = map.getBounds();
-    const { tile_origin_lat: oLat, tile_origin_lon: oLon, tile_size_meters: size } = meta;
-    const latPerMeter = 1 / 111_000;
-    const lonPerMeter = 1 / 67_600;
-    const tileLat = size * latPerMeter;
-    const tileLon = size * lonPerMeter;
-
-    const minX = Math.max(0, Math.floor((b.getWest()  - oLon) / tileLon));
-    const maxX = Math.min(meta.tile_grid_cols - 1, Math.ceil((b.getEast()  - oLon) / tileLon));
-    const minY = Math.max(0, Math.floor((b.getSouth() - oLat) / tileLat));
-    const maxY = Math.min(meta.tile_grid_rows - 1, Math.ceil((b.getNorth() - oLat) / tileLat));
-
-    setBounds({ minX, minY, maxX, maxY });
-  };
+  // Permanent session cache: key = `${gridX}_${gridY}`
+  const cacheRef = useRef<Map<string, TileInfo>>(new Map());
+  // Which chunks (key = `${cx}_${cy}`) have been fully fetched
+  const fetchedRef = useRef<Set<string>>(new Set());
+  // Force a re-render after cache updates
+  const [renderTick, setRenderTick] = useState(0);
+  // Current grid viewport
+  const [gridView, setGridView] = useState({ minX: 0, minY: 0, maxX: 59, maxY: 59 });
+  const fetchingRef = useRef<Set<string>>(new Set()); // chunks currently in-flight
 
   const map = useMapEvents({
-    moveend: () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => updateBounds(map), 150);
-    },
-    zoomend: () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => updateBounds(map), 150);
-    },
+    moveend: () => updateViewport(),
+    zoomend: () => updateViewport(),
   });
 
-  const { data } = useQuery({
-    queryKey: ['tiles', cityId, bounds.minX, bounds.minY, bounds.maxX, bounds.maxY],
-    queryFn: () => listTiles(cityId, bounds.minX, bounds.minY, bounds.maxX, bounds.maxY),
-    staleTime: 30_000,
-  });
+  const updateViewport = useCallback(() => {
+    const bounds = map.getBounds();
+    const gv = boundsToGrid(bounds, meta);
+    setGridView(gv);
+    fetchMissingChunks(gv, bounds);
+  }, [map, meta, cityId]); // eslint-disable-line
+
+  async function fetchMissingChunks(
+    gv: { minX: number; minY: number; maxX: number; maxY: number },
+    _bounds: LatLngBounds,
+  ) {
+    const minCX = Math.floor(gv.minX / CHUNK_SIZE);
+    const maxCX = Math.floor(gv.maxX / CHUNK_SIZE);
+    const minCY = Math.floor(gv.minY / CHUNK_SIZE);
+    const maxCY = Math.floor(gv.maxY / CHUNK_SIZE);
+
+    const toFetch: { cx: number; cy: number }[] = [];
+    for (let cx = minCX; cx <= maxCX; cx++) {
+      for (let cy = minCY; cy <= maxCY; cy++) {
+        const key = `${cx}_${cy}`;
+        if (!fetchedRef.current.has(key) && !fetchingRef.current.has(key)) {
+          toFetch.push({ cx, cy });
+        }
+      }
+    }
+
+    if (toFetch.length === 0) return;
+
+    await Promise.all(toFetch.map(async ({ cx, cy }) => {
+      const key = `${cx}_${cy}`;
+      fetchingRef.current.add(key);
+
+      const minX = cx * CHUNK_SIZE;
+      const minY = cy * CHUNK_SIZE;
+      const maxX = Math.min(minX + CHUNK_SIZE - 1, meta.tile_grid_cols - 1);
+      const maxY = Math.min(minY + CHUNK_SIZE - 1, meta.tile_grid_rows - 1);
+
+      try {
+        const result = await listTiles(cityId, minX, minY, maxX, maxY);
+        result.tiles.forEach(t => {
+          cacheRef.current.set(`${t.grid_x}_${t.grid_y}`, t);
+        });
+        fetchedRef.current.add(key);
+      } finally {
+        fetchingRef.current.delete(key);
+      }
+    }));
+
+    setRenderTick(n => n + 1);
+  }
+
+  // Initial load on mount
+  useEffect(() => {
+    updateViewport();
+  }, []); // eslint-disable-line
+
+  // When a tile is purchased, refresh the affected chunk
+  const refreshTile = useCallback((tileId: string) => {
+    const tile = [...cacheRef.current.values()].find(t => t.tile_id === tileId);
+    if (!tile) return;
+    const cx = Math.floor(tile.grid_x / CHUNK_SIZE);
+    const cy = Math.floor(tile.grid_y / CHUNK_SIZE);
+    fetchedRef.current.delete(`${cx}_${cy}`);
+    fetchMissingChunks(gridView, map.getBounds());
+  }, [gridView, map]); // eslint-disable-line
+
+  // Expose refreshTile so the parent can call it
+  useEffect(() => {
+    (map as unknown as { _tileOverlayRefresh?: (id: string) => void })._tileOverlayRefresh = refreshTile;
+  }, [refreshTile, map]);
 
   const zoom = map.getZoom();
-  // Only render tile rectangles at zoom >= 14 to avoid performance issues
-  if (zoom < 14 || !data?.tiles) return null;
+  if (zoom < 14) return null;
+
+  // Collect tiles visible in the current viewport from cache
+  const visibleTiles: TileInfo[] = [];
+  for (let x = gridView.minX; x <= gridView.maxX; x++) {
+    for (let y = gridView.minY; y <= gridView.maxY; y++) {
+      const t = cacheRef.current.get(`${x}_${y}`);
+      if (t) visibleTiles.push(t);
+    }
+  }
+
+  if (visibleTiles.length === 0) return null;
+
+  // Compute SVGOverlay bounds from visible grid extent
+  const sw = gridToLatLon(gridView.minX,     gridView.minY,     meta);
+  const ne = gridToLatLon(gridView.maxX + 1, gridView.maxY + 1, meta);
+  const overlayBounds: [[number, number], [number, number]] = [
+    [sw.lat, sw.lon], [ne.lat, ne.lon],
+  ];
+
+  const latPerMeter = 1 / 111_000;
+  const lonPerMeter = 1 / 67_600;
+  const tileLat = meta.tile_size_meters * latPerMeter;
+  const tileLon = meta.tile_size_meters * lonPerMeter;
+
+  // Map bounds extent in lat/lon for the SVG coordinate space
+  const totalLat = (gridView.maxY - gridView.minY + 1) * tileLat;
+  const totalLon = (gridView.maxX - gridView.minX + 1) * tileLon;
+
+  // SVG viewBox maps 0..1000 to the extent
+  const VW = 1000, VH = 1000;
+
+  void renderTick; // suppress unused warning — used to force re-renders
 
   return (
-    <>
-      {data.tiles.map(tile => (
-        <Rectangle
-          key={tile.tile_id}
-          bounds={gridToLatLng(
-            tile.grid_x, tile.grid_y,
-            meta.tile_origin_lat, meta.tile_origin_lon, meta.tile_size_meters,
-          )}
-          pathOptions={{
-            color: selectedTile?.tile_id === tile.tile_id ? '#fff' : 'transparent',
-            weight: selectedTile?.tile_id === tile.tile_id ? 1 : 0,
-            fillColor: tileColor(tile, myPlayerId),
-            fillOpacity: 0.55,
-          }}
-          eventHandlers={{ click: () => onSelect(tile) }}
-        />
-      ))}
-    </>
+    <SVGOverlay bounds={overlayBounds} attributes={{ xmlns: 'http://www.w3.org/2000/svg' }}>
+      <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: '100%', height: '100%' }}>
+        {visibleTiles.map(tile => {
+          const relX = tile.grid_x - gridView.minX;
+          const relY = tile.grid_y - gridView.minY;
+
+          // SVG y goes top→bottom, map lat goes bottom→top — flip y
+          const svgX = (relX / (gridView.maxX - gridView.minX + 1)) * VW;
+          const svgY = (1 - (relY + 1) / (gridView.maxY - gridView.minY + 1)) * VH;
+          const svgW = tileLon / totalLon * VW;
+          const svgH = tileLat / totalLat * VH;
+
+          const isSelected = selectedTile?.tile_id === tile.tile_id;
+
+          return (
+            <rect
+              key={tile.tile_id}
+              x={svgX}
+              y={svgY}
+              width={svgW}
+              height={svgH}
+              fill={tileColor(tile, myPlayerId)}
+              fillOpacity={0.55}
+              stroke={isSelected ? '#fff' : 'none'}
+              strokeWidth={isSelected ? 2 : 0}
+              style={{ cursor: 'pointer' }}
+              onClick={() => onSelect(isSelected ? null : tile)}
+            />
+          );
+        })}
+      </svg>
+    </SVGOverlay>
   );
 }
 
 export default function TilesScreen() {
   const { auth } = useAuth();
-  const queryClient = useQueryClient();
+  const mapRef = useRef<LeafletMap | null>(null);
 
-  const { data: citiesData } = useQuery({
-    queryKey: ['cities'],
-    queryFn: listCities,
-  });
+  const [citiesData, setCitiesData] = useState<{ cities: { city_id: string }[] } | null>(null);
+  useEffect(() => {
+    listCities().then(setCitiesData).catch(() => {});
+  }, []);
 
   // Use player's city if available; fall back to first city in list
   const cityId =
@@ -128,15 +235,10 @@ export default function TilesScreen() {
   const [selectedTile, setSelectedTile] = useState<TileInfo | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isPurchasing, setIsPurchasing] = useState(false);
 
-  // Fetch map metadata (origin + grid dimensions) for the city
-  const { data: metaData } = useQuery({
-    queryKey: ['tiles', cityId, 0, 0, 0, 0],
-    queryFn: () => listTiles(cityId, 0, 0, 0, 0),
-    enabled: !!cityId,
-  });
-
-  const meta = metaData ?? {
+  // Use Amsterdam defaults; the TileOverlay fetches real meta on mount
+  const meta: TileMeta = {
     tile_origin_lat: 52.35670,
     tile_origin_lon: 4.87300,
     tile_grid_cols: 120,
@@ -148,20 +250,24 @@ export default function TilesScreen() {
   const centerLat = meta.tile_origin_lat + (meta.tile_grid_rows * meta.tile_size_meters) / 111_000 / 2;
   const centerLon = meta.tile_origin_lon + (meta.tile_grid_cols * meta.tile_size_meters) / 67_600 / 2;
 
-  const { mutate: buyTile, isPending } = useMutation({
-    mutationFn: (tileId: string) => purchaseTile(tileId),
-    onSuccess: (res) => {
+  async function handlePurchase() {
+    if (!selectedTile) return;
+    setIsPurchasing(true);
+    try {
+      const res = await purchaseTile(selectedTile.tile_id);
       setSuccessMsg(`Tile purchased! New balance: €${res.new_balance.toFixed(2)}`);
       setErrorMsg('');
+      // Invalidate the chunk cache for the purchased tile
+      const m = mapRef.current as unknown as { _tileOverlayRefresh?: (id: string) => void };
+      m._tileOverlayRefresh?.(selectedTile.tile_id);
       setSelectedTile(null);
-      queryClient.invalidateQueries({ queryKey: ['tiles'] });
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-    },
-    onError: (err: Error) => {
-      setErrorMsg(err.message);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Purchase failed');
       setSuccessMsg('');
-    },
-  });
+    } finally {
+      setIsPurchasing(false);
+    }
+  }
 
   // Clear flash messages after 4s
   useEffect(() => {
@@ -215,13 +321,14 @@ export default function TilesScreen() {
             zoom={15}
             className="h-full w-full"
             style={{ minHeight: '500px', background: '#0f172a' }}
+            ref={mapRef}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             {cityId && (
-              <TileLayer_
+              <TileOverlay
                 cityId={cityId}
                 meta={meta}
                 myPlayerId={auth?.player_id ?? ''}
@@ -267,11 +374,11 @@ export default function TilesScreen() {
 
             {selectedTile.is_for_sale && auth && (
               <button
-                disabled={isPending}
-                onClick={() => buyTile(selectedTile.tile_id)}
+                disabled={isPurchasing}
+                onClick={handlePurchase}
                 className="mt-auto bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 text-white text-sm font-semibold py-2 rounded transition-colors"
               >
-                {isPending ? 'Buying…' : `Buy for €${selectedTile.purchase_price.toFixed(2)}`}
+                {isPurchasing ? 'Buying…' : `Buy for €${selectedTile.purchase_price.toFixed(2)}`}
               </button>
             )}
           </div>
