@@ -547,19 +547,6 @@ export default function TilesScreen() {
         )}
       </MapContainer>
 
-      {/* Legend (top-left) */}
-      <div className="absolute top-3 left-3 z-[1000] flex gap-2 text-xs text-gray-300 bg-gray-900/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-gray-700">
-        {[
-          { color: '#1e3a5f', label: 'For sale' },
-          { color: '#166534', label: 'Yours' },
-          { color: '#92400e', label: "Other's" },
-        ].map(({ color, label }) => (
-          <span key={label} className="flex items-center gap-1">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: color, opacity: 0.8 }} />
-            {label}
-          </span>
-        ))}
-      </div>
 
       {/* Flash toast (top-center) */}
       {flash && (
