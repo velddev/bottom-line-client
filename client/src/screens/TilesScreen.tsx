@@ -1,82 +1,49 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { MapContainer, TileLayer as LeafletTileLayer, useMap } from 'react-leaflet';
-import type { Map as LeafletMap, LatLngBounds } from 'leaflet';
-import L from 'leaflet';
-import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
-import { Settings, Package } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Settings, Package, Tag } from 'lucide-react';
 import { useAuth } from '../auth';
 import {
   listTiles, purchaseTile, listCities,
   constructBuilding, configureBuilding, listRecipes, getInventory,
-  listBuildings, getSupplyLinks,
+  listBuildings,
 } from '../api';
-import { api } from '../api';
-import type { TileInfo, ListTilesResponse, RecipeInfo, BuildingStatus, SupplyLinkInfo } from '../types';
+import type { TileInfo, RecipeInfo, BuildingStatus } from '../types';
 import { BUILDING_ICONS, BUILDING_TYPES, fmtMoney } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
 import BankPanel from '../components/BankPanel';
 import SupplySection from '../components/SupplySection';
+import AutoSellSection from '../components/AutoSellSection';
 import EtaCountdown from '../components/EtaCountdown';
 import { useTickRefresh } from '../hooks/useTickRefresh';
+import CityScene3D from '../components/CityScene3D';
+import TileGrid3D from '../components/TileGrid3D';
+import BuildingMeshes from '../components/BuildingMeshes';
+import TileTooltip3D from '../components/TileTooltip3D';
+import RoadNetwork3D from '../components/RoadNetwork3D';
+import TileDecorations from '../components/TileDecorations';
+import CompanyList from '../components/CompanyList';
+import { tileToWorld } from '../components/cityGrid';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 const CHUNK_SIZE = 20;
-const MIN_TILE_ZOOM = 14;
-const MIN_MARKER_ZOOM = 16;
+const GRID_COLS = 120;
+const GRID_ROWS = 120;
 
-const WARNING_STATUSES = new Set(['missing_resources', 'paused']);
-
-function tileColor(tile: TileInfo, myPlayerId: string): string {
-  if (tile.owner_player_id === myPlayerId) {
-    if (WARNING_STATUSES.has(tile.building_status)) return '#92400e'; // amber for warning
-    return '#166534';
-  }
-  if (tile.is_for_sale) return '#1e3a5f';
-  return '#1f2937';
-}
-
-function tileFillOpacity(tile: TileInfo, myPlayerId: string): number {
-  if (tile.owner_player_id && tile.owner_player_id !== myPlayerId && tile.owner_player_id !== GOVERNMENT_ID) return 0;
-  return 0.55;
-}
-
-type TileMeta = Pick<ListTilesResponse,
-  'tile_origin_lat' | 'tile_origin_lon' | 'tile_grid_cols' | 'tile_grid_rows' | 'tile_size_meters'
->;
-
-function gridToLatLon(x: number, y: number, meta: TileMeta) {
-  return {
-    lat: meta.tile_origin_lat + y * meta.tile_size_meters / 111_000,
-    lon: meta.tile_origin_lon + x * meta.tile_size_meters / 67_600,
-  };
-}
-
-function boundsToGrid(bounds: LatLngBounds, meta: TileMeta) {
-  const tileLat = meta.tile_size_meters / 111_000;
-  const tileLon = meta.tile_size_meters / 67_600;
-  return {
-    minX: Math.max(0, Math.floor((bounds.getWest()  - meta.tile_origin_lon) / tileLon)),
-    maxX: Math.min(meta.tile_grid_cols - 1, Math.ceil((bounds.getEast()  - meta.tile_origin_lon) / tileLon)),
-    minY: Math.max(0, Math.floor((bounds.getSouth() - meta.tile_origin_lat) / tileLat)),
-    maxY: Math.min(meta.tile_grid_rows - 1, Math.ceil((bounds.getNorth() - meta.tile_origin_lat) / tileLat)),
-  };
-}
+const WARNING_STATUSES = new Set(['MissingResources', 'Paused']);
 
 function StatusBadge({ status }: { status: string }) {
   const LABELS: Record<string, string> = {
-    producing:          'Producing',
-    idle:               'Idle',
-    under_construction: 'Building…',
-    paused:             'Paused',
-    missing_resources:  '⚠️ Missing',
+    Producing: 'Producing', Idle: 'Idle',
+    UnderConstruction: 'Building…', Paused: 'Paused',
+    MissingResources: '⚠️ Missing',
   };
   const cls =
-    status === 'producing'          ? 'bg-emerald-900/40 text-emerald-400' :
-    status === 'under_construction' ? 'bg-amber-900/40 text-amber-400' :
-    status === 'paused'             ? 'bg-yellow-900/40 text-yellow-400' :
-    status === 'missing_resources'  ? 'bg-rose-900/40 text-rose-400' :
-                                      'bg-gray-800 text-gray-400';
+    status === 'Producing'         ? 'bg-emerald-900/40 text-emerald-400' :
+    status === 'UnderConstruction' ? 'bg-amber-900/40 text-amber-400' :
+    status === 'Paused'            ? 'bg-yellow-900/40 text-yellow-400' :
+    status === 'MissingResources'  ? 'bg-rose-900/40 text-rose-400' :
+                                     'bg-gray-800 text-gray-400';
   return <span className={`px-2 py-0.5 rounded text-xs ${cls}`}>{LABELS[status] ?? status}</span>;
 }
 
@@ -163,364 +130,124 @@ function InventoryModal({ buildingId, buildingName, onClose }: { buildingId: str
 }
 
 // ── Sell (auto-sell config) modal ─────────────────────────────────────────────
-// Removed: auto-sell config is now inline in the Supply section.
-
-// Hex stroke colors keyed by resource type (for SVG polylines)
-const SUPPLY_LINE_COLORS: Record<string, string> = {
-  grain:       '#fbbf24', // amber-400
-  water:       '#38bdf8', // sky-400
-  animal_feed: '#a3e635', // lime-400
-  cattle:      '#fb923c', // orange-400
-  meat:        '#f87171', // red-400
-  leather:     '#d97706', // amber-600
-  food:        '#4ade80', // green-400
-};
-
-/** output_type → icon override (e.g. a cattle field shows 🐄 instead of 🌾). */
-const RECIPE_ICONS: Record<string, string> = {
-  cattle:      '🐄',
-  grain:       '🌾',
-  water:       '💧',
-  animal_feed: '🌿',
-  meat:        '🥩',
-  leather:     '🧥',
-  food:        '🍱',
-};
-
-
-/** Compute points along a quadratic bezier arc from `from` to `to`, arching leftward. */
-function arcPoints(
-  from: { lat: number; lon: number },
-  to:   { lat: number; lon: number },
-  steps = 12,
-): [number, number][] {
-  const dLat = to.lat - from.lat;
-  const dLon = to.lon - from.lon;
-  const len  = Math.sqrt(dLat * dLat + dLon * dLon);
-  if (len === 0) return [[from.lat, from.lon]];
-
-  // Control point: midpoint + perpendicular offset (always arch to the left of travel direction)
-  const arch   = Math.min(len * 0.2, 0.00025); // cap at ~28 m in lat/lon space
-  const midLat = (from.lat + to.lat) / 2 + (-dLon / len) * arch;
-  const midLon = (from.lon + to.lon) / 2 + ( dLat / len) * arch;
-
-  return Array.from({ length: steps + 1 }, (_, i) => {
-    const t = i / steps;
-    const u = 1 - t;
-    return [
-      u * u * from.lat + 2 * u * t * midLat + t * t * to.lat,
-      u * u * from.lon + 2 * u * t * midLon + t * t * to.lon,
-    ] as [number, number];
-  });
-}
-
-function SupplyLineLayer({ meta }: { meta: TileMeta }) {
-  const map = useMap();
-  const { auth } = useAuth();
-  const layerRef = useRef<L.LayerGroup | null>(null);
-  const animRef  = useRef<number>(0);
-  const linesRef = useRef<L.Polyline[]>([]);
-
-  const { data: buildingsData } = useQuery({
-    queryKey: ['buildings'],
-    queryFn: listBuildings,
-    staleTime: 60_000,
-    enabled: !!auth,
-  });
-
-  const buildings = (buildingsData?.buildings ?? []) as BuildingStatus[];
-
-  const supplyQueries = useQueries({
-    queries: buildings.map(b => ({
-      queryKey: ['supply-links', b.building_id],
-      queryFn: () => getSupplyLinks(b.building_id),
-      staleTime: 60_000,
-    })),
-  });
-
-  // Flatten all supply links with consumer tile coords
-  const allLinks = useMemo(() => {
-    const result: { cx: number; cy: number; sx: number; sy: number; rt: string }[] = [];
-    buildings.forEach((b, i) => {
-      if (!b.tile_id) return; // not placed on map yet
-      const q = supplyQueries[i];
-      if (!q.data) return;
-      (q.data.links as SupplyLinkInfo[]).forEach(link => {
-        // Government/untiled buildings have no map position; skip them
-        if (!link.supplier_tile_x && !link.supplier_tile_y) return;
-        result.push({ cx: b.tile_grid_x, cy: b.tile_grid_y, sx: link.supplier_tile_x, sy: link.supplier_tile_y, rt: link.resource_type });
-      });
-    });
-    return result;
-  }, [buildings, supplyQueries]); // eslint-disable-line
-
-  // Redraw polylines whenever the link set changes
-  useEffect(() => {
-    const layer = layerRef.current;
-    if (!layer) return;
-    layer.clearLayers();
-    linesRef.current = [];
-    allLinks.forEach(({ cx, cy, sx, sy, rt }) => {
-      const from = gridToLatLon(cx + 0.5, cy + 0.5, meta);
-      const to   = gridToLatLon(sx + 0.5, sy + 0.5, meta);
-      const color = SUPPLY_LINE_COLORS[rt?.toLowerCase()] ?? '#9ca3af';
-      const dist  = Math.abs(cx - sx) + Math.abs(cy - sy);
-      const pts   = dist <= 1 ? [[from.lat, from.lon], [to.lat, to.lon]] as [number, number][] : arcPoints(from, to);
-      const line = L.polyline(
-        pts,
-        { color, weight: 2.5, opacity: 0.9, dashArray: '10 6', dashOffset: '0', interactive: false },
-      ).addTo(layer);
-      linesRef.current.push(line);
-    });
-  }, [allLinks, meta]);
-
-  // Animate: dashes march from consumer → supplier
-  useEffect(() => {
-    cancelAnimationFrame(animRef.current);
-    if (!linesRef.current.length) return;
-    const DASH_TOTAL = 16; // 10 filled + 6 gap
-    let offset = 0;
-    const step = () => {
-      offset = ((offset + 0.35) % DASH_TOTAL); // positive = dashes march from supplier → consumer
-      linesRef.current.forEach(line => {
-        const el = line.getElement() as SVGPathElement | null;
-        if (el) el.style.strokeDashoffset = String(offset);
-      });
-      animRef.current = requestAnimationFrame(step);
-    };
-    animRef.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(animRef.current);
-  }, [allLinks]);
-
-  // Mount / unmount the layer group
-  useEffect(() => {
-    const layer = L.layerGroup().addTo(map);
-    layerRef.current = layer;
-    return () => { cancelAnimationFrame(animRef.current); layer.remove(); };
-  }, [map]);
-
-  return null;
-}
-
-
-function TileLayer_({
-  cityId, meta, myPlayerId, selectedTile, onSelect, apiKey, buildings,
-}: {
-  cityId: string; meta: TileMeta; myPlayerId: string;
-  selectedTile: TileInfo | null; onSelect: (t: TileInfo | null) => void;
-  apiKey: string; buildings: BuildingStatus[];
-}) {
-  const map = useMap();
-  const cacheRef    = useRef<Map<string, TileInfo>>(new Map());
-  const fetchedRef  = useRef<Set<string>>(new Set());
-  const fetchingRef = useRef<Set<string>>(new Set());
-  const tileLayerRef   = useRef<L.LayerGroup | null>(null);
-  const markerLayerRef = useRef<L.LayerGroup | null>(null);
-  const rendererRef    = useRef<L.Canvas | null>(null);
-  const redrawRef      = useRef<(() => void) | null>(null);
-  const fetchMissingRef = useRef<(() => void) | null>(null);
-  const stateRef = useRef({ selectedTile, onSelect, meta, cityId, myPlayerId, buildings });
-  useEffect(() => { stateRef.current = { selectedTile, onSelect, meta, cityId, myPlayerId, buildings }; });
-
-  // Event subscription for live tile updates + 60s fallback full refresh
-  useEffect(() => {
-    if (!apiKey || !cityId) return;
-
-    const unsubscribe = api.subscribeToEvents(cityId, apiKey, (evt) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tc = (evt as any).tile_changed;
-      if (tc) {
-        const updated: TileInfo = {
-          tile_id:                  tc.tile_id        ?? '',
-          city_id:                  tc.city_id        ?? '',
-          grid_x:                   tc.grid_x         ?? 0,
-          grid_y:                   tc.grid_y         ?? 0,
-          owner_player_id:          tc.owner_player_id ?? '',
-          owner_name:               tc.owner_name     ?? '',
-          is_for_sale:              tc.is_for_sale    ?? false,
-          purchase_price:           tc.purchase_price ?? 0,
-          building_id:              tc.building_id    ?? '',
-          building_name:            tc.building_name  ?? '',
-          building_type:            tc.building_type  ?? '',
-          building_status:          tc.building_status ?? '',
-          is_reserved_for_citizens: false,
-        };
-        cacheRef.current.set(`${updated.grid_x}_${updated.grid_y}`, updated);
-        redrawRef.current?.();
-      }
-    });
-
-    // 60-second fallback: re-fetch all visible chunks
-    const refresh = setInterval(() => {
-      fetchedRef.current.clear();
-      fetchMissingRef.current?.();
-    }, 60_000);
-
-    return () => { unsubscribe(); clearInterval(refresh); };
-  }, [apiKey, cityId]); // eslint-disable-line
-
-  const redraw = useCallback(() => {
-    const tileLayer   = tileLayerRef.current;
-    const markerLayer = markerLayerRef.current;
-    const renderer    = rendererRef.current;
-    if (!tileLayer || !markerLayer || !renderer) return;
-
-    const { meta, selectedTile, myPlayerId, buildings } = stateRef.current;
-    const buildingByTile = new Map(buildings.map(b => [b.building_id, b.output_type ?? '']));
-    const zoom = map.getZoom();
-
-    tileLayer.clearLayers();
-    markerLayer.clearLayers();
-    if (zoom < MIN_TILE_ZOOM) return;
-
-    const gv = boundsToGrid(map.getBounds(), meta);
-
-    for (let x = gv.minX; x <= gv.maxX; x++) {
-      for (let y = gv.minY; y <= gv.maxY; y++) {
-        const tile = cacheRef.current.get(`${x}_${y}`);
-        if (!tile || tile.is_reserved_for_citizens) continue;
-
-        const sw = gridToLatLon(x,     y,     meta);
-        const ne = gridToLatLon(x + 1, y + 1, meta);
-        const isSelected = selectedTile?.tile_id === tile.tile_id;
-
-        L.rectangle(
-          [[sw.lat, sw.lon], [ne.lat, ne.lon]],
-          {
-            renderer,
-            fillColor: tileColor(tile, myPlayerId),
-            fillOpacity: tileFillOpacity(tile, myPlayerId),
-            stroke: isSelected,
-            color: '#f9fafb',
-            weight: 2,
-            interactive: false,
-          },
-        ).addTo(tileLayer);
-
-        if (zoom >= MIN_MARKER_ZOOM && tile.building_id && tile.building_type) {
-          const recipe = buildingByTile.get(tile.building_id) ?? '';
-          const emoji = RECIPE_ICONS[recipe] ?? BUILDING_ICONS[tile.building_type.toLowerCase()] ?? '🏢';
-          const isWarning = tile.owner_player_id === myPlayerId && WARNING_STATUSES.has(tile.building_status);
-          const centerLat = (sw.lat + ne.lat) / 2;
-          const centerLon = (sw.lon + ne.lon) / 2;
-          // Scale icon with zoom: 12px at zoom 16, up to 32px at zoom 20+
-          const fs = Math.round(Math.min(12 + (zoom - MIN_MARKER_ZOOM) * 5, 32));
-          const sz = Math.round(fs * 1.2);
-          L.marker([centerLat, centerLon], {
-            icon: L.divIcon({
-              html: isWarning
-                ? `<div style="font-size:${fs}px;line-height:1;display:flex;align-items:center;justify-content:center;gap:1px"><span>${emoji}</span><span>⚠️</span></div>`
-                : `<span style="font-size:${fs}px;line-height:1;display:block;text-align:center">${emoji}</span>`,
-              className: '',
-              iconSize: isWarning ? [sz * 2, sz] : [sz, sz],
-              iconAnchor: isWarning ? [sz, Math.round(sz / 2)] : [Math.round(sz / 2), Math.round(sz / 2)],
-            }),
-            interactive: false,
-          }).addTo(markerLayer);
-        }
-      }
-    }
-  }, [map]);
-
-  const fetchMissing = useCallback(async () => {
-    const { meta, cityId } = stateRef.current;
-    const gv = boundsToGrid(map.getBounds(), meta);
-    const toFetch: { cx: number; cy: number }[] = [];
-
-    for (let cx = Math.floor(gv.minX / CHUNK_SIZE); cx <= Math.floor(gv.maxX / CHUNK_SIZE); cx++) {
-      for (let cy = Math.floor(gv.minY / CHUNK_SIZE); cy <= Math.floor(gv.maxY / CHUNK_SIZE); cy++) {
-        const key = `${cx}_${cy}`;
-        if (!fetchedRef.current.has(key) && !fetchingRef.current.has(key))
-          toFetch.push({ cx, cy });
-      }
-    }
-
-    if (!toFetch.length) { redraw(); return; }
-
-    await Promise.all(toFetch.map(async ({ cx, cy }) => {
-      const key = `${cx}_${cy}`;
-      fetchingRef.current.add(key);
-      const m = stateRef.current.meta;
-      const minX = cx * CHUNK_SIZE, minY = cy * CHUNK_SIZE;
-      const maxX = Math.min(minX + CHUNK_SIZE - 1, m.tile_grid_cols - 1);
-      const maxY = Math.min(minY + CHUNK_SIZE - 1, m.tile_grid_rows - 1);
-      try {
-        const res = await listTiles(cityId, minX, minY, maxX, maxY);
-        res.tiles.forEach(t => cacheRef.current.set(`${t.grid_x}_${t.grid_y}`, t));
-        fetchedRef.current.add(key);
-      } finally {
-        fetchingRef.current.delete(key);
-      }
-    }));
-
-    redraw();
-  }, [map, redraw]);
-
-  // Keep refs current so SSE effect can call latest versions without stale closures
-  useEffect(() => { redrawRef.current = redraw; });
-  useEffect(() => { fetchMissingRef.current = fetchMissing; });
-
-  useEffect(() => {
-    const renderer    = L.canvas({ padding: 0.1 });
-    const tileLayer   = L.layerGroup().addTo(map);
-    const markerLayer = L.layerGroup().addTo(map);
-    rendererRef.current    = renderer;
-    tileLayerRef.current   = tileLayer;
-    markerLayerRef.current = markerLayer;
-
-    const onViewChange = () => fetchMissing();
-    map.on('moveend zoomend', onViewChange);
-
-    const onClick = (e: L.LeafletMouseEvent) => {
-      const { meta, onSelect } = stateRef.current;
-      const { lat, lng } = e.latlng;
-      const gx = Math.floor((lng - meta.tile_origin_lon) / (meta.tile_size_meters / 67_600));
-      const gy = Math.floor((lat - meta.tile_origin_lat) / (meta.tile_size_meters / 111_000));
-      if (gx < 0 || gx >= meta.tile_grid_cols || gy < 0 || gy >= meta.tile_grid_rows) {
-        onSelect(null); return;
-      }
-      const tile = cacheRef.current.get(`${gx}_${gy}`);
-      const cur  = stateRef.current.selectedTile;
-      onSelect(tile ? (cur?.tile_id === tile.tile_id ? null : tile) : null);
-    };
-    map.on('click', onClick);
-
-    (map as unknown as { _refreshTileChunk?: (t: TileInfo) => void })._refreshTileChunk =
-      (tile: TileInfo) => {
-        const cx = Math.floor(tile.grid_x / CHUNK_SIZE);
-        const cy = Math.floor(tile.grid_y / CHUNK_SIZE);
-        fetchedRef.current.delete(`${cx}_${cy}`);
-        fetchMissing();
-      };
-
-    fetchMissing();
-
-    return () => {
-      map.off('moveend zoomend', onViewChange);
-      map.off('click', onClick);
-      tileLayer.remove();
-      markerLayer.remove();
-    };
-  }, [map, fetchMissing]); // eslint-disable-line
-
-  useEffect(() => { redraw(); }, [selectedTile, redraw]);
-  // Re-render icons when buildings data changes (e.g. recipe configured)
-  useEffect(() => { redrawRef.current?.(); }, [buildings]);
-
-  return null;
+function SellModal({
+  buildingId, buildingType, onClose,
+}: { buildingId: string; buildingType: string; onClose: () => void }) {
+  return (
+    <Modal title="Auto-Sell" onClose={onClose}>
+      <AutoSellSection buildingId={buildingId} buildingType={buildingType} />
+    </Modal>
+  );
 }
 
 // ── Main screen ────────────────────────────────────────────────────────────────
 export default function TilesScreen() {
   const { auth } = useAuth();
   const qc = useQueryClient();
-  const mapRef = useRef<LeafletMap | null>(null);
+  const { nextTickAt } = useTickRefresh();
+  const { data: myBuildingsData } = useQuery({ queryKey: ['buildings'], queryFn: listBuildings, staleTime: 60_000, enabled: !!auth });
+  const myBuildings = (myBuildingsData?.buildings ?? []) as BuildingStatus[];
 
   const [citiesData, setCitiesData] = useState<{ cities: { city_id: string }[] } | null>(null);
   useEffect(() => { listCities().then(setCitiesData).catch(() => {}); }, []);
-  const cityId = auth?.city_id ?? citiesData?.cities?.[0]?.city_id ?? '';
+  const cityId = citiesData?.cities?.[0]?.city_id ?? '';
+
+  // Tile data cache — shared across SSE + chunk loading
+  const tileCache = useRef<Map<string, TileInfo>>(new Map());
+  const fetchedRef = useRef<Set<string>>(new Set());
+  const fetchingRef = useRef<Set<string>>(new Set());
+  const [tiles, setTiles] = useState<Map<string, TileInfo>>(new Map());
 
   const [selectedTile, setSelectedTile] = useState<TileInfo | null>(null);
+  const [hoveredTile, setHoveredTile] = useState<TileInfo | null>(null);
+
+  // Clear caches when cityId changes
+  useEffect(() => {
+    tileCache.current.clear();
+    fetchedRef.current.clear();
+    fetchingRef.current.clear();
+    setTiles(new Map());
+  }, [cityId]);
+
+  // Load all tile chunks on mount
+  const loadAllTiles = useCallback(async () => {
+    if (!cityId) return;
+    const chunks: Promise<void>[] = [];
+    for (let cx = 0; cx < Math.ceil(GRID_COLS / CHUNK_SIZE); cx++) {
+      for (let cy = 0; cy < Math.ceil(GRID_ROWS / CHUNK_SIZE); cy++) {
+        const key = `${cx}_${cy}`;
+        if (fetchedRef.current.has(key) || fetchingRef.current.has(key)) continue;
+        chunks.push((async () => {
+          fetchingRef.current.add(key);
+          const minX = cx * CHUNK_SIZE, minY = cy * CHUNK_SIZE;
+          const maxX = Math.min(minX + CHUNK_SIZE - 1, GRID_COLS - 1);
+          const maxY = Math.min(minY + CHUNK_SIZE - 1, GRID_ROWS - 1);
+          try {
+            const res = await listTiles(cityId, minX, minY, maxX, maxY);
+            res.tiles.forEach(t => tileCache.current.set(`${t.grid_x}_${t.grid_y}`, t));
+            fetchedRef.current.add(key);
+          } finally {
+            fetchingRef.current.delete(key);
+          }
+        })());
+      }
+    }
+    await Promise.all(chunks);
+    setTiles(new Map(tileCache.current));
+  }, [cityId]);
+
+  useEffect(() => { loadAllTiles(); }, [loadAllTiles]);
+
+  // SSE subscription for live tile updates
+  useEffect(() => {
+    if (!auth?.api_key || !cityId) return;
+
+    const es = new EventSource(
+      `/api/events/stream?api_key=${encodeURIComponent(auth.api_key)}&city_id=${encodeURIComponent(cityId)}`
+    );
+
+    es.onmessage = (e) => {
+      try {
+        const evt = JSON.parse(e.data as string);
+        if (evt.tileChanged) {
+          const tc = evt.tileChanged;
+          const updated: TileInfo = {
+            tile_id:                 tc.tileId       ?? '',
+            city_id:                 tc.cityId       ?? '',
+            grid_x:                  tc.gridX        ?? 0,
+            grid_y:                  tc.gridY        ?? 0,
+            owner_player_id:         tc.ownerPlayerId ?? '',
+            owner_name:              tc.ownerName    ?? '',
+            is_for_sale:             tc.isForSale    ?? false,
+            purchase_price:          tc.purchasePrice ?? 0,
+            building_id:             tc.buildingId   ?? '',
+            building_name:           tc.buildingName ?? '',
+            building_type:           tc.buildingType ?? '',
+            building_status:         tc.buildingStatus ?? '',
+            is_reserved_for_citizens: false,
+          };
+          tileCache.current.set(`${updated.grid_x}_${updated.grid_y}`, updated);
+          setTiles(new Map(tileCache.current));
+        }
+      } catch { /* ignore parse errors */ }
+    };
+
+    // 60-second fallback refresh
+    const refresh = setInterval(() => {
+      fetchedRef.current.clear();
+      loadAllTiles();
+    }, 60_000);
+
+    return () => { es.close(); clearInterval(refresh); };
+  }, [auth?.api_key, cityId, loadAllTiles]);
+
+  // Refresh tile chunk after purchase/build
+  const refreshTileChunk = useCallback((tile: TileInfo) => {
+    const cx = Math.floor(tile.grid_x / CHUNK_SIZE);
+    const cy = Math.floor(tile.grid_y / CHUNK_SIZE);
+    fetchedRef.current.delete(`${cx}_${cy}`);
+    loadAllTiles();
+  }, [loadAllTiles]);
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
   useEffect(() => {
     if (!flash) return;
@@ -535,8 +262,7 @@ export default function TilesScreen() {
     try {
       const res = await purchaseTile(selectedTile.tile_id);
       setFlash({ ok: true, msg: `Tile purchased! Balance: ${fmtMoney(res.new_balance)}` });
-      const m = mapRef.current as unknown as { _refreshTileChunk?: (t: TileInfo) => void };
-      m._refreshTileChunk?.(selectedTile);
+      refreshTileChunk(selectedTile);
       setSelectedTile(null);
     } catch (err) {
       setFlash({ ok: false, msg: err instanceof Error ? err.message : 'Purchase failed' });
@@ -552,8 +278,7 @@ export default function TilesScreen() {
     onSuccess: (res) => {
       setFlash({ ok: true, msg: `Building started! Ready in ${res.construction_ticks_remaining} ticks.` });
       qc.invalidateQueries({ queryKey: ['buildings'] });
-      const m = mapRef.current as unknown as { _refreshTileChunk?: (t: TileInfo) => void };
-      m._refreshTileChunk?.(selectedTile!);
+      refreshTileChunk(selectedTile!);
       setSelectedTile(null);
       setShowBuildForm(false);
     },
@@ -562,20 +287,11 @@ export default function TilesScreen() {
 
   const [configTarget, setConfigTarget] = useState<TileInfo | null>(null);
   const [invTarget, setInvTarget] = useState<TileInfo | null>(null);
+  const [sellTarget, setSellTarget] = useState<TileInfo | null>(null);
 
-  const meta: TileMeta = {
-    tile_origin_lat: 52.35670,
-    tile_origin_lon: 4.87300,
-    tile_grid_cols: 120,
-    tile_grid_rows: 120,
-    tile_size_meters: 25,
-  };
-  const centerLat = meta.tile_origin_lat + (meta.tile_grid_rows * meta.tile_size_meters) / 111_000 / 2;
-  const centerLon = meta.tile_origin_lon + (meta.tile_grid_cols * meta.tile_size_meters) / 67_600 / 2;
+  const [activeTab, setActiveTab] = useState<'supply' | 'info'>('supply');
+  useEffect(() => { setActiveTab('supply'); }, [selectedTile?.tile_id]);
 
-  const { nextTickAt } = useTickRefresh();
-  const { data: myBuildingsData } = useQuery({ queryKey: ['buildings'], queryFn: listBuildings, staleTime: 60_000, enabled: !!auth });
-  const myBuildings = (myBuildingsData?.buildings ?? []) as BuildingStatus[];
   const isMine = !!selectedTile && selectedTile.owner_player_id === auth?.player_id;
   const hasBuilding = !!selectedTile?.building_id;
   const selectedBldInfo = hasBuilding
@@ -585,29 +301,52 @@ export default function TilesScreen() {
   const isBank = selectedTile?.building_type?.toLowerCase() === 'bank';
   const isGovBuilding = isLandmark || isBank;
 
+  // Camera focus — only triggered by company list clicks, not map tile clicks
+  const [focusTile, setFocusTile] = useState<TileInfo | null>(null);
+  const focusWorldPos = useMemo<[number, number] | null>(() => {
+    if (!focusTile) return null;
+    return tileToWorld(focusTile.grid_x, focusTile.grid_y);
+  }, [focusTile?.tile_id]);
+
+  const handleCompanyListSelect = useCallback((tile: TileInfo) => {
+    setSelectedTile(tile);
+    setFocusTile(tile);
+  }, []);
+
   return (
     <>
     <div className="flex-1 min-h-0 relative">
-      {/* Full-bleed map */}
-      <MapContainer center={[centerLat, centerLon]} zoom={15} zoomControl={false}
-        className="absolute inset-0 h-full w-full" ref={mapRef}>
-        <LeafletTileLayer
-          attribution='<a href="https://www.openstreetmap.org/copyright" style="opacity:0.3;font-size:9px">© OSM / CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          subdomains="abcd" maxZoom={20}
-        />
-        {cityId && (
-          <TileLayer_
-            cityId={cityId} meta={meta}
+      {/* Full-bleed 3D city map */}
+      <div className="absolute inset-0">
+        <CityScene3D focusWorldPos={focusWorldPos}>
+          <TileGrid3D
+            tiles={tiles}
             myPlayerId={auth?.player_id ?? ''}
-            selectedTile={selectedTile} onSelect={setSelectedTile}
-            apiKey={auth?.api_key ?? ''}
-            buildings={myBuildings}
+            selectedTile={selectedTile}
+            hoveredTile={hoveredTile}
+            onSelect={setSelectedTile}
+            onHover={setHoveredTile}
           />
-        )}
-        {cityId && <SupplyLineLayer meta={meta} />}
-      </MapContainer>
+          <BuildingMeshes
+            tiles={tiles}
+            myPlayerId={auth?.player_id ?? ''}
+          />
+          <RoadNetwork3D />
+          <TileDecorations />
+          <TileTooltip3D
+            hoveredTile={hoveredTile}
+            selectedTile={selectedTile}
+          />
+        </CityScene3D>
+      </div>
 
+      {/* Company list — left panel */}
+      <CompanyList
+        tiles={tiles}
+        myPlayerId={auth?.player_id ?? ''}
+        onSelectTile={handleCompanyListSelect}
+        selectedTileId={selectedTile?.tile_id}
+      />
 
       {/* Flash toast (top-center) */}
       {flash && (
@@ -633,7 +372,7 @@ export default function TilesScreen() {
             <div className="px-4 py-2 border-b border-gray-700/50 text-xs text-gray-400 flex items-center gap-2">
               <span className="truncate">{selectedTile.owner_name || 'Unowned'}</span>
               {hasBuilding && <StatusBadge status={selectedTile.building_status} />}
-              {hasBuilding && selectedTile.building_status === 'under_construction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
+              {hasBuilding && selectedTile.building_status === 'UnderConstruction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
                 <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} />
               )}
               {selectedTile.is_for_sale && (
@@ -697,6 +436,18 @@ export default function TilesScreen() {
                 />
               )}
 
+              {isMine && hasBuilding && !isGovBuilding && activeTab === 'info' && (
+                <div className="space-y-2 text-xs">
+                  <p className="text-gray-400">Type: <span className="text-white capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
+                  <p className="text-gray-400 flex items-center gap-2">
+                    Status: <StatusBadge status={selectedTile.building_status} />
+                    {selectedTile.building_status === 'UnderConstruction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
+                      <span className="text-gray-500">ready in <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} /></span>
+                    )}
+                  </p>
+                </div>
+              )}
+
               {/* Government landmark — politics panel */}
               {isLandmark && <PoliticsPanel />}
               {isBank     && <BankPanel />}
@@ -712,6 +463,10 @@ export default function TilesScreen() {
                 <button onClick={() => setInvTarget(selectedTile)}
                   className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
                   <Package size={12} /> Stock
+                </button>
+                <button onClick={() => setSellTarget(selectedTile)}
+                  className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
+                  <Tag size={12} /> Sell
                 </button>
               </div>
             )}
@@ -734,6 +489,13 @@ export default function TilesScreen() {
           buildingId={invTarget.building_id}
           buildingName={invTarget.building_name}
           onClose={() => setInvTarget(null)}
+        />
+      )}
+      {sellTarget?.building_id && (
+        <SellModal
+          buildingId={sellTarget.building_id}
+          buildingType={sellTarget.building_type?.toLowerCase() ?? ''}
+          onClose={() => setSellTarget(null)}
         />
       )}
     </>
