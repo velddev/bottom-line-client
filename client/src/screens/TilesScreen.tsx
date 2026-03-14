@@ -152,15 +152,20 @@ function TileCanvas({
     canvasRef.current = canvas;
 
     const onViewChange = () => { fetchMissing(); draw(); };
-    const onResize = () => {
+
+    // Use ResizeObserver for reliable detection of any container resize
+    // (CSS layout changes like closing the event feed are invisible to Leaflet's resize event)
+    const resizeObserver = new ResizeObserver(() => {
       const r = container.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return;
       canvas.width  = r.width;
       canvas.height = r.height;
+      map.invalidateSize(); // let Leaflet update its viewport too
       draw();
-    };
+    });
+    resizeObserver.observe(container);
 
     map.on('moveend zoomend', onViewChange);
-    map.on('resize', onResize);
     // Redraw during smooth pan/zoom animation
     map.on('move zoom', draw);
 
@@ -197,8 +202,8 @@ function TileCanvas({
     fetchMissing();
 
     return () => {
+      resizeObserver.disconnect();
       map.off('moveend zoomend', onViewChange);
-      map.off('resize', onResize);
       map.off('move zoom', draw);
       map.off('click', onClick);
       canvas.remove();
