@@ -129,7 +129,9 @@ function IngredientRow({
   );
 }
 
-// ── Supply section (recipe inputs) ────────────────────────────────────────────
+// ── Supply section (recipe inputs / store stocking) ───────────────────────────
+const ALL_RESOURCES = ['Food', 'Grain', 'Water', 'AnimalFeed', 'Cattle', 'Meat', 'Leather'];
+
 function SupplySection({
   buildingId, buildingType, cityId,
 }: { buildingId: string; buildingType: string; cityId: string }) {
@@ -147,6 +149,18 @@ function SupplySection({
   });
 
   if (!bldg) return <p className="text-gray-600 text-xs animate-pulse">Loading…</p>;
+
+  // Stores have no recipes — show a stocking panel for all resource types
+  if (buildingType === 'store') {
+    return (
+      <div>
+        <p className="text-xs text-gray-500 mb-2">Stock resources to sell</p>
+        {ALL_RESOURCES.map((r) => (
+          <IngredientRow key={r} ingredient={{ resource_type: r, quantity: 10 }} buildingId={buildingId} cityId={cityId} />
+        ))}
+      </div>
+    );
+  }
 
   const recipe = (recipesResp?.recipes ?? []).find((r: RecipeInfo) => r.recipe_id === bldg.active_recipe);
 
@@ -266,7 +280,7 @@ function SellModal({
   const [form, setForm] = useState({ resource_type: activeRecipe?.output_type ?? '', price: '', quantity: '', visibility: 'public' });
   useEffect(() => { if (activeRecipe?.output_type) setForm((f) => ({ ...f, resource_type: activeRecipe.output_type })); }, [activeRecipe?.output_type]);
 
-  const RESOURCES = ['grain', 'water', 'feed', 'cattle', 'meat', 'leather', 'food'];
+  const RESOURCES = ['Food', 'Grain', 'Water', 'AnimalFeed', 'Cattle', 'Meat', 'Leather'];
   const mut = useMutation({
     mutationFn: () => createOffering(buildingId, form.resource_type, parseFloat(form.price), parseFloat(form.quantity), form.visibility),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['offerings'] }); onClose(); },
