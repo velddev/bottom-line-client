@@ -1,0 +1,212 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, ShoppingCart, X } from 'lucide-react';
+import { listOfferings, createOffering, cancelOffering, purchase, listBuildings } from '../api';
+import { fmtMoney, fmtQuality, resourceColor } from '../types';
+import Modal, { Field, Input, Select } from '../components/Modal';
+
+const RESOURCES = ['grain', 'water', 'feed', 'cattle', 'meat', 'leather', 'food'];
+
+export default function MarketScreen() {
+  const qc = useQueryClient();
+  const [resourceFilter, setResourceFilter] = useState('');
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['offerings', resourceFilter],
+    queryFn: () => listOfferings(resourceFilter || undefined),
+    refetchInterval: 30_000,
+  });
+  const offerings = data?.offerings ?? [];
+
+  const { data: buildingsResp } = useQuery({ queryKey: ['buildings'], queryFn: listBuildings });
+  const buildings = buildingsResp?.buildings ?? [];
+
+  // ── Sell modal ──
+  const [showSell, setShowSell] = useState(false);
+  const [sellForm, setSellForm] = useState({
+    building_id: '', resource_type: 'grain', price_per_unit: '', quantity: '', visibility: 'public',
+  });
+  const sellMut = useMutation({
+    mutationFn: () => createOffering(
+      sellForm.building_id, sellForm.resource_type,
+      parseFloat(sellForm.price_per_unit), parseFloat(sellForm.quantity), sellForm.visibility,
+    ),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['offerings'] }); setShowSell(false); },
+  });
+
+  // ── Buy modal ──
+  const [buyTarget, setBuyTarget] = useState<typeof offerings[0] | null>(null);
+  const [buyForm, setBuyForm] = useState({ building_id: '', quantity: '' });
+  const buyMut = useMutation({
+    mutationFn: () => purchase(buyForm.building_id, buyTarget!.offering_id, parseFloat(buyForm.quantity)),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['offerings'] }); setBuyTarget(null); },
+  });
+
+  const cancelMut = useMutation({
+    mutationFn: (id: string) => cancelOffering(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['offerings'] }),
+  });
+
+  return (
+    <div className="max-w-6xl space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-white">Market</h1>
+        <button
+          onClick={() => setShowSell(true)}
+          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded text-sm transition-colors"
+        >
+          <Plus size={14} /> Create Offering
+        </button>
+      </div>
+
+      {/* Resource filter */}
+      <div className="flex flex-wrap gap-2 text-xs">
+        <button
+          onClick={() => setResourceFilter('')}
+          className={`px-3 py-1.5 rounded border transition-colors ${!resourceFilter ? 'border-indigo-500 text-indigo-300 bg-indigo-900/20' : 'border-gray-700 text-gray-400 hover:border-gray-500'}`}
+        >
+          All
+        </button>
+        {RESOURCES.map((r) => (
+          <button
+            key={r}
+            onClick={() => setResourceFilter(r === resourceFilter ? '' : r)}
+            className={`px-3 py-1.5 rounded border capitalize transition-colors ${r === resourceFilter ? 'border-indigo-500 text-indigo-300 bg-indigo-900/20' : 'border-gray-700 text-gray-400 hover:border-gray-500'} ${resourceColor(r)}`}
+          >
+            {r}
+          </button>
+        ))}
+      </div>
+
+      {isLoading && <p className="text-gray-500 text-sm animate-pulse">Loading market…</p>}
+
+      {!isLoading && offerings.length === 0 && (
+        <div className="text-center py-16 text-gray-600 border border-dashed border-gray-800 rounded-lg">
+          <p className="text-4xl mb-3">📭</p>
+          <p className="text-sm">No offerings in this city right now.</p>
+        </div>
+      )}
+
+      {offerings.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-gray-500 border-b border-gray-800">
+                {['Seller', 'Resource', 'Price/Unit', 'Quantity', 'Quality', 'Brand', 'Visibility', ''].map((h) => (
+                  <th key={h} className="text-left px-3 py-2.5 font-medium uppercase tracking-wider">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {offerings.map((o) => (
+                <tr key={o.offering_id} className="border-b border-gray-800/50 hover:bg-gray-800/20">
+                  <td className="px-3 py-2.5 text-gray-300">{o.seller_name}</td>
+                  <td className={`px-3 py-2.5 capitalize font-medium ${resourceColor(o.resource_type)}`}>{o.resource_type}</td>
+                  <td className="px-3 py-2.5 text-emerald-400 font-mono">{fmtMoney(o.price_per_unit)}</td>
+                  <td className="px-3 py-2.5 text-gray-300 font-mono">{o.quantity.toFixed(1)}</td>
+                  <td className="px-3 py-2.5 text-gray-300 font-mono">{fmtQuality(o.quality)}</td>
+                  <td className="px-3 py-2.5 text-gray-400">{o.brand_name || '—'}</td>
+                  <td className="px-3 py-2.5">
+                    <span className={`px-1.5 py-0.5 rounded ${o.visibility === 'public' ? 'text-emerald-400 bg-emerald-900/20' : 'text-amber-400 bg-amber-900/20'}`}>
+                      {o.visibility}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { setBuyTarget(o); setBuyForm({ building_id: buildings[0]?.building_id ?? '', quantity: '1' }); }}
+                        className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors"
+                      >
+                        <ShoppingCart size={12} /> Buy
+                      </button>
+                      <button
+                        onClick={() => cancelMut.mutate(o.offering_id)}
+                        title="Cancel offering"
+                        className="text-gray-600 hover:text-rose-400 transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Sell modal */}
+      {showSell && (
+        <Modal
+          title="Create Market Offering"
+          onClose={() => setShowSell(false)}
+          onSubmit={() => sellMut.mutate()}
+          submitLabel={sellMut.isPending ? 'Listing…' : 'Create Offering'}
+          submitDisabled={sellMut.isPending}
+        >
+          <Field label="From Building">
+            <Select value={sellForm.building_id} onChange={(e) => setSellForm((f) => ({ ...f, building_id: e.target.value }))}>
+              <option value="">— Select —</option>
+              {buildings.map((b) => <option key={b.building_id} value={b.building_id}>{b.name}</option>)}
+            </Select>
+          </Field>
+          <Field label="Resource">
+            <Select value={sellForm.resource_type} onChange={(e) => setSellForm((f) => ({ ...f, resource_type: e.target.value }))}>
+              {RESOURCES.map((r) => <option key={r} value={r}>{r}</option>)}
+            </Select>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Price / Unit">
+              <Input type="number" min="0" step="0.01" placeholder="0.00" value={sellForm.price_per_unit}
+                onChange={(e) => setSellForm((f) => ({ ...f, price_per_unit: e.target.value }))} />
+            </Field>
+            <Field label="Quantity">
+              <Input type="number" min="0" step="0.1" placeholder="10" value={sellForm.quantity}
+                onChange={(e) => setSellForm((f) => ({ ...f, quantity: e.target.value }))} />
+            </Field>
+          </div>
+          <Field label="Visibility">
+            <Select value={sellForm.visibility} onChange={(e) => setSellForm((f) => ({ ...f, visibility: e.target.value }))}>
+              <option value="public">Public</option>
+              <option value="private">Private (agreement only)</option>
+            </Select>
+          </Field>
+          {sellMut.isError && <p className="text-rose-400 text-xs">{(sellMut.error as Error).message}</p>}
+        </Modal>
+      )}
+
+      {/* Buy modal */}
+      {buyTarget && (
+        <Modal
+          title={`Buy ${buyTarget.resource_type} from ${buyTarget.seller_name}`}
+          onClose={() => setBuyTarget(null)}
+          onSubmit={() => buyMut.mutate()}
+          submitLabel={buyMut.isPending ? 'Purchasing…' : 'Purchase'}
+          submitDisabled={buyMut.isPending}
+        >
+          <div className="bg-gray-800 rounded p-3 text-xs space-y-1 text-gray-300">
+            <p>Price: <span className="text-emerald-400 font-mono">{fmtMoney(buyTarget.price_per_unit)}</span> per unit</p>
+            <p>Available: <span className="text-white font-mono">{buyTarget.quantity.toFixed(1)}</span></p>
+            <p>Quality: <span className="text-white font-mono">{fmtQuality(buyTarget.quality)}</span></p>
+          </div>
+          <Field label="Deliver to Building">
+            <Select value={buyForm.building_id} onChange={(e) => setBuyForm((f) => ({ ...f, building_id: e.target.value }))}>
+              <option value="">— Select —</option>
+              {buildings.map((b) => <option key={b.building_id} value={b.building_id}>{b.name}</option>)}
+            </Select>
+          </Field>
+          <Field label="Quantity">
+            <Input type="number" min="0.1" step="0.1" max={buyTarget.quantity} value={buyForm.quantity}
+              onChange={(e) => setBuyForm((f) => ({ ...f, quantity: e.target.value }))} />
+          </Field>
+          {buyForm.quantity && (
+            <p className="text-xs text-gray-400">
+              Total: <span className="text-emerald-400 font-mono">{fmtMoney(parseFloat(buyForm.quantity) * buyTarget.price_per_unit)}</span>
+            </p>
+          )}
+          {buyMut.isError && <p className="text-rose-400 text-xs">{(buyMut.error as Error).message}</p>}
+        </Modal>
+      )}
+    </div>
+  );
+}

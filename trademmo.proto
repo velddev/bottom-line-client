@@ -1,0 +1,445 @@
+syntax = "proto3";
+
+package trademmo;
+
+// ─────────────────────────────────────────
+// Common
+// ─────────────────────────────────────────
+
+message Timestamp {
+  int64 seconds = 1;
+  int32 nanos   = 2;
+}
+
+// ─────────────────────────────────────────
+// GameEventService
+// ─────────────────────────────────────────
+
+service GameEventService {
+  rpc Subscribe(SubscribeRequest) returns (stream GameEvent);
+}
+
+message SubscribeRequest {
+  string city_id = 1;
+}
+
+message GameEvent {
+  string    event_id    = 1;
+  int64     tick        = 2;
+  Timestamp occurred_at = 3;
+
+  oneof payload {
+    TickCompletedEvent        tick_completed        = 10;
+    ResourceProducedEvent     resource_produced     = 11;
+    TradeCompletedEvent       trade_completed       = 12;
+    MarketPriceChangedEvent   market_price_changed  = 13;
+    BuildingConstructedEvent  building_constructed  = 14;
+    ElectionAnnouncedEvent    election_announced    = 15;
+    ElectionConcludedEvent    election_concluded    = 16;
+    TradeAgreementChangedEvent agreement_changed    = 17;
+    BrandValueChangedEvent    brand_value_changed   = 18;
+    TaxesCollectedEvent       taxes_collected       = 19;
+  }
+}
+
+message TickCompletedEvent        { string city_id = 1; }
+message ResourceProducedEvent     { string building_id = 1; string player_id = 2; string resource_type = 3; double quantity = 4; float quality = 5; }
+message TradeCompletedEvent       { string buyer_building_id = 1; string seller_building_id = 2; string resource_type = 3; double quantity = 4; double total_price = 5; }
+message MarketPriceChangedEvent   { string city_id = 1; string resource_type = 2; double old_median_price = 3; double new_median_price = 4; }
+message BuildingConstructedEvent  { string building_id = 1; string player_id = 2; string building_type = 3; }
+message ElectionAnnouncedEvent    { string election_id = 1; string city_id = 2; int64 voting_start_tick = 3; }
+message ElectionConcludedEvent    { string election_id = 1; string city_id = 2; string winner_player_id = 3; }
+message TradeAgreementChangedEvent{ string agreement_id = 1; string creator_player_id = 2; string buyer_player_id = 3; string new_status = 4; }
+message BrandValueChangedEvent    { string brand_id = 1; string player_id = 2; string resource_category = 3; float old_weight = 4; float new_weight = 5; }
+message TaxesCollectedEvent       { string city_id = 1; double total_collected = 2; }
+
+// ─────────────────────────────────────────
+// PlayerService
+// ─────────────────────────────────────────
+
+service PlayerService {
+  rpc Register   (RegisterRequest)      returns (RegisterResponse);
+  rpc GetProfile (GetProfileRequest)    returns (PlayerProfile);
+  rpc GetInventory(GetInventoryRequest) returns (InventoryResponse);
+}
+
+message RegisterRequest  { string username = 1; }
+message RegisterResponse { string player_id = 1; string api_key = 2; }
+
+message GetProfileRequest {}
+
+message PlayerProfile {
+  string player_id         = 1;
+  string username          = 2;
+  double balance           = 3;
+  float  public_perception = 4;
+  string city_id           = 5;
+  int64  joined_at_tick    = 6;
+}
+
+message GetInventoryRequest { string building_id = 1; }
+message InventoryResponse   { repeated InventoryItem items = 1; }
+
+message InventoryItem {
+  string building_id   = 1;
+  string building_name = 2;
+  string resource_type = 3;
+  double quantity      = 4;
+  float  quality       = 5;
+  string brand_id      = 6;
+}
+
+// ─────────────────────────────────────────
+// BuildingService
+// ─────────────────────────────────────────
+
+service BuildingService {
+  rpc Construct     (ConstructRequest)     returns (ConstructResponse);
+  rpc Configure     (ConfigureRequest)     returns (ConfigureResponse);
+  rpc GetStatus     (GetBuildingRequest)   returns (BuildingStatus);
+  rpc ListBuildings (ListBuildingsRequest) returns (ListBuildingsResponse);
+  rpc ListRecipes   (ListRecipesRequest)   returns (ListRecipesResponse);
+}
+
+message ConstructRequest  { string city_id = 1; string building_type = 2; string name = 3; }
+message ConstructResponse { string building_id = 1; int32 construction_ticks_remaining = 2; }
+
+message ConfigureRequest  { string building_id = 1; string recipe_id = 2; int32 workers_assigned = 3; }
+message ConfigureResponse { bool success = 1; }
+
+message GetBuildingRequest  { string building_id = 1; }
+message ListBuildingsRequest {}
+message ListBuildingsResponse { repeated BuildingStatus buildings = 1; }
+
+message BuildingStatus {
+  string building_id    = 1;
+  string name           = 2;
+  string building_type  = 3;
+  string status         = 4;
+  string active_recipe  = 5;
+  int32  workers        = 6;
+  int32  level          = 7;
+  int32  ticks_to_ready = 8;
+}
+
+message ListRecipesRequest  { string building_type = 1; }
+message ListRecipesResponse { repeated RecipeInfo recipes = 1; }
+
+message RecipeInfo {
+  string recipe_id      = 1;
+  string name           = 2;
+  string building_type  = 3;
+  string output_type    = 4;
+  double output_min     = 5;
+  double output_max     = 6;
+  int32  ticks_required = 7;
+  repeated IngredientInfo ingredients = 8;
+}
+
+message IngredientInfo { string resource_type = 1; double quantity = 2; }
+
+// ─────────────────────────────────────────
+// MarketService
+// ─────────────────────────────────────────
+
+service MarketService {
+  rpc ListOfferings  (ListOfferingsRequest)  returns (ListOfferingsResponse);
+  rpc CreateOffering (CreateOfferingRequest) returns (CreateOfferingResponse);
+  rpc CancelOffering (CancelOfferingRequest) returns (CancelOfferingResponse);
+  rpc Purchase       (PurchaseRequest)       returns (PurchaseResponse);
+}
+
+message ListOfferingsRequest  { string city_id = 1; string resource_type = 2; }
+message ListOfferingsResponse { repeated Offering offerings = 1; }
+
+message Offering {
+  string offering_id    = 1;
+  string seller_name    = 2;
+  string resource_type  = 3;
+  double price_per_unit = 4;
+  double quantity       = 5;
+  float  quality        = 6;
+  string brand_name     = 7;
+  string visibility     = 8;
+}
+
+message CreateOfferingRequest {
+  string building_id        = 1;
+  string resource_type      = 2;
+  double price_per_unit     = 3;
+  double quantity           = 4;
+  string visibility         = 5;
+  string trade_agreement_id = 6;
+}
+message CreateOfferingResponse { string offering_id = 1; }
+
+message CancelOfferingRequest  { string offering_id = 1; }
+message CancelOfferingResponse { bool success = 1; }
+
+message PurchaseRequest  { string buyer_building_id = 1; string offering_id = 2; double quantity = 3; }
+message PurchaseResponse { double total_paid = 1; float quality = 2; }
+
+// ─────────────────────────────────────────
+// TradeAgreementService
+// ─────────────────────────────────────────
+
+service TradeAgreementService {
+  rpc Create  (CreateAgreementRequest)  returns (CreateAgreementResponse);
+  rpc Respond (RespondAgreementRequest) returns (RespondAgreementResponse);
+  rpc List    (ListAgreementsRequest)   returns (ListAgreementsResponse);
+  rpc Cancel  (CancelAgreementRequest)  returns (CancelAgreementResponse);
+}
+
+message CreateAgreementRequest {
+  string buyer_player_id         = 1;
+  string resource_type           = 2;
+  float  discount_rate           = 3;
+  bool   require_non_competition = 4;
+  bool   require_msrp            = 5;
+  double msrp_price              = 6;
+  bool   disallow_white_labeling = 7;
+  int64  expires_at_tick         = 8;
+}
+message CreateAgreementResponse { string agreement_id = 1; }
+
+message RespondAgreementRequest  { string agreement_id = 1; string response = 2; }
+message RespondAgreementResponse { bool success = 1; }
+
+message ListAgreementsRequest  { string role = 1; }
+message ListAgreementsResponse { repeated AgreementSummary agreements = 1; }
+
+message AgreementSummary {
+  string agreement_id            = 1;
+  string creator_player_id       = 2;
+  string buyer_player_id         = 3;
+  string resource_type           = 4;
+  float  discount_rate           = 5;
+  string status                  = 6;
+  bool   require_non_competition = 7;
+  bool   require_msrp            = 8;
+  double msrp_price              = 9;
+  bool   disallow_white_labeling = 10;
+  int64  expires_at_tick         = 11;
+}
+
+message CancelAgreementRequest  { string agreement_id = 1; }
+message CancelAgreementResponse { bool success = 1; }
+
+// ─────────────────────────────────────────
+// ResearchService
+// ─────────────────────────────────────────
+
+service ResearchService {
+  rpc StartResearch (StartResearchRequest) returns (StartResearchResponse);
+  rpc GetProgress   (GetResearchRequest)   returns (ResearchProgress);
+  rpc ListResearch  (ListResearchRequest)  returns (ListResearchResponse);
+  rpc PauseResearch (PauseResearchRequest) returns (PauseResearchResponse);
+}
+
+message StartResearchRequest  { string resource_type = 1; int32 workers_assigned = 2; double budget_per_tick = 3; }
+message StartResearchResponse { string project_id = 1; }
+
+message GetResearchRequest    { string resource_type = 1; }
+
+message ResearchProgress {
+  string resource_type   = 1;
+  int32  level           = 2;
+  float  progress        = 3;
+  bool   is_active       = 4;
+  double budget_per_tick = 5;
+  int32  workers         = 6;
+}
+
+message ListResearchRequest  {}
+message ListResearchResponse { repeated ResearchProgress projects = 1; }
+
+message PauseResearchRequest  { string project_id = 1; bool pause = 2; }
+message PauseResearchResponse { bool success = 1; }
+
+// ─────────────────────────────────────────
+// MarketingService
+// ─────────────────────────────────────────
+
+service MarketingService {
+  rpc CreateBrand    (CreateBrandRequest)    returns (CreateBrandResponse);
+  rpc CreateCampaign (CreateCampaignRequest) returns (CreateCampaignResponse);
+  rpc PauseCampaign  (PauseCampaignRequest)  returns (PauseCampaignResponse);
+  rpc GetBrandValue  (GetBrandValueRequest)  returns (BrandValueResponse);
+  rpc ListBrands     (ListBrandsRequest)     returns (ListBrandsResponse);
+}
+
+message CreateBrandRequest  { string name = 1; string resource_type = 2; }
+message CreateBrandResponse { string brand_id = 1; }
+
+message CreateCampaignRequest  { string brand_id = 1; string campaign_name = 2; double budget_per_tick = 3; int32 workers_allocated = 4; }
+message CreateCampaignResponse { string campaign_id = 1; }
+
+message PauseCampaignRequest  { string campaign_id = 1; bool pause = 2; }
+message PauseCampaignResponse { bool success = 1; }
+
+message GetBrandValueRequest { string brand_id = 1; }
+message BrandValueResponse {
+  string brand_id          = 1;
+  string brand_name        = 2;
+  string resource_category = 3;
+  float  brand_weight      = 4;
+  float  market_share      = 5;
+}
+
+message ListBrandsRequest  {}
+message ListBrandsResponse { repeated BrandSummary brands = 1; }
+
+message BrandSummary {
+  string brand_id     = 1;
+  string name         = 2;
+  string resource     = 3;
+  float  brand_weight = 4;
+  float  market_share = 5;
+}
+
+// ─────────────────────────────────────────
+// PoliticsService
+// ─────────────────────────────────────────
+
+service PoliticsService {
+  rpc GetGovernment  (GetGovernmentRequest)  returns (GovernmentInfo);
+  rpc GetElection    (GetElectionRequest)    returns (ElectionInfo);
+  rpc RunForElection (RunForElectionRequest) returns (RunForElectionResponse);
+  rpc EnactPolicy    (EnactPolicyRequest)    returns (EnactPolicyResponse);
+}
+
+message GetGovernmentRequest { string city_id = 1; }
+message GovernmentInfo {
+  string ruling_player_id   = 1;
+  string ruling_player_name = 2;
+  float  consumer_tax_rate  = 3;
+  float  profit_tax_rate    = 4;
+  float  land_tax_rate      = 5;
+  float  employee_tax_rate  = 6;
+  float  approval_city      = 7;
+  float  approval_people    = 8;
+  float  approval_business  = 9;
+  int64  term_start_tick    = 10;
+  int64  term_end_tick      = 11;
+}
+
+message GetElectionRequest { string city_id = 1; }
+message ElectionInfo {
+  string election_id      = 1;
+  string status           = 2;
+  int64  voting_start     = 3;
+  int64  voting_end       = 4;
+  string winner_player_id = 5;
+  repeated CandidateInfo candidates = 6;
+}
+
+message CandidateInfo {
+  string player_id   = 1;
+  string player_name = 2;
+  float  perception  = 3;
+  int32  votes       = 4;
+}
+
+message RunForElectionRequest  { string election_id = 1; }
+message RunForElectionResponse { bool success = 1; string message = 2; }
+
+message EnactPolicyRequest {
+  string city_id           = 1;
+  float  consumer_tax_rate = 2;
+  float  profit_tax_rate   = 3;
+  float  land_tax_rate     = 4;
+  float  employee_tax_rate = 5;
+}
+message EnactPolicyResponse { bool success = 1; string message = 2; }
+
+// ─────────────────────────────────────────
+// CityService
+// ─────────────────────────────────────────
+
+service CityService {
+  rpc ListCities        (ListCitiesRequest)        returns (ListCitiesResponse);
+  rpc GetCityStats      (GetCityStatsRequest)       returns (CityStats);
+  rpc ListCityBuildings (ListCityBuildingsRequest)  returns (ListCityBuildingsResponse);
+}
+
+message ListCitiesRequest {}
+
+message CityInfo {
+  string city_id      = 1;
+  string name         = 2;
+  int32  population   = 3;
+  double gdp_per_tick = 4;
+  int64  current_tick = 5;
+}
+
+message ListCitiesResponse { repeated CityInfo cities = 1; }
+
+message GetCityStatsRequest { string city_id = 1; }
+
+message CityStats {
+  string city_id        = 1;
+  string name           = 2;
+  int32  population     = 3;
+  double gdp_per_tick   = 4;
+  int64  current_tick   = 5;
+  int32  building_count = 6;
+  int32  player_count   = 7;
+}
+
+message ListCityBuildingsRequest { string city_id = 1; }
+
+message CityBuildingInfo {
+  string building_id   = 1;
+  string name          = 2;
+  string owner_name    = 3;
+  string building_type = 4;
+  string status        = 5;
+  int32  level         = 6;
+  bool   is_government = 7;
+}
+
+message ListCityBuildingsResponse { repeated CityBuildingInfo buildings = 1; }
+
+// ─────────────────────────────────────────
+// TileService
+// ─────────────────────────────────────────
+
+service TileService {
+  rpc ListTiles    (ListTilesRequest)    returns (ListTilesResponse);
+  rpc GetTile      (GetTileRequest)      returns (TileInfo);
+  rpc PurchaseTile (PurchaseTileRequest) returns (PurchaseTileResponse);
+}
+
+message ListTilesRequest {
+  string city_id = 1;
+  int32  min_x   = 2;
+  int32  min_y   = 3;
+  int32  max_x   = 4;
+  int32  max_y   = 5;
+}
+
+message TileInfo {
+  string tile_id                  = 1;
+  string city_id                  = 2;
+  int32  grid_x                   = 3;
+  int32  grid_y                   = 4;
+  string owner_player_id          = 5;
+  string owner_name               = 6;
+  bool   is_reserved_for_citizens = 7;
+  bool   is_for_sale              = 8;
+  double purchase_price           = 9;
+  string building_id              = 10;
+}
+
+message ListTilesResponse {
+  repeated TileInfo tiles  = 1;
+  double tile_origin_lat   = 2;
+  double tile_origin_lon   = 3;
+  int32  tile_grid_cols    = 4;
+  int32  tile_grid_rows    = 5;
+  int32  tile_size_meters  = 6;
+}
+
+message GetTileRequest       { string tile_id = 1; }
+message PurchaseTileRequest  { string tile_id = 1; }
+message PurchaseTileResponse { string tile_id = 1; double new_balance = 2; }

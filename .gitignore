@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+client/dist/
+client/.vite/
+server/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+trademmo_pb2.py
+trademmo_pb2_grpc.py
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.user

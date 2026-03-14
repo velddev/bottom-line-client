@@ -1,0 +1,45 @@
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { AuthProvider, useAuth } from './auth';
+import Layout from './components/Layout';
+import AuthScreen from './screens/AuthScreen';
+import DashboardScreen from './screens/DashboardScreen';
+import BuildingsScreen from './screens/BuildingsScreen';
+import MarketScreen from './screens/MarketScreen';
+import AgreementsScreen from './screens/AgreementsScreen';
+import ResearchScreen from './screens/ResearchScreen';
+import MarketingScreen from './screens/MarketingScreen';
+import PoliticsScreen from './screens/PoliticsScreen';
+import TilesScreen from './screens/TilesScreen';
+
+function AppRoutes() {
+  const { auth } = useAuth();
+
+  if (!auth) return <AuthScreen />;
+
+  return (
+    <BrowserRouter>
+      <Layout>
+        <Routes>
+          <Route path="/"            element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard"   element={<DashboardScreen />} />
+          <Route path="/buildings"   element={<BuildingsScreen />} />
+          <Route path="/market"      element={<MarketScreen />} />
+          <Route path="/agreements"  element={<AgreementsScreen />} />
+          <Route path="/research"    element={<ResearchScreen />} />
+          <Route path="/marketing"   element={<MarketingScreen />} />
+          <Route path="/politics"    element={<PoliticsScreen />} />
+          <Route path="/map"         element={<TilesScreen />} />
+          <Route path="*"            element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </Layout>
+    </BrowserRouter>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
+  );
+}
