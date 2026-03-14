@@ -74,8 +74,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {city && (
             <span className="text-gray-500 hidden sm:block">
               {city.name}
-              <span className="text-gray-700 mx-1">·</span>
-              <span className="text-gray-400">Tick {city.current_tick.toLocaleString()}</span>
             </span>
           )}
           {profile && (
