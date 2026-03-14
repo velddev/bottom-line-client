@@ -55,11 +55,15 @@ function TileCanvas({
   const cacheRef = useRef<Map<string, TileInfo>>(new Map());
   const fetchedRef = useRef<Set<string>>(new Set());
   const fetchingRef = useRef<Set<string>>(new Set());
+  // Track what zoom/center the canvas was last drawn at (for zoomanim transform)
+  const committedRef = useRef({ zoom: 0, center: L.latLng(0, 0) });
   // Keep latest selectedTile + handlers accessible inside event listeners
   const stateRef = useRef({ selectedTile, onSelect, meta, cityId, myPlayerId });
   useEffect(() => { stateRef.current = { selectedTile, onSelect, meta, cityId, myPlayerId }; });
 
-  // ── Draw (uses latLngToLayerPoint → coords relative to overlayPane origin) ──
+  // ── Draw ─────────────────────────────────────────────────────────────────
+  // Canvas lives inside overlayPane, so latLngToLayerPoint() gives the correct
+  // pixel coordinate within the pane – no additional offset needed.
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -69,27 +73,30 @@ function TileCanvas({
     const { meta, selectedTile, myPlayerId } = stateRef.current;
     const zoom = map.getZoom();
 
+    // Reset any CSS transform applied during zoom animation
+    L.DomUtil.setTransform(canvas, new L.Point(0, 0), 1);
+
+    committedRef.current = { zoom, center: map.getCenter() };
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (zoom < 14) return;
 
-    // Offset: overlayPane is CSS-translated; subtract its translation so our
-    // layer-point coordinates paint in the right spot on the canvas.
-    const panePos = (map as unknown as { _getMapPanePos(): L.Point })._getMapPanePos();
     const gv = boundsToGrid(map.getBounds(), meta);
 
     for (let x = gv.minX; x <= gv.maxX; x++) {
       for (let y = gv.minY; y <= gv.maxY; y++) {
         const tile = cacheRef.current.get(`${x}_${y}`);
-        if (!tile || tile.is_reserved_for_citizens) continue; // reserved = invisible
+        if (!tile || tile.is_reserved_for_citizens) continue;
 
         const sw = gridToLatLon(x,     y,     meta);
         const ne = gridToLatLon(x + 1, y + 1, meta);
+        // latLngToLayerPoint gives coords relative to the map pane origin,
+        // which is exactly the canvas coordinate system when canvas is in overlayPane
         const pSW = map.latLngToLayerPoint([sw.lat, sw.lon]);
         const pNE = map.latLngToLayerPoint([ne.lat, ne.lon]);
 
-        // Shift by pane offset so the canvas origin aligns with overlayPane
-        const px = Math.round(pSW.x + panePos.x);
-        const py = Math.round(pNE.y + panePos.y);
+        const px = Math.round(pSW.x);
+        const py = Math.round(pNE.y);
         const pw = Math.round(pNE.x - pSW.x);
         const ph = Math.round(pSW.y - pNE.y);
 
@@ -152,15 +159,13 @@ function TileCanvas({
     const canvas = document.createElement('canvas');
     canvas.width  = size.x;
     canvas.height = size.y;
-    // Position inside overlayPane — it gets CSS-transformed during zoom animation
-    // so the tile overlay scales in sync with the OSM tile layer
     canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
     overlayPane.appendChild(canvas);
     canvasRef.current = canvas;
 
     const onViewChange = () => { fetchMissing(); draw(); };
 
-    // Resize: update both canvas dimensions and Leaflet's viewport
+    // Resize: update canvas size and Leaflet's viewport model
     const resizeObserver = new ResizeObserver(() => {
       const s = map.getSize();
       if (s.x === 0 || s.y === 0) return;
@@ -171,19 +176,30 @@ function TileCanvas({
     });
     resizeObserver.observe(container);
 
-    // viewreset fires when the map resets its coordinate system (after zoom animation)
-    // moveend fires after pan completes
-    map.on('viewreset moveend zoomend', onViewChange);
-    // Smooth pan: redraw every frame so the pane-offset correction stays current
-    map.on('move', draw);
+    // During zoom animation, apply the same CSS scale Leaflet applies to the map pane
+    // so the canvas animates perfectly in sync with the OSM tile layer.
+    // Formula mirrors Leaflet's Renderer._updateTransform.
+    const onZoomAnim = (e: L.ZoomAnimEvent) => {
+      const { zoom: committedZoom, center: committedCenter } = committedRef.current;
+      const scale = map.getZoomScale(e.zoom, committedZoom);
+      const viewHalf = map.getSize().divideBy(2);
+      // Pixel delta between the committed center and the new center at the new zoom level
+      const centerDelta = map.project(e.center, e.zoom)
+        .subtract(map.project(committedCenter, e.zoom));
+      // Translate so the zoom focal point stays in place, accounting for any pan component
+      const topLeftOffset = viewHalf.multiplyBy(1 - scale).subtract(centerDelta);
+      L.DomUtil.setTransform(canvas, topLeftOffset, scale);
+    };
 
-    // Click: Leaflet gives us latlng, convert to tile grid coordinate
+    map.on('zoomanim', onZoomAnim as L.LeafletEventHandlerFn);
+    // viewreset fires after zoom completes; moveend fires after pan
+    map.on('viewreset moveend', onViewChange);
+
     const onClick = (e: L.LeafletMouseEvent) => {
       const { meta, onSelect } = stateRef.current;
       const { lat, lng } = e.latlng;
       const gx = Math.floor((lng - meta.tile_origin_lon) / (meta.tile_size_meters / 67_600));
       const gy = Math.floor((lat - meta.tile_origin_lat) / (meta.tile_size_meters / 111_000));
-
       if (gx < 0 || gx >= meta.tile_grid_cols || gy < 0 || gy >= meta.tile_grid_rows) {
         onSelect(null);
         return;
@@ -192,10 +208,8 @@ function TileCanvas({
       const cur = stateRef.current.selectedTile;
       onSelect(tile ? (cur?.tile_id === tile.tile_id ? null : tile) : null);
     };
-
     map.on('click', onClick);
 
-    // Expose chunk refresh for post-purchase
     (map as unknown as { _refreshTileChunk?: (t: TileInfo) => void })._refreshTileChunk =
       (tile: TileInfo) => {
         const cx = Math.floor(tile.grid_x / CHUNK_SIZE);
@@ -208,8 +222,8 @@ function TileCanvas({
 
     return () => {
       resizeObserver.disconnect();
-      map.off('viewreset moveend zoomend', onViewChange);
-      map.off('move', draw);
+      map.off('zoomanim', onZoomAnim as L.LeafletEventHandlerFn);
+      map.off('viewreset moveend', onViewChange);
       map.off('click', onClick);
       canvas.remove();
       canvasRef.current = null;
