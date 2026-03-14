@@ -59,7 +59,7 @@ function TileCanvas({
   const stateRef = useRef({ selectedTile, onSelect, meta, cityId, myPlayerId });
   useEffect(() => { stateRef.current = { selectedTile, onSelect, meta, cityId, myPlayerId }; });
 
-  // ── Draw ──────────────────────────────────────────────────────────────────
+  // ── Draw (uses latLngToLayerPoint → coords relative to overlayPane origin) ──
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -72,24 +72,28 @@ function TileCanvas({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (zoom < 14) return;
 
+    // Offset: overlayPane is CSS-translated; subtract its translation so our
+    // layer-point coordinates paint in the right spot on the canvas.
+    const panePos = (map as unknown as { _getMapPanePos(): L.Point })._getMapPanePos();
     const gv = boundsToGrid(map.getBounds(), meta);
 
     for (let x = gv.minX; x <= gv.maxX; x++) {
       for (let y = gv.minY; y <= gv.maxY; y++) {
         const tile = cacheRef.current.get(`${x}_${y}`);
-        if (!tile) continue;
+        if (!tile || tile.is_reserved_for_citizens) continue; // reserved = invisible
 
         const sw = gridToLatLon(x,     y,     meta);
         const ne = gridToLatLon(x + 1, y + 1, meta);
-        const pSW = map.latLngToContainerPoint([sw.lat, sw.lon]);
-        const pNE = map.latLngToContainerPoint([ne.lat, ne.lon]);
+        const pSW = map.latLngToLayerPoint([sw.lat, sw.lon]);
+        const pNE = map.latLngToLayerPoint([ne.lat, ne.lon]);
 
-        const px = Math.round(pSW.x);
-        const py = Math.round(pNE.y);        // north = smaller y
+        // Shift by pane offset so the canvas origin aligns with overlayPane
+        const px = Math.round(pSW.x + panePos.x);
+        const py = Math.round(pNE.y + panePos.y);
         const pw = Math.round(pNE.x - pSW.x);
-        const ph = Math.round(pSW.y - pNE.y); // south y > north y
+        const ph = Math.round(pSW.y - pNE.y);
 
-        ctx.globalAlpha = 0.55;
+        ctx.globalAlpha = 0.6;
         ctx.fillStyle = tileColor(tile, myPlayerId);
         ctx.fillRect(px, py, pw, ph);
 
@@ -142,47 +146,48 @@ function TileCanvas({
   // ── Canvas setup & event wiring ───────────────────────────────────────────
   useEffect(() => {
     const container = map.getContainer();
-    const { width, height } = container.getBoundingClientRect();
+    const overlayPane = map.getPanes().overlayPane;
+    const size = map.getSize();
 
     const canvas = document.createElement('canvas');
-    canvas.width  = width;
-    canvas.height = height;
-    canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:400';
-    container.appendChild(canvas);
+    canvas.width  = size.x;
+    canvas.height = size.y;
+    // Position inside overlayPane — it gets CSS-transformed during zoom animation
+    // so the tile overlay scales in sync with the OSM tile layer
+    canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
+    overlayPane.appendChild(canvas);
     canvasRef.current = canvas;
 
     const onViewChange = () => { fetchMissing(); draw(); };
 
-    // Use ResizeObserver for reliable detection of any container resize
-    // (CSS layout changes like closing the event feed are invisible to Leaflet's resize event)
+    // Resize: update both canvas dimensions and Leaflet's viewport
     const resizeObserver = new ResizeObserver(() => {
-      const r = container.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) return;
-      canvas.width  = r.width;
-      canvas.height = r.height;
-      map.invalidateSize(); // let Leaflet update its viewport too
+      const s = map.getSize();
+      if (s.x === 0 || s.y === 0) return;
+      canvas.width  = s.x;
+      canvas.height = s.y;
+      map.invalidateSize();
       draw();
     });
     resizeObserver.observe(container);
 
-    map.on('moveend zoomend', onViewChange);
-    // Redraw during smooth pan/zoom animation
-    map.on('move zoom', draw);
+    // viewreset fires when the map resets its coordinate system (after zoom animation)
+    // moveend fires after pan completes
+    map.on('viewreset moveend zoomend', onViewChange);
+    // Smooth pan: redraw every frame so the pane-offset correction stays current
+    map.on('move', draw);
 
-    // Click handling — convert container point → lat/lon → grid
+    // Click: Leaflet gives us latlng, convert to tile grid coordinate
     const onClick = (e: L.LeafletMouseEvent) => {
       const { meta, onSelect } = stateRef.current;
       const { lat, lng } = e.latlng;
-      const tileLat = meta.tile_size_meters / 111_000;
-      const tileLon = meta.tile_size_meters / 67_600;
-      const gx = Math.floor((lng - meta.tile_origin_lon) / tileLon);
-      const gy = Math.floor((lat - meta.tile_origin_lat) / tileLat);
+      const gx = Math.floor((lng - meta.tile_origin_lon) / (meta.tile_size_meters / 67_600));
+      const gy = Math.floor((lat - meta.tile_origin_lat) / (meta.tile_size_meters / 111_000));
 
       if (gx < 0 || gx >= meta.tile_grid_cols || gy < 0 || gy >= meta.tile_grid_rows) {
         onSelect(null);
         return;
       }
-
       const tile = cacheRef.current.get(`${gx}_${gy}`);
       const cur = stateRef.current.selectedTile;
       onSelect(tile ? (cur?.tile_id === tile.tile_id ? null : tile) : null);
@@ -203,8 +208,8 @@ function TileCanvas({
 
     return () => {
       resizeObserver.disconnect();
-      map.off('moveend zoomend', onViewChange);
-      map.off('move zoom', draw);
+      map.off('viewreset moveend zoomend', onViewChange);
+      map.off('move', draw);
       map.off('click', onClick);
       canvas.remove();
       canvasRef.current = null;
@@ -280,7 +285,6 @@ export default function TilesScreen() {
             { color: '#0891b2', label: 'For sale' },
             { color: '#059669', label: 'Yours' },
             { color: '#d97706', label: "Other player's" },
-            { color: '#374151', label: 'Reserved' },
           ].map(({ color, label }) => (
             <span key={label} className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 rounded-sm" style={{ background: color }} />
