@@ -19,17 +19,6 @@ router.get('/recipes', handle(async (req) => {
   return rpc(stubs.building, 'ListRecipes', { building_type: type }, getApiKey(req));
 }));
 
-router.get('/:id', handle(async (req) => {
-  return rpc(stubs.building, 'GetStatus', { building_id: req.params.id }, getApiKey(req));
-}));
-
-router.put('/:id/configure', handle(async (req) => {
-  const { recipe_id = '', workers_assigned = 0 } = req.body;
-  return rpc(stubs.building, 'Configure',
-    { building_id: req.params.id, recipe_id, workers_assigned },
-    getApiKey(req));
-}));
-
 // Supply link management
 router.get('/:id/supply-links', handle(async (req) => {
   return rpc(stubs.building, 'GetSupplyLinks', { building_id: req.params.id }, getApiKey(req));
@@ -51,6 +40,17 @@ router.delete('/supply-links/:linkId', handle(async (req) => {
 router.get('/potential-suppliers', handle(async (req) => {
   const { city_id, resource_type } = req.query;
   return rpc(stubs.building, 'ListPotentialSuppliers', { city_id, resource_type }, getApiKey(req));
+}));
+
+router.get('/:id', handle(async (req) => {
+  return rpc(stubs.building, 'GetStatus', { building_id: req.params.id }, getApiKey(req));
+}));
+
+router.put('/:id/configure', handle(async (req) => {
+  const { recipe_id = '', workers_assigned = 0 } = req.body;
+  return rpc(stubs.building, 'Configure',
+    { building_id: req.params.id, recipe_id, workers_assigned },
+    getApiKey(req));
 }));
 
 export default router;
