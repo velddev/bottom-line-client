@@ -3,7 +3,6 @@ import { AuthProvider, useAuth } from './auth';
 import Layout from './components/Layout';
 import AuthScreen from './screens/AuthScreen';
 import DashboardScreen from './screens/DashboardScreen';
-import BuildingsScreen from './screens/BuildingsScreen';
 import MarketScreen from './screens/MarketScreen';
 import AgreementsScreen from './screens/AgreementsScreen';
 import ResearchScreen from './screens/ResearchScreen';
@@ -22,7 +21,6 @@ function AppRoutes() {
         <Routes>
           <Route path="/"            element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard"   element={<DashboardScreen />} />
-          <Route path="/buildings"   element={<BuildingsScreen />} />
           <Route path="/market"      element={<MarketScreen />} />
           <Route path="/agreements"  element={<AgreementsScreen />} />
           <Route path="/research"    element={<ResearchScreen />} />

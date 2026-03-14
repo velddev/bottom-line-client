@@ -9,8 +9,8 @@ router.get('/', handle(async (req) => {
 }));
 
 router.post('/', handle(async (req) => {
-  const { city_id, building_type, name } = req.body;
-  return rpc(stubs.building, 'Construct', { city_id, building_type, name }, getApiKey(req));
+  const { city_id, building_type, name, tile_id } = req.body;
+  return rpc(stubs.building, 'Construct', { city_id, building_type, name, tile_id }, getApiKey(req));
 }));
 
 // List available recipes (optionally filtered by building type)

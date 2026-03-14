@@ -27,6 +27,9 @@ export interface BuildingStatus {
   workers: number;
   level: number;
   ticks_to_ready: number;
+  tile_id: string;       // empty = not placed on a tile
+  tile_grid_x: number;
+  tile_grid_y: number;
 }
 
 export interface RecipeInfo {
@@ -173,12 +176,15 @@ export interface TileInfo {
   city_id: string;
   grid_x: number;
   grid_y: number;
-  owner_player_id: string;  // empty string = government
+  owner_player_id: string;        // empty string = government
   owner_name: string;
   is_reserved_for_citizens: boolean;
   is_for_sale: boolean;
   purchase_price: number;
-  building_id: string;      // empty string = no building
+  building_id: string;            // empty string = no building
+  building_name: string;
+  building_type: string;
+  building_status: string;
 }
 
 export interface ListTilesResponse {

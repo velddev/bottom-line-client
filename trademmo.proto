@@ -101,7 +101,7 @@ service BuildingService {
   rpc ListRecipes   (ListRecipesRequest)   returns (ListRecipesResponse);
 }
 
-message ConstructRequest  { string city_id = 1; string building_type = 2; string name = 3; }
+message ConstructRequest  { string city_id = 1; string building_type = 2; string name = 3; string tile_id = 4; }
 message ConstructResponse { string building_id = 1; int32 construction_ticks_remaining = 2; }
 
 message ConfigureRequest  { string building_id = 1; string recipe_id = 2; int32 workers_assigned = 3; }
@@ -120,6 +120,9 @@ message BuildingStatus {
   int32  workers        = 6;
   int32  level          = 7;
   int32  ticks_to_ready = 8;
+  string tile_id        = 9;
+  int32  tile_grid_x    = 10;
+  int32  tile_grid_y    = 11;
 }
 
 message ListRecipesRequest  { string building_type = 1; }
@@ -429,6 +432,9 @@ message TileInfo {
   bool   is_for_sale              = 8;
   double purchase_price           = 9;
   string building_id              = 10;
+  string building_name            = 11;
+  string building_type            = 12;
+  string building_status          = 13;
 }
 
 message ListTilesResponse {

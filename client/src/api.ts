@@ -53,8 +53,8 @@ export const getInventory = (building_id?: string) =>
 export const listBuildings = () =>
   get<{ buildings: BuildingStatus[] }>('/buildings');
 
-export const constructBuilding = (city_id: string, building_type: string, name: string) =>
-  post<{ building_id: string; construction_ticks_remaining: number }>('/buildings', { city_id, building_type, name });
+export const constructBuilding = (city_id: string, building_type: string, name: string, tile_id: string) =>
+  post<{ building_id: string; construction_ticks_remaining: number }>('/buildings', { city_id, building_type, name, tile_id });
 
 export const configureBuilding = (id: string, recipe_id: string, workers_assigned: number) =>
   put<{ success: boolean }>(`/buildings/${id}/configure`, { recipe_id, workers_assigned });
