@@ -64,8 +64,8 @@ export const listRecipes = (type?: string) =>
 
 // ─── Market ───────────────────────────────────────────────────────────────
 
-export const listOfferings = (resource_type?: string) =>
-  get<{ offerings: Offering[] }>('/market/offerings', resource_type ? { resource_type } : {});
+export const listOfferings = (city_id: string, resource_type?: string) =>
+  get<{ offerings: Offering[] }>('/market/offerings', { city_id, ...(resource_type ? { resource_type } : {}) });
 
 export const createOffering = (building_id: string, resource_type: string, price_per_unit: number, quantity: number, visibility = 'public', trade_agreement_id = '') =>
   post<{ offering_id: string }>('/market/offerings', { building_id, resource_type, price_per_unit, quantity, visibility, trade_agreement_id });

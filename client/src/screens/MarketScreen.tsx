@@ -2,18 +2,21 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, ShoppingCart, X } from 'lucide-react';
 import { listOfferings, createOffering, cancelOffering, purchase, listBuildings } from '../api';
+import { useAuth } from '../auth';
 import { fmtMoney, fmtQuality, resourceColor } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 
 const RESOURCES = ['grain', 'water', 'feed', 'cattle', 'meat', 'leather', 'food'];
 
 export default function MarketScreen() {
+  const { auth } = useAuth();
   const qc = useQueryClient();
   const [resourceFilter, setResourceFilter] = useState('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['offerings', resourceFilter],
-    queryFn: () => listOfferings(resourceFilter || undefined),
+    queryKey: ['offerings', auth?.city_id, resourceFilter],
+    queryFn: () => listOfferings(auth!.city_id, resourceFilter || undefined),
+    enabled: !!auth?.city_id,
     refetchInterval: 30_000,
   });
   const offerings = data?.offerings ?? [];
