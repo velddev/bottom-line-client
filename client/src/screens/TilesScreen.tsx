@@ -21,9 +21,13 @@ const MIN_MARKER_ZOOM = 16;
 
 function tileColor(tile: TileInfo, myPlayerId: string): string {
   if (tile.owner_player_id === myPlayerId) return '#166534';
-  if (tile.owner_player_id && tile.owner_player_id !== GOVERNMENT_ID) return '#92400e';
   if (tile.is_for_sale) return '#1e3a5f';
   return '#1f2937';
+}
+
+function tileFillOpacity(tile: TileInfo, myPlayerId: string): number {
+  if (tile.owner_player_id && tile.owner_player_id !== myPlayerId && tile.owner_player_id !== GOVERNMENT_ID) return 0;
+  return 0.55;
 }
 
 type TileMeta = Pick<ListTilesResponse,
@@ -395,7 +399,7 @@ function TileLayer_({
           {
             renderer,
             fillColor: tileColor(tile, myPlayerId),
-            fillOpacity: 0.55,
+            fillOpacity: tileFillOpacity(tile, myPlayerId),
             stroke: isSelected,
             color: '#f9fafb',
             weight: 2,
