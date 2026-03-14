@@ -74,9 +74,6 @@ export const listRecipes = (type?: string) =>
 export const listOfferings = (city_id: string, resource_type?: string) =>
   get<{ offerings: Offering[] }>('/market/offerings', { city_id, ...(resource_type ? { resource_type } : {}) });
 
-export const createOffering = (building_id: string, resource_type: string, price_per_unit: number, quantity: number, visibility = 'public', trade_agreement_id = '') =>
-  post<{ offering_id: string }>('/market/offerings', { building_id, resource_type, price_per_unit: Math.round(price_per_unit * 100), quantity, visibility, trade_agreement_id });
-
 export const cancelOffering = (id: string) =>
   del<{ success: boolean }>(`/market/offerings/${id}`);
 

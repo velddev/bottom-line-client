@@ -7,8 +7,7 @@ import { Settings, Package, Tag } from 'lucide-react';
 import { useAuth } from '../auth';
 import {
   listTiles, purchaseTile, listCities,
-  constructBuilding, configureBuilding, listRecipes, getInventory, getBuilding,
-  createOffering,
+  constructBuilding, configureBuilding, listRecipes, getInventory,
 } from '../api';
 import type { TileInfo, ListTilesResponse, RecipeInfo } from '../types';
 import { BUILDING_ICONS, BUILDING_TYPES, fmtMoney } from '../types';
@@ -158,88 +157,13 @@ function InventoryModal({ buildingId, buildingName, onClose }: { buildingId: str
   );
 }
 
-// ── Sell output modal ──────────────────────────────────────────────────────────
+// ── Sell (auto-sell config) modal ─────────────────────────────────────────────
 function SellModal({
-  buildingId, buildingType, cityId, onClose,
-}: { buildingId: string; buildingType: string; cityId: string; onClose: () => void }) {
-  const qc = useQueryClient();
-  const [tab, setTab] = useState<'manual' | 'auto'>('auto');
-  const { data: recipesResp } = useQuery({
-    queryKey: ['recipes', buildingType],
-    queryFn: () => listRecipes(buildingType),
-    staleTime: 300_000,
-  });
-  const { data: bldg } = useQuery({
-    queryKey: ['building', buildingId],
-    queryFn: () => getBuilding(buildingId),
-    staleTime: 30_000,
-  });
-  const activeRecipe = (recipesResp?.recipes ?? []).find((r: RecipeInfo) => r.recipe_id === bldg?.active_recipe);
-
-  const defaultResource = buildingType === 'store' ? 'Food' : (activeRecipe?.output_type ?? '');
-  const [form, setForm] = useState({ resource_type: defaultResource, price: '', quantity: '', visibility: 'public' });
-  useEffect(() => {
-    if (buildingType === 'store') return;
-    if (activeRecipe?.output_type) setForm((f) => ({ ...f, resource_type: activeRecipe.output_type }));
-  }, [activeRecipe?.output_type, buildingType]);
-
-  const CONSUMER_GOODS = ['Food', 'Meat', 'Leather'];
-  const ALL_RESOURCES  = ['Food', 'Grain', 'Water', 'AnimalFeed', 'Cattle', 'Meat', 'Leather'];
-  const RESOURCES = buildingType === 'store' ? CONSUMER_GOODS : ALL_RESOURCES;
-  const mut = useMutation({
-    mutationFn: () => createOffering(buildingId, form.resource_type, parseFloat(form.price), parseFloat(form.quantity), form.visibility),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['offerings'] }); onClose(); },
-  });
-
+  buildingId, buildingType, onClose,
+}: { buildingId: string; buildingType: string; onClose: () => void }) {
   return (
-    <Modal
-      title="Sell"
-      onClose={onClose}
-      onSubmit={tab === 'manual' ? () => mut.mutate() : undefined}
-      submitLabel={mut.isPending ? 'Listing…' : 'List for Sale'}
-      submitDisabled={tab === 'manual' && (mut.isPending || !form.resource_type || !form.price || !form.quantity)}
-    >
-      {/* Tab bar */}
-      <div className="flex gap-1 mb-3 -mt-1">
-        {(['auto', 'manual'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 text-xs py-1.5 rounded transition-colors ${tab === t ? 'bg-indigo-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200'}`}>
-            {t === 'auto' ? '🔄 Auto-Sell' : '📋 Manual Listing'}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'auto' && (
-        <AutoSellSection buildingId={buildingId} buildingType={buildingType} />
-      )}
-
-      {tab === 'manual' && (
-        <>
-          <Field label="Resource">
-            <Select value={form.resource_type} onChange={(e) => setForm((f) => ({ ...f, resource_type: e.target.value }))}>
-              <option value="">— Select —</option>
-              {RESOURCES.map((r) => <option key={r} value={r} className="capitalize">{r}</option>)}
-            </Select>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Price / Unit">
-              <Input type="number" min="0" step="0.01" placeholder="0.00" value={form.price}
-                onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} />
-            </Field>
-            <Field label="Quantity">
-              <Input type="number" min="0.1" step="0.1" placeholder="100" value={form.quantity}
-                onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />
-            </Field>
-          </div>
-          <Field label="Visibility">
-            <Select value={form.visibility} onChange={(e) => setForm((f) => ({ ...f, visibility: e.target.value }))}>
-              <option value="public">Public</option>
-              <option value="private">Private (agreement only)</option>
-            </Select>
-          </Field>
-          {mut.isError && <p className="text-rose-400 text-xs">{(mut.error as Error).message}</p>}
-        </>
-      )}
+    <Modal title="Auto-Sell" onClose={onClose}>
+      <AutoSellSection buildingId={buildingId} buildingType={buildingType} />
     </Modal>
   );
 }
@@ -693,7 +617,6 @@ export default function TilesScreen() {
         <SellModal
           buildingId={sellTarget.building_id}
           buildingType={sellTarget.building_type?.toLowerCase() ?? ''}
-          cityId={cityId}
           onClose={() => setSellTarget(null)}
         />
       )}

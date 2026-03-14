@@ -9,13 +9,6 @@ router.get('/offerings', handle(async (req) => {
   return rpc(stubs.market, 'ListOfferings', { city_id, resource_type }, getApiKey(req));
 }));
 
-router.post('/offerings', handle(async (req) => {
-  const { building_id, resource_type, price_per_unit, quantity, visibility = 'public', trade_agreement_id = '' } = req.body;
-  return rpc(stubs.market, 'CreateOffering',
-    { building_id, resource_type, price_per_unit, quantity, visibility, trade_agreement_id },
-    getApiKey(req));
-}));
-
 router.delete('/offerings/:id', handle(async (req) => {
   return rpc(stubs.market, 'CancelOffering', { offering_id: req.params.id }, getApiKey(req));
 }));

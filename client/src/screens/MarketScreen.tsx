@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ShoppingCart, X } from 'lucide-react';
-import { listOfferings, createOffering, cancelOffering, purchase, listBuildings } from '../api';
+import { ShoppingCart, X } from 'lucide-react';
+import { listOfferings, cancelOffering, purchase, listBuildings } from '../api';
 import { useAuth } from '../auth';
 import { fmtMoney, fmtQuality, resourceColor } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
@@ -24,20 +24,6 @@ export default function MarketScreen() {
   const { data: buildingsResp } = useQuery({ queryKey: ['buildings'], queryFn: listBuildings });
   const buildings = buildingsResp?.buildings ?? [];
 
-  // ── Sell modal ──
-  const [showSell, setShowSell] = useState(false);
-  const [sellForm, setSellForm] = useState({
-    building_id: '', resource_type: 'grain', price_per_unit: '', quantity: '', visibility: 'public',
-  });
-  const sellMut = useMutation({
-    mutationFn: () => createOffering(
-      sellForm.building_id, sellForm.resource_type,
-      parseFloat(sellForm.price_per_unit), parseFloat(sellForm.quantity), sellForm.visibility,
-    ),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['offerings'] }); setShowSell(false); },
-  });
-
-  // ── Buy modal ──
   const [buyTarget, setBuyTarget] = useState<typeof offerings[0] | null>(null);
   const [buyForm, setBuyForm] = useState({ building_id: '', quantity: '' });
   const buyMut = useMutation({
@@ -52,17 +38,8 @@ export default function MarketScreen() {
 
   return (
     <div className="max-w-6xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">Market</h1>
-        <button
-          onClick={() => setShowSell(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded text-sm transition-colors"
-        >
-          <Plus size={14} /> Create Offering
-        </button>
-      </div>
+      <h1 className="text-xl font-bold text-white">Market</h1>
 
-      {/* Resource filter */}
       <div className="flex flex-wrap gap-2 text-xs">
         <button
           onClick={() => setResourceFilter('')}
@@ -81,7 +58,7 @@ export default function MarketScreen() {
         ))}
       </div>
 
-      {isLoading && <p className="text-gray-500 text-sm animate-pulse">Loading market…</p>}
+      {isLoading && <p className="text-gray-500 text-sm animate-pulse">Loading market...</p>}
 
       {!isLoading && offerings.length === 0 && (
         <div className="text-center py-16 text-gray-600 border border-dashed border-gray-800 rounded-lg">
@@ -95,7 +72,7 @@ export default function MarketScreen() {
           <table className="w-full text-xs">
             <thead>
               <tr className="text-gray-500 border-b border-gray-800">
-                {['Seller', 'Resource', 'Price/Unit', 'Quantity', 'Quality', 'Brand', 'Visibility', ''].map((h) => (
+                {['Seller', 'Resource', 'Price/Unit', 'Quantity', 'Quality', 'Brand', ''].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 font-medium uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
@@ -109,11 +86,6 @@ export default function MarketScreen() {
                   <td className="px-3 py-2.5 text-gray-300 font-mono">{o.quantity.toFixed(1)}</td>
                   <td className="px-3 py-2.5 text-gray-300 font-mono">{fmtQuality(o.quality)}</td>
                   <td className="px-3 py-2.5 text-gray-400">{o.brand_name || '—'}</td>
-                  <td className="px-3 py-2.5">
-                    <span className={`px-1.5 py-0.5 rounded ${o.visibility === 'public' ? 'text-emerald-400 bg-emerald-900/20' : 'text-amber-400 bg-amber-900/20'}`}>
-                      {o.visibility}
-                    </span>
-                  </td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
                       <button
@@ -138,53 +110,12 @@ export default function MarketScreen() {
         </div>
       )}
 
-      {/* Sell modal */}
-      {showSell && (
-        <Modal
-          title="Create Market Offering"
-          onClose={() => setShowSell(false)}
-          onSubmit={() => sellMut.mutate()}
-          submitLabel={sellMut.isPending ? 'Listing…' : 'Create Offering'}
-          submitDisabled={sellMut.isPending}
-        >
-          <Field label="From Building">
-            <Select value={sellForm.building_id} onChange={(e) => setSellForm((f) => ({ ...f, building_id: e.target.value }))}>
-              <option value="">— Select —</option>
-              {buildings.map((b) => <option key={b.building_id} value={b.building_id}>{b.name}</option>)}
-            </Select>
-          </Field>
-          <Field label="Resource">
-            <Select value={sellForm.resource_type} onChange={(e) => setSellForm((f) => ({ ...f, resource_type: e.target.value }))}>
-              {RESOURCES.map((r) => <option key={r} value={r}>{r}</option>)}
-            </Select>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Price / Unit">
-              <Input type="number" min="0" step="0.01" placeholder="0.00" value={sellForm.price_per_unit}
-                onChange={(e) => setSellForm((f) => ({ ...f, price_per_unit: e.target.value }))} />
-            </Field>
-            <Field label="Quantity">
-              <Input type="number" min="0" step="0.1" placeholder="10" value={sellForm.quantity}
-                onChange={(e) => setSellForm((f) => ({ ...f, quantity: e.target.value }))} />
-            </Field>
-          </div>
-          <Field label="Visibility">
-            <Select value={sellForm.visibility} onChange={(e) => setSellForm((f) => ({ ...f, visibility: e.target.value }))}>
-              <option value="public">Public</option>
-              <option value="private">Private (agreement only)</option>
-            </Select>
-          </Field>
-          {sellMut.isError && <p className="text-rose-400 text-xs">{(sellMut.error as Error).message}</p>}
-        </Modal>
-      )}
-
-      {/* Buy modal */}
       {buyTarget && (
         <Modal
           title={`Buy ${buyTarget.resource_type} from ${buyTarget.seller_name}`}
           onClose={() => setBuyTarget(null)}
           onSubmit={() => buyMut.mutate()}
-          submitLabel={buyMut.isPending ? 'Purchasing…' : 'Purchase'}
+          submitLabel={buyMut.isPending ? 'Purchasing...' : 'Purchase'}
           submitDisabled={buyMut.isPending}
         >
           <div className="bg-gray-800 rounded p-3 text-xs space-y-1 text-gray-300">
