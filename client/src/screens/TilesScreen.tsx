@@ -531,10 +531,10 @@ export default function TilesScreen() {
     <>
     <div className="flex-1 min-h-0 relative">
       {/* Full-bleed map */}
-      <MapContainer center={[centerLat, centerLon]} zoom={15}
+      <MapContainer center={[centerLat, centerLon]} zoom={15} zoomControl={false}
         className="absolute inset-0 h-full w-full" ref={mapRef}>
         <LeafletTileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          attribution='<a href="https://www.openstreetmap.org/copyright" style="opacity:0.3;font-size:9px">© OSM / CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           subdomains="abcd" maxZoom={20}
         />
