@@ -554,8 +554,8 @@ export default function TilesScreen() {
         </div>
       )}
 
-      <div className="flex gap-4 flex-1 min-h-0">
-        <div className="flex-1 rounded-lg overflow-hidden border border-gray-700">
+      <div className="flex-1 min-h-0 relative">
+        <div className="absolute inset-0 rounded-lg overflow-hidden border border-gray-700">
           <MapContainer center={[centerLat, centerLon]} zoom={15}
             className="h-full w-full" style={{ minHeight: '500px' }} ref={mapRef}>
             <LeafletTileLayer
@@ -574,7 +574,7 @@ export default function TilesScreen() {
         </div>
 
         {selectedTile && (
-          <div className="w-72 shrink-0 bg-gray-900 border border-gray-700 rounded-lg flex flex-col overflow-hidden">
+          <div className="absolute top-3 right-3 w-80 max-h-[calc(100%-1.5rem)] z-[1000] bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg flex flex-col overflow-hidden shadow-2xl">
             {/* Panel header */}
             <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
               <h2 className="text-white font-semibold text-sm">
