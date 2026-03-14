@@ -20,8 +20,13 @@ const CHUNK_SIZE = 20;
 const MIN_TILE_ZOOM = 14;
 const MIN_MARKER_ZOOM = 16;
 
+const WARNING_STATUSES = new Set(['MissingResources', 'Paused']);
+
 function tileColor(tile: TileInfo, myPlayerId: string): string {
-  if (tile.owner_player_id === myPlayerId) return '#166534';
+  if (tile.owner_player_id === myPlayerId) {
+    if (WARNING_STATUSES.has(tile.building_status)) return '#92400e'; // amber for warning
+    return '#166534';
+  }
   if (tile.is_for_sale) return '#1e3a5f';
   return '#1f2937';
 }
@@ -427,14 +432,17 @@ function TileLayer_({
 
         if (zoom >= MIN_MARKER_ZOOM && tile.building_id && tile.building_type) {
           const emoji = BUILDING_ICONS[tile.building_type.toLowerCase()] ?? '🏢';
+          const isWarning = tile.owner_player_id === myPlayerId && WARNING_STATUSES.has(tile.building_status);
           const centerLat = (sw.lat + ne.lat) / 2;
           const centerLon = (sw.lon + ne.lon) / 2;
           L.marker([centerLat, centerLon], {
             icon: L.divIcon({
-              html: `<span style="font-size:12px;line-height:1;display:block;text-align:center">${emoji}</span>`,
+              html: isWarning
+                ? `<div style="font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;gap:1px"><span>${emoji}</span><span>⚠️</span></div>`
+                : `<span style="font-size:12px;line-height:1;display:block;text-align:center">${emoji}</span>`,
               className: '',
-              iconSize: [14, 14],
-              iconAnchor: [7, 7],
+              iconSize: isWarning ? [24, 14] : [14, 14],
+              iconAnchor: isWarning ? [12, 7] : [7, 7],
             }),
             interactive: false,
           }).addTo(markerLayer);
