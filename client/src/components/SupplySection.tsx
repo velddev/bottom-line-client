@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getBuilding, listRecipes, getSupplyLinks, addSupplyLink,
   removeSupplyLink, listPotentialSuppliers, configureBuilding,
+  getAutoSellConfigs, setAutoSellConfig,
 } from '../api';
 import type { RecipeInfo, SupplyLinkInfo, PotentialSupplier } from '../types';
 import { fmtMoney, fmtQuality } from '../types';
@@ -260,13 +261,15 @@ function StoreSupplySection({
     <div>
       <p className="text-xs text-gray-500 mb-3">Configure suppliers for items you want to sell</p>
       {activeItems.map(r => (
-        <IngredientSupplyRow
-          key={r}
-          ingredient={{ resource_type: r, quantity: 10 }}
-          buildingId={buildingId}
-          cityId={cityId}
-          links={links}
-        />
+        <div key={r} className="mb-3 border-b border-gray-700/30 pb-3 last:border-0 last:pb-0">
+          <IngredientSupplyRow
+            ingredient={{ resource_type: r, quantity: 10 }}
+            buildingId={buildingId}
+            cityId={cityId}
+            links={links}
+          />
+          <AutoSellRow buildingId={buildingId} resourceType={r} />
+        </div>
       ))}
       {remaining.length > 0 && (
         <div className="relative inline-block">
@@ -432,6 +435,62 @@ function ProductionSupplySection({
   );
 }
 
+// ── Inline auto-sell row ──────────────────────────────────────────────────────
+function AutoSellRow({ buildingId, resourceType }: { buildingId: string; resourceType: string }) {
+  const qc = useQueryClient();
+
+  const { data } = useQuery({
+    queryKey: ['auto-sell', buildingId],
+    queryFn: () => getAutoSellConfigs(buildingId),
+    staleTime: 30_000,
+  });
+
+  const config = (data?.configs ?? []).find((c: { resource_type: string }) => c.resource_type === resourceType);
+  const [price, setPrice] = useState('');
+
+  // Sync price from server once loaded
+  useEffect(() => {
+    if (config?.price_per_unit != null && price === '') {
+      setPrice((config.price_per_unit / 100).toFixed(2));
+    }
+  }, [config?.price_per_unit]);
+
+  const mut = useMutation({
+    mutationFn: ({ enabled, priceCents }: { enabled: boolean; priceCents: number }) =>
+      setAutoSellConfig(buildingId, resourceType, priceCents, enabled),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['auto-sell', buildingId] }),
+  });
+
+  const priceCents = Math.round(parseFloat(price) * 100);
+  const validPrice = !isNaN(priceCents) && priceCents > 0;
+  const isEnabled = config?.is_enabled ?? false;
+
+  return (
+    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700/40">
+      <span className="text-xs text-gray-500 shrink-0">Auto-sell at</span>
+      <input
+        type="number"
+        min="0.01"
+        step="0.01"
+        placeholder="€0.00"
+        value={price}
+        onChange={e => setPrice(e.target.value)}
+        onBlur={() => validPrice && mut.mutate({ enabled: isEnabled, priceCents })}
+        className="w-20 px-2 py-0.5 text-xs bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-600 outline-none focus:border-indigo-500"
+      />
+      <button
+        disabled={mut.isPending || !validPrice}
+        onClick={() => mut.mutate({ enabled: !isEnabled, priceCents })}
+        className={`px-2 py-0.5 text-xs rounded transition-colors disabled:opacity-40 ${
+          isEnabled ? 'bg-emerald-700 hover:bg-emerald-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+        }`}
+      >
+        {isEnabled ? 'On' : 'Off'}
+      </button>
+    </div>
+  );
+}
+
 // ── Main SupplySection component ──────────────────────────────────────────────
 export default function SupplySection({
   buildingId,
@@ -484,12 +543,13 @@ export default function SupplySection({
 
   return (
     <div>
-      {/* Recipe summary */}
+      {/* Recipe summary + auto-sell */}
       <div className="mb-3 pb-3 border-b border-gray-700/50">
         <p className="text-xs text-gray-500">
           Produces <span className="text-white font-medium">{recipe.output_type}</span>
           <span className="text-gray-600 ml-1">× {recipe.output_min}–{recipe.output_max} / {recipe.ticks_required}t</span>
         </p>
+        <AutoSellRow buildingId={buildingId} resourceType={recipe.output_type} />
       </div>
 
       {recipe.ingredients.length === 0 && (

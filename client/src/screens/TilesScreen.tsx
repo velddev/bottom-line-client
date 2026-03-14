@@ -3,7 +3,7 @@ import { MapContainer, TileLayer as LeafletTileLayer, useMap } from 'react-leafl
 import type { Map as LeafletMap, LatLngBounds } from 'leaflet';
 import L from 'leaflet';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, Package, Tag } from 'lucide-react';
+import { Settings, Package } from 'lucide-react';
 import { useAuth } from '../auth';
 import {
   listTiles, purchaseTile, listCities,
@@ -15,7 +15,6 @@ import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
 import BankPanel from '../components/BankPanel';
 import SupplySection from '../components/SupplySection';
-import AutoSellSection from '../components/AutoSellSection';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 const CHUNK_SIZE = 20;
@@ -158,15 +157,7 @@ function InventoryModal({ buildingId, buildingName, onClose }: { buildingId: str
 }
 
 // ── Sell (auto-sell config) modal ─────────────────────────────────────────────
-function SellModal({
-  buildingId, buildingType, onClose,
-}: { buildingId: string; buildingType: string; onClose: () => void }) {
-  return (
-    <Modal title="Auto-Sell" onClose={onClose}>
-      <AutoSellSection buildingId={buildingId} buildingType={buildingType} />
-    </Modal>
-  );
-}
+// Removed: auto-sell config is now inline in the Supply section.
 
 // ── Map layer component ────────────────────────────────────────────────────────
 function TileLayer_({
@@ -427,8 +418,6 @@ export default function TilesScreen() {
 
   const [configTarget, setConfigTarget] = useState<TileInfo | null>(null);
   const [invTarget, setInvTarget] = useState<TileInfo | null>(null);
-  const [sellTarget, setSellTarget] = useState<TileInfo | null>(null);
-
   const [activeTab, setActiveTab] = useState<'supply' | 'info'>('supply');
   useEffect(() => { setActiveTab('supply'); }, [selectedTile?.tile_id]);
 
@@ -586,10 +575,6 @@ export default function TilesScreen() {
                   className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
                   <Package size={12} /> Stock
                 </button>
-                <button onClick={() => setSellTarget(selectedTile)}
-                  className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
-                  <Tag size={12} /> Sell
-                </button>
               </div>
             )}
           </div>
@@ -611,13 +596,6 @@ export default function TilesScreen() {
           buildingId={invTarget.building_id}
           buildingName={invTarget.building_name}
           onClose={() => setInvTarget(null)}
-        />
-      )}
-      {sellTarget?.building_id && (
-        <SellModal
-          buildingId={sellTarget.building_id}
-          buildingType={sellTarget.building_type?.toLowerCase() ?? ''}
-          onClose={() => setSellTarget(null)}
         />
       )}
     </>
