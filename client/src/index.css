@@ -10,4 +10,4 @@
 /* Dark map placeholder — replaces Leaflet's default light-gray tile background.
    Use :where() to stay at base specificity so nothing else is affected,
    OR simply import index.css AFTER leaflet.css (see main.tsx). */
-.leaflet-container.leaflet-container { background: #111827; }
+.leaflet-container.leaflet-container { background: #050505; }
