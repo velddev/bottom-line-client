@@ -528,50 +528,45 @@ export default function TilesScreen() {
   const hasBuilding = !!selectedTile?.building_id;
 
   return (
-    <div className="flex flex-col gap-3 h-full">
-      <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-white">🗺️ City Map</h1>
-          <p className="text-gray-400 text-sm mt-0.5">Purchase land, build, and manage supply.</p>
-        </div>
-        <div className="flex gap-3 text-xs text-gray-300">
-          {[
-            { color: '#1e3a5f', label: 'For sale' },
-            { color: '#166534', label: 'Yours' },
-            { color: '#92400e', label: "Other's" },
-          ].map(({ color, label }) => (
-            <span key={label} className="flex items-center gap-1">
-              <span className="inline-block w-3 h-3 rounded-sm" style={{ background: color, opacity: 0.8 }} />
-              {label}
-            </span>
-          ))}
-        </div>
+    <>
+    <div className="flex-1 min-h-0 relative">
+      {/* Full-bleed map */}
+      <MapContainer center={[centerLat, centerLon]} zoom={15}
+        className="absolute inset-0 h-full w-full" ref={mapRef}>
+        <LeafletTileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          subdomains="abcd" maxZoom={20}
+        />
+        {cityId && (
+          <TileLayer_
+            cityId={cityId} meta={meta}
+            myPlayerId={auth?.player_id ?? ''}
+            selectedTile={selectedTile} onSelect={setSelectedTile}
+          />
+        )}
+      </MapContainer>
+
+      {/* Legend (top-left) */}
+      <div className="absolute top-3 left-3 z-[1000] flex gap-2 text-xs text-gray-300 bg-gray-900/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-gray-700">
+        {[
+          { color: '#1e3a5f', label: 'For sale' },
+          { color: '#166534', label: 'Yours' },
+          { color: '#92400e', label: "Other's" },
+        ].map(({ color, label }) => (
+          <span key={label} className="flex items-center gap-1">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: color, opacity: 0.8 }} />
+            {label}
+          </span>
+        ))}
       </div>
 
+      {/* Flash toast (top-center) */}
       {flash && (
-        <div className={`shrink-0 text-sm px-4 py-2 rounded border ${flash.ok ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300' : 'bg-rose-900/50 border-rose-600 text-rose-300'}`}>
+        <div className={`absolute top-3 left-1/2 -translate-x-1/2 z-[1001] text-xs px-4 py-2 rounded-lg border shadow-xl ${flash.ok ? 'bg-emerald-900/90 border-emerald-600 text-emerald-300' : 'bg-rose-900/90 border-rose-600 text-rose-300'}`}>
           {flash.ok ? '✅' : '❌'} {flash.msg}
         </div>
       )}
-
-      <div className="flex-1 min-h-0 relative">
-        <div className="absolute inset-0 rounded-lg overflow-hidden border border-gray-700">
-          <MapContainer center={[centerLat, centerLon]} zoom={15}
-            className="h-full w-full" style={{ minHeight: '500px' }} ref={mapRef}>
-            <LeafletTileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              subdomains="abcd" maxZoom={20}
-            />
-            {cityId && (
-              <TileLayer_
-                cityId={cityId} meta={meta}
-                myPlayerId={auth?.player_id ?? ''}
-                selectedTile={selectedTile} onSelect={setSelectedTile}
-              />
-            )}
-          </MapContainer>
-        </div>
 
         {selectedTile && (
           <div className="absolute top-3 right-3 w-80 max-h-[calc(100%-1.5rem)] z-[1000] bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg flex flex-col overflow-hidden shadow-2xl">
@@ -686,7 +681,7 @@ export default function TilesScreen() {
             )}
           </div>
         )}
-      </div>
+    </div>
 
       {configTarget?.building_id && (
         <ConfigureModal
@@ -713,6 +708,6 @@ export default function TilesScreen() {
           onClose={() => setSellTarget(null)}
         />
       )}
-    </div>
+    </>
   );
 }
