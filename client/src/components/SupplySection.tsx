@@ -3,7 +3,7 @@ import { Plus, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getBuilding, listRecipes, getSupplyLinks, addSupplyLink,
-  removeSupplyLink, listPotentialSuppliers,
+  removeSupplyLink, listPotentialSuppliers, configureBuilding,
 } from '../api';
 import type { RecipeInfo, SupplyLinkInfo, PotentialSupplier } from '../types';
 import { fmtMoney, fmtQuality } from '../types';
@@ -290,7 +290,79 @@ function StoreSupplySection({
   );
 }
 
-// ── Production supply section (fields / factories) ───────────────────────────
+// ── Inline recipe picker (shown when no recipe is active) ─────────────────────
+function RecipePicker({
+  buildingId,
+  buildingType,
+  currentWorkers,
+  recipes,
+}: {
+  buildingId: string;
+  buildingType: string;
+  currentWorkers: number;
+  recipes: RecipeInfo[];
+}) {
+  const qc = useQueryClient();
+  const [search, setSearch] = useState('');
+
+  const configureMut = useMutation({
+    mutationFn: (recipe_id: string) =>
+      configureBuilding(buildingId, recipe_id, currentWorkers || 1),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['building', buildingId] });
+    },
+  });
+
+  const filtered = recipes.filter(r =>
+    r.output_type.toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (recipes.length === 0) {
+    return <p className="text-gray-500 text-xs">No recipes available for this building type.</p>;
+  }
+
+  return (
+    <div>
+      <p className="text-xs text-gray-500 mb-2">Select a recipe to configure supply</p>
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search recipes…"
+        className="w-full px-2 py-1.5 text-xs bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-600 outline-none focus:border-indigo-500 mb-2"
+      />
+      <div className="space-y-1 max-h-60 overflow-y-auto">
+        {filtered.map(r => (
+          <button
+            key={r.recipe_id}
+            disabled={configureMut.isPending}
+            onClick={() => configureMut.mutate(r.recipe_id)}
+            className="w-full text-left px-3 py-2 rounded bg-gray-800/50 hover:bg-gray-700 transition-colors disabled:opacity-50"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-white text-xs font-medium capitalize">{r.output_type}</span>
+              <span className="text-gray-500 text-xs">
+                ×{r.output_min}–{r.output_max} / {r.ticks_required}t
+              </span>
+            </div>
+            {r.ingredients.length > 0 && (
+              <p className="text-gray-600 text-xs mt-0.5">
+                Needs: {r.ingredients.map(i => `${i.resource_type} ×${i.quantity}`).join(', ')}
+              </p>
+            )}
+          </button>
+        ))}
+        {filtered.length === 0 && (
+          <p className="text-gray-600 text-xs px-1">No matches</p>
+        )}
+      </div>
+      {configureMut.isError && (
+        <p className="text-rose-400 text-xs mt-2">{(configureMut.error as Error).message}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Production supply section (fields / factories) ─────────────────────────────
 type RecipeIngredient = { resource_type: string; quantity: number };
 
 function ProductionSupplySection({
@@ -398,9 +470,12 @@ export default function SupplySection({
 
   if (!recipe) {
     return (
-      <p className="text-gray-500 text-xs">
-        Configure a recipe first to set up automatic supply.
-      </p>
+      <RecipePicker
+        buildingId={buildingId}
+        buildingType={buildingType}
+        currentWorkers={bldg.workers}
+        recipes={recipesResp?.recipes ?? []}
+      />
     );
   }
 
