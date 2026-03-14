@@ -48,8 +48,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Logo */}
         <NavLink to="/dashboard" className="flex items-center gap-1 shrink-0 mr-2">
-          <span className="text-indigo-400 font-bold text-sm tracking-widest">TRADE</span>
-          <span className="text-gray-400 font-bold text-sm tracking-widest">MMO</span>
+          <span className="text-indigo-400 font-bold text-sm tracking-widest">BOTTOM</span>
+          <span className="text-gray-400 font-bold text-sm tracking-widest">LINE</span>
         </NavLink>
 
         {/* Nav links */}
