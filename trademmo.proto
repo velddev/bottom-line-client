@@ -101,6 +101,10 @@ service BuildingService {
   rpc GetStatus     (GetBuildingRequest)   returns (BuildingStatus);
   rpc ListBuildings (ListBuildingsRequest) returns (ListBuildingsResponse);
   rpc ListRecipes   (ListRecipesRequest)   returns (ListRecipesResponse);
+  rpc GetSupplyLinks (GetSupplyLinksRequest) returns (GetSupplyLinksResponse);
+  rpc AddSupplyLink (AddSupplyLinkRequest) returns (AddSupplyLinkResponse);
+  rpc RemoveSupplyLink (RemoveSupplyLinkRequest) returns (RemoveSupplyLinkResponse);
+  rpc ListPotentialSuppliers (ListPotentialSuppliersRequest) returns (ListPotentialSuppliersResponse);
 }
 
 message ConstructRequest  { string city_id = 1; string building_type = 2; string name = 3; string tile_id = 4; }
@@ -142,6 +146,46 @@ message RecipeInfo {
 }
 
 message IngredientInfo { string resource_type = 1; double quantity = 2; }
+
+message SupplyLinkInfo {
+  string supply_link_id = 1;
+  string consumer_building_id = 2;
+  string resource_type = 3;
+  string supplier_building_id = 4;
+  string supplier_building_name = 5;
+  int32 supplier_tile_x = 6;
+  int32 supplier_tile_y = 7;
+  int32 priority = 8;
+}
+
+message GetSupplyLinksRequest  { string building_id = 1; }
+message GetSupplyLinksResponse { repeated SupplyLinkInfo links = 1; }
+
+message AddSupplyLinkRequest {
+  string consumer_building_id = 1;
+  string resource_type = 2;
+  string supplier_building_id = 3;
+}
+message AddSupplyLinkResponse  { string supply_link_id = 1; }
+
+message RemoveSupplyLinkRequest  { string supply_link_id = 1; }
+message RemoveSupplyLinkResponse { bool success = 1; }
+
+message PotentialSupplier {
+  string building_id = 1;
+  string building_name = 2;
+  int32 tile_x = 3;
+  int32 tile_y = 4;
+  string owner_name = 5;
+  double price_per_unit = 6;
+  double quantity_available = 7;
+}
+
+message ListPotentialSuppliersRequest {
+  string city_id = 1;
+  string resource_type = 2;
+}
+message ListPotentialSuppliersResponse { repeated PotentialSupplier suppliers = 1; }
 
 // ─────────────────────────────────────────
 // MarketService

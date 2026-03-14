@@ -3,6 +3,7 @@ import type {
   AgreementSummary, ResearchProgress, BrandSummary, BrandValueResponse,
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
+  SupplyLinkInfo, PotentialSupplier,
 } from './types';
 
 const BASE = '/api';
@@ -179,3 +180,20 @@ export const getTile = (tile_id: string) =>
 
 export const purchaseTile = (tile_id: string) =>
   post<{ tile_id: string; new_balance: number }>(`/tiles/${tile_id}/purchase`, {});
+
+// ─── Supply Links ─────────────────────────────────────────────────────────────
+
+export const getSupplyLinks = (buildingId: string) =>
+  get<{ links: SupplyLinkInfo[] }>(`/buildings/${buildingId}/supply-links`);
+
+export const addSupplyLink = (buildingId: string, resourceType: string, supplierBuildingId: string) =>
+  post<{ supply_link_id: string }>(`/buildings/${buildingId}/supply-links`, {
+    resource_type: resourceType,
+    supplier_building_id: supplierBuildingId,
+  });
+
+export const removeSupplyLink = (linkId: string) =>
+  del<{ success: boolean }>(`/buildings/supply-links/${linkId}`);
+
+export const listPotentialSuppliers = (cityId: string, resourceType: string) =>
+  get<{ suppliers: PotentialSupplier[] }>(`/buildings/potential-suppliers?city_id=${cityId}&resource_type=${resourceType}`);

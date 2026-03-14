@@ -223,6 +223,27 @@ export interface LoanActionResponse {
   message: string;
 }
 
+export interface SupplyLinkInfo {
+  supply_link_id: string;
+  consumer_building_id: string;
+  resource_type: string;
+  supplier_building_id: string;
+  supplier_building_name: string;
+  supplier_tile_x: number;
+  supplier_tile_y: number;
+  priority: number;
+}
+
+export interface PotentialSupplier {
+  building_id: string;
+  building_name: string;
+  tile_x: number;
+  tile_y: number;
+  owner_name: string;
+  price_per_unit: number;
+  quantity_available: number;
+}
+
 // ─── UI helpers ───────────────────────────────────────────────────────────
 
 export const BUILDING_TYPES = ['factory', 'field', 'store', 'warehouse'] as const;

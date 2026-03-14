@@ -8,13 +8,14 @@ import { useAuth } from '../auth';
 import {
   listTiles, purchaseTile, listCities,
   constructBuilding, configureBuilding, listRecipes, getInventory, getBuilding,
-  listOfferings, createOffering, purchase,
+  createOffering,
 } from '../api';
-import type { TileInfo, ListTilesResponse, RecipeInfo, Offering } from '../types';
-import { BUILDING_ICONS, BUILDING_TYPES, fmtMoney, fmtQuality } from '../types';
+import type { TileInfo, ListTilesResponse, RecipeInfo } from '../types';
+import { BUILDING_ICONS, BUILDING_TYPES } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
 import BankPanel from '../components/BankPanel';
+import SupplySection from '../components/SupplySection';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 const CHUNK_SIZE = 20;
@@ -72,120 +73,6 @@ function StatusBadge({ status }: { status: string }) {
     status === 'MissingResources'  ? 'bg-rose-900/40 text-rose-400' :
                                      'bg-gray-800 text-gray-400';
   return <span className={`px-2 py-0.5 rounded text-xs ${cls}`}>{LABELS[status] ?? status}</span>;
-}
-
-// ── Ingredient row with live market listings ───────────────────────────────────
-function IngredientRow({
-  ingredient, buildingId, cityId,
-}: { ingredient: { resource_type: string; quantity: number }; buildingId: string; cityId: string }) {
-  const qc = useQueryClient();
-  const [buyTarget, setBuyTarget] = useState<Offering | null>(null);
-  const [buyQty, setBuyQty] = useState('');
-
-  const { data } = useQuery({
-    queryKey: ['offerings', cityId, ingredient.resource_type],
-    queryFn: () => listOfferings(cityId, ingredient.resource_type),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
-  });
-  const sorted = [...(data?.offerings ?? [])].sort((a, b) => a.price_per_unit - b.price_per_unit);
-
-  const buyMut = useMutation({
-    mutationFn: () => purchase(buildingId, buyTarget!.offering_id, parseFloat(buyQty)),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['offerings'] });
-      qc.invalidateQueries({ queryKey: ['inventory'] });
-      setBuyTarget(null);
-    },
-  });
-
-  return (
-    <div className="mb-3">
-      <p className="text-xs font-semibold text-gray-300 mb-1 capitalize">
-        {ingredient.resource_type} <span className="text-gray-500 font-normal">× {ingredient.quantity}</span>
-      </p>
-      {sorted.length === 0 && <p className="text-xs text-gray-600">No listings</p>}
-      {sorted.slice(0, 3).map((o) => (
-        <div key={o.offering_id} className="flex items-center gap-1 text-xs mb-0.5">
-          <span className="text-gray-400 truncate flex-1 min-w-0">{o.seller_name}</span>
-          <span className="text-gray-500">{fmtQuality(o.quality)}★</span>
-          <span className="text-emerald-400 font-mono tabular-nums">{fmtMoney(o.price_per_unit)}</span>
-          {buyTarget?.offering_id === o.offering_id ? (
-            <div className="flex gap-0.5 ml-0.5">
-              <input type="number" min="0.1" step="0.1" value={buyQty}
-                onChange={(e) => setBuyQty(e.target.value)}
-                className="w-14 bg-gray-800 border border-gray-700 text-white text-xs rounded px-1 py-0.5" />
-              <button disabled={buyMut.isPending || !buyQty}
-                onClick={() => buyMut.mutate()}
-                className="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs px-1.5 py-0.5 rounded">
-                {buyMut.isPending ? '…' : '✓'}
-              </button>
-              <button onClick={() => setBuyTarget(null)} className="text-gray-500 hover:text-gray-300 text-xs px-1">×</button>
-            </div>
-          ) : (
-            <button
-              onClick={() => { setBuyTarget(o); setBuyQty(String(ingredient.quantity)); }}
-              className="text-indigo-400 hover:text-indigo-300 text-xs ml-0.5 shrink-0">
-              Buy
-            </button>
-          )}
-        </div>
-      ))}
-      {buyMut.isError && <p className="text-rose-400 text-xs mt-0.5">{(buyMut.error as Error).message}</p>}
-    </div>
-  );
-}
-
-// ── Supply section (recipe inputs / store stocking) ───────────────────────────
-const ALL_RESOURCES = ['Food', 'Grain', 'Water', 'AnimalFeed', 'Cattle', 'Meat', 'Leather'];
-
-function SupplySection({
-  buildingId, buildingType, cityId,
-}: { buildingId: string; buildingType: string; cityId: string }) {
-  const { data: bldg } = useQuery({
-    queryKey: ['building', buildingId],
-    queryFn: () => getBuilding(buildingId),
-  });
-
-  const { data: recipesResp } = useQuery({
-    queryKey: ['recipes', buildingType],
-    queryFn: () => listRecipes(buildingType),
-    enabled: !!buildingType,
-    staleTime: 300_000,
-  });
-
-  if (!bldg) return <p className="text-gray-600 text-xs animate-pulse">Loading…</p>;
-
-  // Stores have no recipes — show a stocking panel for all resource types
-  if (buildingType === 'store') {
-    return (
-      <div>
-        <p className="text-xs text-gray-500 mb-2">Stock resources to sell</p>
-        {ALL_RESOURCES.map((r) => (
-          <IngredientRow key={r} ingredient={{ resource_type: r, quantity: 10 }} buildingId={buildingId} cityId={cityId} />
-        ))}
-      </div>
-    );
-  }
-
-  const recipe = (recipesResp?.recipes ?? []).find((r: RecipeInfo) => r.recipe_id === bldg.active_recipe);
-
-  if (!recipe) {
-    return <p className="text-gray-500 text-xs">Configure a recipe to see supply options.</p>;
-  }
-
-  return (
-    <div>
-      <p className="text-xs text-gray-500 mb-2">
-        Recipe: <span className="text-white">{recipe.name}</span>
-        <span className="ml-1 text-gray-600">→ {recipe.output_type}</span>
-      </p>
-      {recipe.ingredients.length === 0 && <p className="text-gray-500 text-xs">No ingredients needed</p>}
-      {recipe.ingredients.map((ing) => (
-        <IngredientRow key={ing.resource_type} ingredient={ing} buildingId={buildingId} cityId={cityId} />
-      ))}
-    </div>
-  );
 }
 
 // ── Configure modal ────────────────────────────────────────────────────────────
