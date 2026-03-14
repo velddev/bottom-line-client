@@ -4,6 +4,7 @@ import { LogOut } from 'lucide-react';
 import { useAuth } from '../auth';
 import { getProfile, getCityStats } from '../api';
 import { fmtMoney } from '../types';
+import { useTickRefresh } from '../hooks/useTickRefresh';
 
 const NAV = [
   { to: '/dashboard',  label: 'Dashboard'   },
@@ -19,6 +20,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate  = useNavigate();
   const location  = useLocation();
   const isMapPage = location.pathname === '/map';
+
+  useTickRefresh();
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
