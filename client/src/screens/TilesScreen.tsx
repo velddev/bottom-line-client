@@ -3,20 +3,21 @@ import { MapContainer, TileLayer as LeafletTileLayer, useMap } from 'react-leafl
 import type { Map as LeafletMap, LatLngBounds } from 'leaflet';
 import L from 'leaflet';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, Package } from 'lucide-react';
+import { Settings, Package, Tag } from 'lucide-react';
 import { useAuth } from '../auth';
 import {
   listTiles, purchaseTile, listCities,
-  constructBuilding, configureBuilding, listRecipes, getInventory,
+  constructBuilding, configureBuilding, listRecipes, getInventory, getBuilding,
+  listOfferings, createOffering, purchase,
 } from '../api';
-import type { TileInfo, ListTilesResponse, RecipeInfo } from '../types';
-import { BUILDING_ICONS, BUILDING_TYPES } from '../types';
+import type { TileInfo, ListTilesResponse, RecipeInfo, Offering } from '../types';
+import { BUILDING_ICONS, BUILDING_TYPES, fmtMoney, fmtQuality } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 const CHUNK_SIZE = 20;
 const MIN_TILE_ZOOM = 14;
-const MIN_MARKER_ZOOM = 16; // show building emoji only when tiles are large enough
+const MIN_MARKER_ZOOM = 16;
 
 function tileColor(tile: TileInfo, myPlayerId: string): string {
   if (tile.owner_player_id === myPlayerId) return '#166534';
@@ -62,6 +63,107 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`px-2 py-0.5 rounded text-xs ${cls}`}>{LABELS[status] ?? status}</span>;
 }
 
+// ── Ingredient row with live market listings ───────────────────────────────────
+function IngredientRow({
+  ingredient, buildingId, cityId,
+}: { ingredient: { resource_type: string; quantity: number }; buildingId: string; cityId: string }) {
+  const qc = useQueryClient();
+  const [buyTarget, setBuyTarget] = useState<Offering | null>(null);
+  const [buyQty, setBuyQty] = useState('');
+
+  const { data } = useQuery({
+    queryKey: ['offerings', cityId, ingredient.resource_type],
+    queryFn: () => listOfferings(cityId, ingredient.resource_type),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  const sorted = [...(data?.offerings ?? [])].sort((a, b) => a.price_per_unit - b.price_per_unit);
+
+  const buyMut = useMutation({
+    mutationFn: () => purchase(buildingId, buyTarget!.offering_id, parseFloat(buyQty)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['offerings'] });
+      qc.invalidateQueries({ queryKey: ['inventory'] });
+      setBuyTarget(null);
+    },
+  });
+
+  return (
+    <div className="mb-3">
+      <p className="text-xs font-semibold text-gray-300 mb-1 capitalize">
+        {ingredient.resource_type} <span className="text-gray-500 font-normal">× {ingredient.quantity}</span>
+      </p>
+      {sorted.length === 0 && <p className="text-xs text-gray-600">No listings</p>}
+      {sorted.slice(0, 3).map((o) => (
+        <div key={o.offering_id} className="flex items-center gap-1 text-xs mb-0.5">
+          <span className="text-gray-400 truncate flex-1 min-w-0">{o.seller_name}</span>
+          <span className="text-gray-500">{fmtQuality(o.quality)}★</span>
+          <span className="text-emerald-400 font-mono tabular-nums">{fmtMoney(o.price_per_unit)}</span>
+          {buyTarget?.offering_id === o.offering_id ? (
+            <div className="flex gap-0.5 ml-0.5">
+              <input type="number" min="0.1" step="0.1" value={buyQty}
+                onChange={(e) => setBuyQty(e.target.value)}
+                className="w-14 bg-gray-800 border border-gray-700 text-white text-xs rounded px-1 py-0.5" />
+              <button disabled={buyMut.isPending || !buyQty}
+                onClick={() => buyMut.mutate()}
+                className="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs px-1.5 py-0.5 rounded">
+                {buyMut.isPending ? '…' : '✓'}
+              </button>
+              <button onClick={() => setBuyTarget(null)} className="text-gray-500 hover:text-gray-300 text-xs px-1">×</button>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setBuyTarget(o); setBuyQty(String(ingredient.quantity)); }}
+              className="text-indigo-400 hover:text-indigo-300 text-xs ml-0.5 shrink-0">
+              Buy
+            </button>
+          )}
+        </div>
+      ))}
+      {buyMut.isError && <p className="text-rose-400 text-xs mt-0.5">{(buyMut.error as Error).message}</p>}
+    </div>
+  );
+}
+
+// ── Supply section (recipe inputs) ────────────────────────────────────────────
+function SupplySection({
+  buildingId, buildingType, cityId,
+}: { buildingId: string; buildingType: string; cityId: string }) {
+  const { data: bldg } = useQuery({
+    queryKey: ['building', buildingId],
+    queryFn: () => getBuilding(buildingId),
+    staleTime: 30_000,
+  });
+
+  const { data: recipesResp } = useQuery({
+    queryKey: ['recipes', buildingType],
+    queryFn: () => listRecipes(buildingType),
+    enabled: !!buildingType,
+    staleTime: 300_000,
+  });
+
+  if (!bldg) return <p className="text-gray-600 text-xs animate-pulse">Loading…</p>;
+
+  const recipe = (recipesResp?.recipes ?? []).find((r: RecipeInfo) => r.recipe_id === bldg.active_recipe);
+
+  if (!recipe) {
+    return <p className="text-gray-500 text-xs">Configure a recipe to see supply options.</p>;
+  }
+
+  return (
+    <div>
+      <p className="text-xs text-gray-500 mb-2">
+        Recipe: <span className="text-white">{recipe.name}</span>
+        <span className="ml-1 text-gray-600">→ {recipe.output_type}</span>
+      </p>
+      {recipe.ingredients.length === 0 && <p className="text-gray-500 text-xs">No ingredients needed</p>}
+      {recipe.ingredients.map((ing) => (
+        <IngredientRow key={ing.resource_type} ingredient={ing} buildingId={buildingId} cityId={cityId} />
+      ))}
+    </div>
+  );
+}
+
 // ── Configure modal ────────────────────────────────────────────────────────────
 function ConfigureModal({
   buildingId, buildingType, buildingName, currentRecipe, currentWorkers, onClose,
@@ -77,7 +179,7 @@ function ConfigureModal({
   });
   const mut = useMutation({
     mutationFn: () => configureBuilding(buildingId, form.recipe_id, form.workers_assigned),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['buildings'] }); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['buildings', 'building'] }); onClose(); },
   });
   const selectedRecipe = (recipesResp?.recipes ?? []).find((r: RecipeInfo) => r.recipe_id === form.recipe_id);
 
@@ -93,9 +195,7 @@ function ConfigureModal({
         <Select value={form.recipe_id} onChange={(e) => setForm((f) => ({ ...f, recipe_id: e.target.value }))}>
           <option value="">— None —</option>
           {(recipesResp?.recipes ?? []).map((r: RecipeInfo) => (
-            <option key={r.recipe_id} value={r.recipe_id}>
-              {r.name} ({r.output_type}, {r.ticks_required}t)
-            </option>
+            <option key={r.recipe_id} value={r.recipe_id}>{r.name} ({r.output_type}, {r.ticks_required}t)</option>
           ))}
         </Select>
       </Field>
@@ -116,35 +216,89 @@ function ConfigureModal({
 
 // ── Inventory modal ────────────────────────────────────────────────────────────
 function InventoryModal({ buildingId, buildingName, onClose }: { buildingId: string; buildingName: string; onClose: () => void }) {
-  const { data } = useQuery({
-    queryKey: ['inventory', buildingId],
-    queryFn: () => getInventory(buildingId),
-  });
+  const { data } = useQuery({ queryKey: ['inventory', buildingId], queryFn: () => getInventory(buildingId) });
   return (
     <Modal title={`Inventory — ${buildingName}`} onClose={onClose}>
       {!data && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
       {data && data.items.length === 0 && <p className="text-gray-500 text-xs">Empty</p>}
       {data && data.items.length > 0 && (
         <table className="w-full text-xs">
-          <thead>
-            <tr className="text-gray-500 border-b border-gray-700">
-              {['Resource', 'Qty', 'Quality', 'Brand'].map((h) => (
-                <th key={h} className="text-left py-1.5 pr-3 font-medium">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.items.map((item, i) => (
-              <tr key={i} className="border-b border-gray-800">
-                <td className="py-1.5 pr-3 text-white capitalize">{item.resource_type}</td>
-                <td className="py-1.5 pr-3 font-mono text-gray-300">{item.quantity.toFixed(1)}</td>
-                <td className="py-1.5 pr-3 font-mono text-gray-300">{item.quality.toFixed(2)}</td>
-                <td className="py-1.5 text-gray-500">{item.brand_id || '—'}</td>
-              </tr>
+          <thead><tr className="text-gray-500 border-b border-gray-700">
+            {['Resource', 'Qty', 'Quality', 'Brand'].map((h) => (
+              <th key={h} className="text-left py-1.5 pr-3 font-medium">{h}</th>
             ))}
-          </tbody>
+          </tr></thead>
+          <tbody>{data.items.map((item, i) => (
+            <tr key={i} className="border-b border-gray-800">
+              <td className="py-1.5 pr-3 text-white capitalize">{item.resource_type}</td>
+              <td className="py-1.5 pr-3 font-mono text-gray-300">{item.quantity.toFixed(1)}</td>
+              <td className="py-1.5 pr-3 font-mono text-gray-300">{item.quality.toFixed(2)}</td>
+              <td className="py-1.5 text-gray-500">{item.brand_id || '—'}</td>
+            </tr>
+          ))}</tbody>
         </table>
       )}
+    </Modal>
+  );
+}
+
+// ── Sell output modal ──────────────────────────────────────────────────────────
+function SellModal({
+  buildingId, buildingType, cityId, onClose,
+}: { buildingId: string; buildingType: string; cityId: string; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { data: recipesResp } = useQuery({
+    queryKey: ['recipes', buildingType],
+    queryFn: () => listRecipes(buildingType),
+    staleTime: 300_000,
+  });
+  const { data: bldg } = useQuery({
+    queryKey: ['building', buildingId],
+    queryFn: () => getBuilding(buildingId),
+    staleTime: 30_000,
+  });
+  const activeRecipe = (recipesResp?.recipes ?? []).find((r: RecipeInfo) => r.recipe_id === bldg?.active_recipe);
+
+  const [form, setForm] = useState({ resource_type: activeRecipe?.output_type ?? '', price: '', quantity: '', visibility: 'public' });
+  useEffect(() => { if (activeRecipe?.output_type) setForm((f) => ({ ...f, resource_type: activeRecipe.output_type })); }, [activeRecipe?.output_type]);
+
+  const RESOURCES = ['grain', 'water', 'feed', 'cattle', 'meat', 'leather', 'food'];
+  const mut = useMutation({
+    mutationFn: () => createOffering(buildingId, form.resource_type, parseFloat(form.price), parseFloat(form.quantity), form.visibility),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['offerings'] }); onClose(); },
+  });
+
+  return (
+    <Modal
+      title="Create Market Offering"
+      onClose={onClose}
+      onSubmit={() => mut.mutate()}
+      submitLabel={mut.isPending ? 'Listing…' : 'List for Sale'}
+      submitDisabled={mut.isPending || !form.resource_type || !form.price || !form.quantity}
+    >
+      <Field label="Resource">
+        <Select value={form.resource_type} onChange={(e) => setForm((f) => ({ ...f, resource_type: e.target.value }))}>
+          <option value="">— Select —</option>
+          {RESOURCES.map((r) => <option key={r} value={r} className="capitalize">{r}</option>)}
+        </Select>
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Price / Unit">
+          <Input type="number" min="0" step="0.01" placeholder="0.00" value={form.price}
+            onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} />
+        </Field>
+        <Field label="Quantity">
+          <Input type="number" min="0.1" step="0.1" placeholder="100" value={form.quantity}
+            onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />
+        </Field>
+      </div>
+      <Field label="Visibility">
+        <Select value={form.visibility} onChange={(e) => setForm((f) => ({ ...f, visibility: e.target.value }))}>
+          <option value="public">Public</option>
+          <option value="private">Private (agreement only)</option>
+        </Select>
+      </Field>
+      {mut.isError && <p className="text-rose-400 text-xs">{(mut.error as Error).message}</p>}
     </Modal>
   );
 }
@@ -153,11 +307,8 @@ function InventoryModal({ buildingId, buildingName, onClose }: { buildingId: str
 function TileLayer_({
   cityId, meta, myPlayerId, selectedTile, onSelect,
 }: {
-  cityId: string;
-  meta: TileMeta;
-  myPlayerId: string;
-  selectedTile: TileInfo | null;
-  onSelect: (t: TileInfo | null) => void;
+  cityId: string; meta: TileMeta; myPlayerId: string;
+  selectedTile: TileInfo | null; onSelect: (t: TileInfo | null) => void;
 }) {
   const map = useMap();
   const cacheRef    = useRef<Map<string, TileInfo>>(new Map());
@@ -206,7 +357,6 @@ function TileLayer_({
           },
         ).addTo(tileLayer);
 
-        // Building emoji marker at tile center (only visible at higher zoom)
         if (zoom >= MIN_MARKER_ZOOM && tile.building_id && tile.building_type) {
           const emoji = BUILDING_ICONS[tile.building_type.toLowerCase()] ?? '🏢';
           const centerLat = (sw.lat + ne.lat) / 2;
@@ -315,7 +465,6 @@ export default function TilesScreen() {
 
   const [citiesData, setCitiesData] = useState<{ cities: { city_id: string }[] } | null>(null);
   useEffect(() => { listCities().then(setCitiesData).catch(() => {}); }, []);
-
   const cityId = auth?.city_id ?? citiesData?.cities?.[0]?.city_id ?? '';
 
   const [selectedTile, setSelectedTile] = useState<TileInfo | null>(null);
@@ -343,13 +492,10 @@ export default function TilesScreen() {
     }
   }
 
-  // Build-on-tile form state
   const [buildForm, setBuildForm] = useState({ building_type: 'factory', name: '' });
   const [showBuildForm, setShowBuildForm] = useState(false);
   const buildMut = useMutation({
-    mutationFn: () => constructBuilding(
-      auth!.city_id, buildForm.building_type, buildForm.name, selectedTile!.tile_id
-    ),
+    mutationFn: () => constructBuilding(auth!.city_id, buildForm.building_type, buildForm.name, selectedTile!.tile_id),
     onSuccess: (res) => {
       setFlash({ ok: true, msg: `Building started! Ready in ${res.construction_ticks_remaining} rounds.` });
       qc.invalidateQueries({ queryKey: ['buildings'] });
@@ -361,9 +507,12 @@ export default function TilesScreen() {
     onError: (err) => setFlash({ ok: false, msg: (err as Error).message }),
   });
 
-  // Configure / Inventory modal targets
   const [configTarget, setConfigTarget] = useState<TileInfo | null>(null);
   const [invTarget, setInvTarget] = useState<TileInfo | null>(null);
+  const [sellTarget, setSellTarget] = useState<TileInfo | null>(null);
+
+  const [activeTab, setActiveTab] = useState<'supply' | 'info'>('supply');
+  useEffect(() => { setActiveTab('supply'); }, [selectedTile?.tile_id]);
 
   const meta: TileMeta = {
     tile_origin_lat: 52.35670,
@@ -380,11 +529,10 @@ export default function TilesScreen() {
 
   return (
     <div className="flex flex-col gap-3 h-full">
-      {/* Header */}
       <div className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-white">🗺️ City Map</h1>
-          <p className="text-gray-400 text-sm mt-0.5">Purchase land and build your empire.</p>
+          <p className="text-gray-400 text-sm mt-0.5">Purchase land, build, and manage supply.</p>
         </div>
         <div className="flex gap-3 text-xs text-gray-300">
           {[
@@ -400,7 +548,6 @@ export default function TilesScreen() {
         </div>
       </div>
 
-      {/* Flash */}
       {flash && (
         <div className={`shrink-0 text-sm px-4 py-2 rounded border ${flash.ok ? 'bg-emerald-900/50 border-emerald-600 text-emerald-300' : 'bg-rose-900/50 border-rose-600 text-rose-300'}`}>
           {flash.ok ? '✅' : '❌'} {flash.msg}
@@ -408,12 +555,11 @@ export default function TilesScreen() {
       )}
 
       <div className="flex gap-4 flex-1 min-h-0">
-        {/* Map */}
         <div className="flex-1 rounded-lg overflow-hidden border border-gray-700">
           <MapContainer center={[centerLat, centerLon]} zoom={15}
             className="h-full w-full" style={{ minHeight: '500px' }} ref={mapRef}>
             <LeafletTileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
               subdomains="abcd" maxZoom={20}
             />
@@ -427,125 +573,144 @@ export default function TilesScreen() {
           </MapContainer>
         </div>
 
-        {/* Right panel */}
         {selectedTile && (
-          <div className="w-64 shrink-0 bg-gray-900 border border-gray-700 rounded-lg p-4 flex flex-col gap-3 overflow-y-auto">
-            <div className="flex items-center justify-between">
+          <div className="w-72 shrink-0 bg-gray-900 border border-gray-700 rounded-lg flex flex-col overflow-hidden">
+            {/* Panel header */}
+            <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
               <h2 className="text-white font-semibold text-sm">
-                Tile ({selectedTile.grid_x}, {selectedTile.grid_y})
+                {hasBuilding
+                  ? `${BUILDING_ICONS[selectedTile.building_type?.toLowerCase() ?? ''] ?? '🏢'} ${selectedTile.building_name}`
+                  : `Tile (${selectedTile.grid_x}, ${selectedTile.grid_y})`}
               </h2>
               <button onClick={() => { setSelectedTile(null); setShowBuildForm(false); }}
                 className="text-gray-500 hover:text-gray-300 text-lg leading-none">×</button>
             </div>
 
-            <div className="text-xs space-y-1 text-gray-300">
-              <p><span className="text-gray-500">Owner:</span> {selectedTile.owner_name}</p>
-              <p>
-                <span className="text-gray-500">Status:</span>{' '}
-                {selectedTile.is_for_sale
-                  ? <span className="text-cyan-400">For sale — €{selectedTile.purchase_price.toFixed(2)}</span>
-                  : selectedTile.is_reserved_for_citizens
-                    ? <span className="text-gray-500">Reserved</span>
-                    : <span className="text-gray-400">Private</span>}
-              </p>
+            {/* Status / owner row */}
+            <div className="px-4 py-2 border-b border-gray-700/50 text-xs text-gray-400 flex items-center gap-2">
+              <span className="truncate">{selectedTile.owner_name || 'Unowned'}</span>
+              {hasBuilding && <StatusBadge status={selectedTile.building_status} />}
+              {selectedTile.is_for_sale && (
+                <span className="text-cyan-400 shrink-0">€{selectedTile.purchase_price.toFixed(2)}</span>
+              )}
             </div>
 
-            {/* Purchase */}
-            {selectedTile.is_for_sale && auth && (
-              <button disabled={isPurchasing} onClick={handlePurchase}
-                className="bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 text-white text-xs font-semibold py-2 rounded transition-colors">
-                {isPurchasing ? 'Buying…' : `Buy for €${selectedTile.purchase_price.toFixed(2)}`}
-              </button>
+            {/* Tab bar (only for own buildings) */}
+            {isMine && hasBuilding && (
+              <div className="flex border-b border-gray-700">
+                {(['supply', 'info'] as const).map((tab) => (
+                  <button key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-1 text-xs py-2 capitalize transition-colors ${activeTab === tab ? 'text-white border-b-2 border-indigo-500 -mb-px' : 'text-gray-500 hover:text-gray-300'}`}>
+                    {tab === 'supply' ? '🛒 Supply' : 'ℹ️ Info'}
+                  </button>
+                ))}
+              </div>
             )}
 
-            {/* Mine + no building */}
-            {isMine && !hasBuilding && (
-              <>
-                <hr className="border-gray-700" />
-                {!showBuildForm ? (
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {/* Purchase */}
+              {selectedTile.is_for_sale && auth && (
+                <button disabled={isPurchasing} onClick={handlePurchase}
+                  className="w-full bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 text-white text-xs font-semibold py-2 rounded transition-colors">
+                  {isPurchasing ? 'Buying…' : `Buy for €${selectedTile.purchase_price.toFixed(2)}`}
+                </button>
+              )}
+
+              {/* Build on vacant tile */}
+              {isMine && !hasBuilding && (
+                !showBuildForm ? (
                   <button onClick={() => setShowBuildForm(true)}
-                    className="text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-2 rounded transition-colors">
+                    className="w-full text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-2 rounded transition-colors">
                     ⚒️ Build here
                   </button>
                 ) : (
                   <div className="space-y-2">
                     <p className="text-gray-400 text-xs font-semibold">New building</p>
-                    <select
-                      value={buildForm.building_type}
+                    <select value={buildForm.building_type}
                       onChange={(e) => setBuildForm((f) => ({ ...f, building_type: e.target.value }))}
                       className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5">
                       {BUILDING_TYPES.map((t) => (
                         <option key={t} value={t}>{BUILDING_ICONS[t]} {t.charAt(0).toUpperCase() + t.slice(1)}</option>
                       ))}
                     </select>
-                    <input
-                      placeholder="Building name"
-                      value={buildForm.name}
+                    <input placeholder="Building name" value={buildForm.name}
                       onChange={(e) => setBuildForm((f) => ({ ...f, name: e.target.value }))}
-                      className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5 placeholder-gray-600"
-                    />
+                      className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5 placeholder-gray-600" />
                     <div className="flex gap-2">
-                      <button
-                        disabled={buildMut.isPending || !buildForm.name.trim()}
-                        onClick={() => buildMut.mutate()}
+                      <button disabled={buildMut.isPending || !buildForm.name.trim()} onClick={() => buildMut.mutate()}
                         className="flex-1 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs py-1.5 rounded">
                         {buildMut.isPending ? 'Starting…' : 'Build'}
                       </button>
                       <button onClick={() => setShowBuildForm(false)}
-                        className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded">
-                        Cancel
-                      </button>
+                        className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded">Cancel</button>
                     </div>
                   </div>
-                )}
-              </>
-            )}
+                )
+              )}
 
-            {/* Mine + has building */}
+              {/* Building tabs */}
+              {isMine && hasBuilding && activeTab === 'supply' && (
+                <SupplySection
+                  buildingId={selectedTile.building_id}
+                  buildingType={selectedTile.building_type?.toLowerCase() ?? ''}
+                  cityId={cityId}
+                />
+              )}
+
+              {isMine && hasBuilding && activeTab === 'info' && (
+                <div className="space-y-2 text-xs">
+                  <p className="text-gray-400">Type: <span className="text-white capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
+                  <p className="text-gray-400">Status: <StatusBadge status={selectedTile.building_status} /></p>
+                </div>
+              )}
+            </div>
+
+            {/* Action bar for own buildings */}
             {isMine && hasBuilding && (
-              <>
-                <hr className="border-gray-700" />
-                <div className="space-y-1.5">
-                  <p className="text-white text-sm font-semibold">
-                    {BUILDING_ICONS[selectedTile.building_type?.toLowerCase() ?? ''] ?? '🏢'} {selectedTile.building_name}
-                  </p>
-                  <p className="text-xs text-gray-400 capitalize">{selectedTile.building_type?.toLowerCase()}</p>
-                  {selectedTile.building_status && <StatusBadge status={selectedTile.building_status} />}
-                </div>
-                <div className="flex gap-2 mt-1">
-                  <button
-                    onClick={() => setConfigTarget(selectedTile)}
-                    className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
-                    <Settings size={12} /> Configure
-                  </button>
-                  <button
-                    onClick={() => setInvTarget(selectedTile)}
-                    className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
-                    <Package size={12} /> Inventory
-                  </button>
-                </div>
-              </>
+              <div className="border-t border-gray-700 px-4 py-2 flex gap-2">
+                <button onClick={() => setConfigTarget(selectedTile)}
+                  className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
+                  <Settings size={12} /> Config
+                </button>
+                <button onClick={() => setInvTarget(selectedTile)}
+                  className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
+                  <Package size={12} /> Stock
+                </button>
+                <button onClick={() => setSellTarget(selectedTile)}
+                  className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
+                  <Tag size={12} /> Sell
+                </button>
+              </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Modals */}
-      {configTarget && configTarget.building_id && (
+      {configTarget?.building_id && (
         <ConfigureModal
           buildingId={configTarget.building_id}
           buildingType={configTarget.building_type?.toLowerCase() ?? ''}
           buildingName={configTarget.building_name}
-          currentRecipe={configTarget.building_status === 'Producing' ? '' : ''}
+          currentRecipe=""
           currentWorkers={1}
           onClose={() => setConfigTarget(null)}
         />
       )}
-      {invTarget && invTarget.building_id && (
+      {invTarget?.building_id && (
         <InventoryModal
           buildingId={invTarget.building_id}
           buildingName={invTarget.building_name}
           onClose={() => setInvTarget(null)}
+        />
+      )}
+      {sellTarget?.building_id && (
+        <SellModal
+          buildingId={sellTarget.building_id}
+          buildingType={sellTarget.building_type?.toLowerCase() ?? ''}
+          cityId={cityId}
+          onClose={() => setSellTarget(null)}
         />
       )}
     </div>

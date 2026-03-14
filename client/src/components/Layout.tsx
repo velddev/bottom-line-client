@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  LayoutDashboard, ShoppingCart, Handshake,
+  LayoutDashboard, Handshake,
   FlaskConical, Megaphone, Landmark, Map, LogOut,
 } from 'lucide-react';
 import { useAuth } from '../auth';
@@ -11,7 +11,6 @@ import EventFeed from './EventFeed';
 
 const NAV = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard'   },
-  { to: '/market',     icon: ShoppingCart,     label: 'Market'      },
   { to: '/agreements', icon: Handshake,        label: 'Agreements'  },
   { to: '/research',   icon: FlaskConical,     label: 'Research'    },
   { to: '/marketing',  icon: Megaphone,        label: 'Marketing'   },

@@ -53,6 +53,9 @@ export const getInventory = (building_id?: string) =>
 export const listBuildings = () =>
   get<{ buildings: BuildingStatus[] }>('/buildings');
 
+export const getBuilding = (id: string) =>
+  get<BuildingStatus>(`/buildings/${id}`);
+
 export const constructBuilding = (city_id: string, building_type: string, name: string, tile_id: string) =>
   post<{ building_id: string; construction_ticks_remaining: number }>('/buildings', { city_id, building_type, name, tile_id });
 
