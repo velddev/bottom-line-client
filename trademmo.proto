@@ -526,4 +526,3 @@ message GetTileRequest       { string tile_id = 1; }
 message PurchaseTileRequest  { string tile_id = 1; }
 message PurchaseTileResponse { string tile_id = 1; int64  new_balance = 2; }
 
-
