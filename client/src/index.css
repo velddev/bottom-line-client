@@ -11,3 +11,5 @@
    Use :where() to stay at base specificity so nothing else is affected,
    OR simply import index.css AFTER leaflet.css (see main.tsx). */
 .leaflet-container.leaflet-container { background: #050505; }
+.leaflet-control-zoom { display: none !important; }
+.leaflet-control-attribution { font-size: 9px !important; opacity: 0.3 !important; }
