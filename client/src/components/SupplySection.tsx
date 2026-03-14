@@ -9,6 +9,7 @@ import type { RecipeInfo, SupplyLinkInfo, PotentialSupplier } from '../types';
 import { fmtMoney, fmtQuality } from '../types';
 
 const ALL_RESOURCES = ['Food', 'Grain', 'Water', 'AnimalFeed', 'Cattle', 'Meat', 'Leather'];
+const CONSUMER_GOODS = ['Food', 'Meat', 'Leather'];
 
 // ── Supplier picker modal ─────────────────────────────────────────────────────
 function SupplierPickerModal({
@@ -204,12 +205,12 @@ export default function SupplySection({
 
   if (!bldg) return <p className="text-gray-600 text-xs animate-pulse">Loading…</p>;
 
-  // Stores: show all resource types with supplier config
+  // Stores: only consumer goods have supply chain meaning
   if (buildingType === 'store') {
     return (
       <div>
-        <p className="text-xs text-gray-500 mb-3">Configure suppliers for each resource</p>
-        {ALL_RESOURCES.map((r) => (
+        <p className="text-xs text-gray-500 mb-3">Configure suppliers for consumer goods</p>
+        {CONSUMER_GOODS.map((r) => (
           <IngredientSupplyRow
             key={r}
             ingredient={{ resource_type: r, quantity: 10 }}
