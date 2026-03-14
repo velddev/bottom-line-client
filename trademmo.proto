@@ -39,6 +39,7 @@ message GameEvent {
     TradeAgreementChangedEvent agreement_changed    = 17;
     BrandValueChangedEvent    brand_value_changed   = 18;
     TaxesCollectedEvent       taxes_collected       = 19;
+    TileChangedEvent          tile_changed          = 20;
   }
 }
 
@@ -52,6 +53,7 @@ message ElectionConcludedEvent    { string election_id = 1; string city_id = 2; 
 message TradeAgreementChangedEvent{ string agreement_id = 1; string creator_player_id = 2; string buyer_player_id = 3; string new_status = 4; }
 message BrandValueChangedEvent    { string brand_id = 1; string player_id = 2; string resource_category = 3; float old_weight = 4; float new_weight = 5; }
 message TaxesCollectedEvent       { string city_id = 1; double total_collected = 2; }
+message TileChangedEvent          { string city_id = 1; string tile_id = 2; int32 grid_x = 3; int32 grid_y = 4; string owner_player_id = 5; string owner_name = 6; bool is_for_sale = 7; double purchase_price = 8; string building_id = 9; string building_name = 10; string building_type = 11; string building_status = 12; }
 
 // ─────────────────────────────────────────
 // PlayerService

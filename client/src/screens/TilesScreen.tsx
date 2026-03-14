@@ -305,10 +305,11 @@ function SellModal({
 
 // ── Map layer component ────────────────────────────────────────────────────────
 function TileLayer_({
-  cityId, meta, myPlayerId, selectedTile, onSelect,
+  cityId, meta, myPlayerId, selectedTile, onSelect, apiKey,
 }: {
   cityId: string; meta: TileMeta; myPlayerId: string;
   selectedTile: TileInfo | null; onSelect: (t: TileInfo | null) => void;
+  apiKey: string;
 }) {
   const map = useMap();
   const cacheRef    = useRef<Map<string, TileInfo>>(new Map());
@@ -317,8 +318,53 @@ function TileLayer_({
   const tileLayerRef   = useRef<L.LayerGroup | null>(null);
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
   const rendererRef    = useRef<L.Canvas | null>(null);
+  const redrawRef      = useRef<(() => void) | null>(null);
+  const fetchMissingRef = useRef<(() => void) | null>(null);
   const stateRef = useRef({ selectedTile, onSelect, meta, cityId, myPlayerId });
   useEffect(() => { stateRef.current = { selectedTile, onSelect, meta, cityId, myPlayerId }; });
+
+  // SSE subscription for live tile updates + 60s fallback full refresh
+  useEffect(() => {
+    if (!apiKey || !cityId) return;
+
+    const es = new EventSource(
+      `/api/events/stream?api_key=${encodeURIComponent(apiKey)}&city_id=${encodeURIComponent(cityId)}`
+    );
+
+    es.onmessage = (e) => {
+      try {
+        const evt = JSON.parse(e.data as string);
+        if (evt.tileChanged) {
+          const tc = evt.tileChanged;
+          const updated: TileInfo = {
+            tile_id:                 tc.tileId       ?? '',
+            city_id:                 tc.cityId       ?? '',
+            grid_x:                  tc.gridX        ?? 0,
+            grid_y:                  tc.gridY        ?? 0,
+            owner_player_id:         tc.ownerPlayerId ?? '',
+            owner_name:              tc.ownerName    ?? '',
+            is_for_sale:             tc.isForSale    ?? false,
+            purchase_price:          tc.purchasePrice ?? 0,
+            building_id:             tc.buildingId   ?? '',
+            building_name:           tc.buildingName ?? '',
+            building_type:           tc.buildingType ?? '',
+            building_status:         tc.buildingStatus ?? '',
+            is_reserved_for_citizens: false,
+          };
+          cacheRef.current.set(`${updated.grid_x}_${updated.grid_y}`, updated);
+          redrawRef.current?.();
+        }
+      } catch { /* ignore parse errors */ }
+    };
+
+    // 60-second fallback: re-fetch all visible chunks
+    const refresh = setInterval(() => {
+      fetchedRef.current.clear();
+      fetchMissingRef.current?.();
+    }, 60_000);
+
+    return () => { es.close(); clearInterval(refresh); };
+  }, [apiKey, cityId]); // eslint-disable-line
 
   const redraw = useCallback(() => {
     const tileLayer   = tileLayerRef.current;
@@ -408,6 +454,10 @@ function TileLayer_({
 
     redraw();
   }, [map, redraw]);
+
+  // Keep refs current so SSE effect can call latest versions without stale closures
+  useEffect(() => { redrawRef.current = redraw; });
+  useEffect(() => { fetchMissingRef.current = fetchMissing; });
 
   useEffect(() => {
     const renderer    = L.canvas({ padding: 0.1 });
@@ -543,6 +593,7 @@ export default function TilesScreen() {
             cityId={cityId} meta={meta}
             myPlayerId={auth?.player_id ?? ''}
             selectedTile={selectedTile} onSelect={setSelectedTile}
+            apiKey={auth?.api_key ?? ''}
           />
         )}
       </MapContainer>
