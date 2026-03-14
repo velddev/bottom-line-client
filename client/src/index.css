@@ -7,5 +7,7 @@
 ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-/* Dark map placeholder — replaces Leaflet's default light-gray tile background */
-.leaflet-container { background: #111827; }
+/* Dark map placeholder — replaces Leaflet's default light-gray tile background.
+   Use :where() to stay at base specificity so nothing else is affected,
+   OR simply import index.css AFTER leaflet.css (see main.tsx). */
+.leaflet-container.leaflet-container { background: #111827; }
