@@ -112,7 +112,7 @@ export default function DashboardScreen() {
               <p className="text-white font-semibold">{city.building_count}</p>
             </div>
             <div>
-              <p className="text-gray-500 uppercase tracking-wider mb-0.5">Economy / Round</p>
+              <p className="text-gray-500 uppercase tracking-wider mb-0.5">Economy / Tick</p>
               <p className="text-emerald-400 font-semibold font-mono">{fmtMoney(city.gdp_per_tick)}</p>
             </div>
           </div>

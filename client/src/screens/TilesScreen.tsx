@@ -547,7 +547,7 @@ export default function TilesScreen() {
   const buildMut = useMutation({
     mutationFn: () => constructBuilding(auth!.city_id, buildForm.building_type, buildForm.name, selectedTile!.tile_id),
     onSuccess: (res) => {
-      setFlash({ ok: true, msg: `Building started! Ready in ${res.construction_ticks_remaining} rounds.` });
+      setFlash({ ok: true, msg: `Building started! Ready in ${res.construction_ticks_remaining} ticks.` });
       qc.invalidateQueries({ queryKey: ['buildings'] });
       const m = mapRef.current as unknown as { _refreshTileChunk?: (t: TileInfo) => void };
       m._refreshTileChunk?.(selectedTile!);
