@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -177,6 +177,119 @@ function IngredientSupplyRow({
   );
 }
 
+// ── Searchable item picker (dropdown) ─────────────────────────────────────────
+function ResourcePickerDropdown({
+  options,
+  onSelect,
+  onClose,
+}: {
+  options: string[];
+  onSelect: (r: string) => void;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div
+      ref={ref}
+      className="absolute top-full left-0 mt-1 w-52 bg-gray-800 border border-gray-700 rounded shadow-lg z-50"
+    >
+      <input
+        autoFocus
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search…"
+        className="w-full px-2 py-1.5 text-xs bg-transparent border-b border-gray-700 text-white placeholder-gray-600 outline-none"
+      />
+      <div className="max-h-40 overflow-y-auto py-1">
+        {filtered.length === 0 && (
+          <p className="text-gray-600 text-xs px-2 py-1">No results</p>
+        )}
+        {filtered.map(g => (
+          <button
+            key={g}
+            onClick={() => { onSelect(g); onClose(); }}
+            className="w-full text-left px-2 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors capitalize"
+          >
+            {g}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Store supply section — user picks which goods to configure ─────────────────
+function StoreSupplySection({
+  buildingId,
+  cityId,
+  links,
+}: {
+  buildingId: string;
+  cityId: string;
+  links: SupplyLinkInfo[];
+}) {
+  const [activeItems, setActiveItems] = useState<string[]>([]);
+  const [showPicker, setShowPicker] = useState(false);
+
+  // When supply links load, add any items that already have links
+  useEffect(() => {
+    const linked = new Set(links.map(l => l.resource_type));
+    const fromLinks = CONSUMER_GOODS.filter(g => linked.has(g));
+    setActiveItems(prev => {
+      const toAdd = fromLinks.filter(g => !prev.includes(g));
+      return toAdd.length ? [...prev, ...toAdd] : prev;
+    });
+  }, [links]);
+
+  const remaining = CONSUMER_GOODS.filter(g => !activeItems.includes(g));
+
+  return (
+    <div>
+      <p className="text-xs text-gray-500 mb-3">Configure suppliers for items you want to sell</p>
+      {activeItems.map(r => (
+        <IngredientSupplyRow
+          key={r}
+          ingredient={{ resource_type: r, quantity: 10 }}
+          buildingId={buildingId}
+          cityId={cityId}
+          links={links}
+        />
+      ))}
+      {remaining.length > 0 && (
+        <div className="relative inline-block">
+          <button
+            onClick={() => setShowPicker(p => !p)}
+            className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors mt-1"
+          >
+            <Plus size={11} />
+            <span>Add item</span>
+          </button>
+          {showPicker && (
+            <ResourcePickerDropdown
+              options={remaining}
+              onSelect={r => setActiveItems(prev => [...prev, r])}
+              onClose={() => setShowPicker(false)}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main SupplySection component ──────────────────────────────────────────────
 export default function SupplySection({
   buildingId,
@@ -211,20 +324,7 @@ export default function SupplySection({
 
   // Stores: only consumer goods have supply chain meaning
   if (buildingType === 'store') {
-    return (
-      <div>
-        <p className="text-xs text-gray-500 mb-3">Configure suppliers for consumer goods</p>
-        {CONSUMER_GOODS.map((r) => (
-          <IngredientSupplyRow
-            key={r}
-            ingredient={{ resource_type: r, quantity: 10 }}
-            buildingId={buildingId}
-            cityId={cityId}
-            links={links}
-          />
-        ))}
-      </div>
-    );
+    return <StoreSupplySection buildingId={buildingId} cityId={cityId} links={links} />;
   }
 
   const recipe = (recipesResp?.recipes ?? []).find((r: RecipeInfo) => r.recipe_id === bldg.active_recipe);
