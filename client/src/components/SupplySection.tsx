@@ -25,10 +25,11 @@ function SupplierPickerModal({
 }) {
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['potential-suppliers', cityId, resourceType],
     queryFn: () => listPotentialSuppliers(cityId, resourceType),
     staleTime: 30_000,
+    retry: false,
   });
 
   const addMut = useMutation({
@@ -51,7 +52,10 @@ function SupplierPickerModal({
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {isLoading && <p className="text-gray-600 text-xs p-2 animate-pulse">Loading…</p>}
-          {!isLoading && (!data?.suppliers || data.suppliers.length === 0) && (
+          {isError && (
+            <p className="text-rose-400 text-xs p-2">Error: {(error as Error).message}</p>
+          )}
+          {!isLoading && !isError && (!data?.suppliers || data.suppliers.length === 0) && (
             <p className="text-gray-500 text-xs p-2">No active listings for {resourceType}</p>
           )}
           {data?.suppliers.map((s: PotentialSupplier) => (
