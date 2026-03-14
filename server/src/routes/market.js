@@ -25,4 +25,11 @@ router.post('/purchase', handle(async (req) => {
   return rpc(stubs.market, 'Purchase', { buyer_building_id, offering_id, quantity }, getApiKey(req));
 }));
 
+router.get('/share', handle(async (req) => {
+  const { city_id = '', resource_type = '', history_ticks = 20 } = req.query;
+  return rpc(stubs.market, 'GetMarketShare',
+    { city_id, resource_type, history_ticks: parseInt(history_ticks, 10) },
+    getApiKey(req));
+}));
+
 export default router;

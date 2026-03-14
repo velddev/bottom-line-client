@@ -2,7 +2,7 @@ import type {
   PlayerProfile, BuildingStatus, RecipeInfo, Offering,
   AgreementSummary, ResearchProgress, BrandSummary, BrandValueResponse,
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
-  TileInfo, ListTilesResponse,
+  TileInfo, ListTilesResponse, MarketShareResponse,
 } from './types';
 
 const BASE = '/api';
@@ -78,6 +78,9 @@ export const cancelOffering = (id: string) =>
 
 export const purchase = (buyer_building_id: string, offering_id: string, quantity: number) =>
   post<{ total_paid: number; quality: number }>('/market/purchase', { buyer_building_id, offering_id, quantity });
+
+export const getMarketShare = (city_id: string, resource_type = '', history_ticks = 20) =>
+  get<MarketShareResponse>('/market/share', { city_id, ...(resource_type ? { resource_type } : {}), history_ticks: String(history_ticks) });
 
 // ─── Trade Agreements ─────────────────────────────────────────────────────
 

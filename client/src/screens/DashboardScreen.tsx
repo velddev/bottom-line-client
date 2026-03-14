@@ -3,6 +3,7 @@ import { getProfile, listBuildings, listResearch, getCityStats, getInventory } f
 import { fmtMoney, fmtPct } from '../types';
 import { useAuth } from '../auth';
 import { Building2, FlaskConical, Package } from 'lucide-react';
+import MarketShareChart from '../components/MarketShareChart';
 
 const RESOURCE_ICONS: Record<string, string> = {
   Water: '💧', Grain: '🌾', AnimalFeed: '🌿', Cattle: '🐄',
@@ -203,7 +204,9 @@ export default function DashboardScreen() {
           </div>
         </div>
       )}
+
+      {/* Market share chart */}
+      {auth?.city_id && <MarketShareChart cityId={auth.city_id} />}
     </div>
   );
 }
-

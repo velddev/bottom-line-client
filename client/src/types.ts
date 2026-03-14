@@ -196,6 +196,19 @@ export interface ListTilesResponse {
   tile_size_meters: number;
 }
 
+export interface MarketShareDataPoint {
+  player_id: string;
+  player_name: string;
+  resource_type: string;
+  sale_volume: number;
+  share_percent: number;
+  tick: number;
+}
+
+export interface MarketShareResponse {
+  data: MarketShareDataPoint[];
+}
+
 // ─── UI helpers ───────────────────────────────────────────────────────────
 
 export const BUILDING_TYPES = ['factory', 'field', 'store', 'warehouse'] as const;

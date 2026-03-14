@@ -152,6 +152,7 @@ service MarketService {
   rpc CreateOffering (CreateOfferingRequest) returns (CreateOfferingResponse);
   rpc CancelOffering (CancelOfferingRequest) returns (CancelOfferingResponse);
   rpc Purchase       (PurchaseRequest)       returns (PurchaseResponse);
+  rpc GetMarketShare (GetMarketShareRequest) returns (GetMarketShareResponse);
 }
 
 message ListOfferingsRequest  { string city_id = 1; string resource_type = 2; }
@@ -183,6 +184,10 @@ message CancelOfferingResponse { bool success = 1; }
 
 message PurchaseRequest  { string buyer_building_id = 1; string offering_id = 2; double quantity = 3; }
 message PurchaseResponse { double total_paid = 1; float quality = 2; }
+
+message GetMarketShareRequest  { string city_id = 1; string resource_type = 2; int32 history_ticks = 3; }
+message MarketShareDataPoint   { string player_id = 1; string player_name = 2; string resource_type = 3; double sale_volume = 4; float share_percent = 5; int64 tick = 6; }
+message GetMarketShareResponse { repeated MarketShareDataPoint data = 1; }
 
 // ─────────────────────────────────────────
 // TradeAgreementService
