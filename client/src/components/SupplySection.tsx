@@ -290,6 +290,73 @@ function StoreSupplySection({
   );
 }
 
+// ── Production supply section (fields / factories) ───────────────────────────
+type RecipeIngredient = { resource_type: string; quantity: number };
+
+function ProductionSupplySection({
+  buildingId,
+  cityId,
+  links,
+  ingredients,
+}: {
+  buildingId: string;
+  cityId: string;
+  links: SupplyLinkInfo[];
+  ingredients: RecipeIngredient[];
+}) {
+  const [activeTypes, setActiveTypes] = useState<string[]>([]);
+  const [showPicker, setShowPicker] = useState(false);
+
+  // Pre-populate from existing supply links
+  useEffect(() => {
+    const linked = new Set(links.map(l => l.resource_type));
+    const fromLinks = ingredients.filter(i => linked.has(i.resource_type)).map(i => i.resource_type);
+    setActiveTypes(prev => {
+      const toAdd = fromLinks.filter(r => !prev.includes(r));
+      return toAdd.length ? [...prev, ...toAdd] : prev;
+    });
+  }, [links, ingredients]);
+
+  const remaining = ingredients.filter(i => !activeTypes.includes(i.resource_type));
+  const activeIngredients = ingredients.filter(i => activeTypes.includes(i.resource_type));
+
+  return (
+    <div>
+      <p className="text-xs text-gray-500 mb-2 font-medium">
+        AUTO-SUPPLY
+        <span className="font-normal ml-1 text-gray-600">— buy automatically when production restarts</span>
+      </p>
+      {activeIngredients.map(ing => (
+        <IngredientSupplyRow
+          key={ing.resource_type}
+          ingredient={ing}
+          buildingId={buildingId}
+          cityId={cityId}
+          links={links}
+        />
+      ))}
+      {remaining.length > 0 && (
+        <div className="relative inline-block mt-1">
+          <button
+            onClick={() => setShowPicker(p => !p)}
+            className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            <Plus size={11} />
+            <span>Add ingredient</span>
+          </button>
+          {showPicker && (
+            <ResourcePickerDropdown
+              options={remaining.map(i => i.resource_type)}
+              onSelect={r => setActiveTypes(prev => [...prev, r])}
+              onClose={() => setShowPicker(false)}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main SupplySection component ──────────────────────────────────────────────
 export default function SupplySection({
   buildingId,
@@ -352,21 +419,12 @@ export default function SupplySection({
       )}
 
       {recipe.ingredients.length > 0 && (
-        <>
-          <p className="text-xs text-gray-500 mb-2 font-medium">
-            AUTO-SUPPLY
-            <span className="font-normal ml-1 text-gray-600">— buy automatically when production restarts</span>
-          </p>
-          {recipe.ingredients.map((ing) => (
-            <IngredientSupplyRow
-              key={ing.resource_type}
-              ingredient={ing}
-              buildingId={buildingId}
-              cityId={cityId}
-              links={links}
-            />
-          ))}
-        </>
+        <ProductionSupplySection
+          buildingId={buildingId}
+          cityId={cityId}
+          links={links}
+          ingredients={recipe.ingredients}
+        />
       )}
     </div>
   );
