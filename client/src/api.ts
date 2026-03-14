@@ -60,8 +60,11 @@ export const getBuilding = (id: string) =>
 export const constructBuilding = (city_id: string, building_type: string, name: string, tile_id: string) =>
   post<{ building_id: string; construction_ticks_remaining: number }>('/buildings', { city_id, building_type, name, tile_id });
 
-export const configureBuilding = (id: string, recipe_id: string, workers_assigned: number) =>
-  put<{ success: boolean }>(`/buildings/${id}/configure`, { recipe_id, workers_assigned });
+export const configureBuilding = async (id: string, recipe_id: string, workers_assigned: number) => {
+  const result = await put<{ success: boolean }>(`/buildings/${id}/configure`, { recipe_id, workers_assigned });
+  if (!result.success) throw new Error('Failed to configure building — recipe may not be valid for this building type.');
+  return result;
+};
 
 export const listRecipes = (type?: string) =>
   get<{ recipes: RecipeInfo[] }>('/buildings/recipes', type ? { type } : {});

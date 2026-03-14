@@ -336,8 +336,11 @@ function RecipePicker({
             key={r.recipe_id}
             disabled={configureMut.isPending}
             onClick={() => configureMut.mutate(r.recipe_id)}
-            className="w-full text-left px-3 py-2 rounded bg-gray-800/50 hover:bg-gray-700 transition-colors disabled:opacity-50"
+            className="w-full text-left px-3 py-2 rounded bg-gray-800/50 hover:bg-gray-700 transition-colors disabled:opacity-50 relative"
           >
+            {configureMut.isPending && configureMut.variables === r.recipe_id && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs animate-pulse">saving…</span>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-white text-xs font-medium capitalize">{r.output_type}</span>
               <span className="text-gray-500 text-xs">
