@@ -26,7 +26,6 @@ export default function BankPanel() {
       setBorrowInput('');
     },
   });
-
   const repayMut = useMutation({
     mutationFn: (amount: number) => repayDebt(auth!.city_id, amount),
     onSuccess: () => {
@@ -93,8 +92,8 @@ export default function BankPanel() {
                 className="flex-1 bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5 placeholder-gray-600"
               />
               <button
-                disabled={borrowMut.isPending || borrowAmount <= 0 || borrowAmount > (loan?.max_borrow ?? 0)}
-                onClick={() => borrowMut.mutate(borrowAmount)}
+                disabled={borrowMut.isPending || borrowAmount <= 0 || Math.round(borrowAmount * 100) > (loan?.max_borrow ?? 0)}
+                onClick={() => borrowMut.mutate(Math.round(borrowAmount * 100))}
                 className="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs px-3 py-1.5 rounded transition-colors"
               >
                 {borrowMut.isPending ? 'Processing…' : 'Borrow'}
@@ -122,13 +121,13 @@ export default function BankPanel() {
                 type="range"
                 min="0"
                 max={maxRepay}
-                step={Math.max(1, Math.floor(maxRepay / 100))}
+                step={100}
                 value={repaySlider}
                 onChange={(e) => setRepaySlider(parseFloat(e.target.value))}
                 className="w-full accent-indigo-500"
               />
               <div className="flex justify-between text-xs text-gray-600">
-                <span>€0</span>
+                <span>{fmtMoney(0)}</span>
                 <span>{fmtMoney(maxRepay)}</span>
               </div>
             </div>

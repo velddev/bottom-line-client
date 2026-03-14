@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Play, Pause } from 'lucide-react';
 import { listResearch, startResearch, pauseResearch } from '../api';
 import Modal, { Field, Input } from '../components/Modal';
+import { fmtMoney } from '../types';
 
 const RESOURCES = ['grain', 'water', 'feed', 'cattle', 'meat', 'leather', 'food'];
 
@@ -61,7 +62,7 @@ export default function ResearchScreen() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="text-white font-semibold capitalize text-sm">{p.resource_type}</h3>
-                <p className="text-gray-500 text-xs mt-0.5">Level {p.level} · {p.workers} workers · ${p.budget_per_tick.toFixed(2)}/tick</p>
+                <p className="text-gray-500 text-xs mt-0.5">Level {p.level} · {p.workers} workers · {fmtMoney(p.budget_per_tick)}/tick</p>
               </div>
               <div className="flex items-center gap-2">
                 <span className={`text-xs px-2 py-0.5 rounded ${p.is_active ? 'text-emerald-400 bg-emerald-900/20' : 'text-gray-500 bg-gray-800'}`}>

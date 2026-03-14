@@ -72,7 +72,7 @@ export const listOfferings = (city_id: string, resource_type?: string) =>
   get<{ offerings: Offering[] }>('/market/offerings', { city_id, ...(resource_type ? { resource_type } : {}) });
 
 export const createOffering = (building_id: string, resource_type: string, price_per_unit: number, quantity: number, visibility = 'public', trade_agreement_id = '') =>
-  post<{ offering_id: string }>('/market/offerings', { building_id, resource_type, price_per_unit, quantity, visibility, trade_agreement_id });
+  post<{ offering_id: string }>('/market/offerings', { building_id, resource_type, price_per_unit: Math.round(price_per_unit * 100), quantity, visibility, trade_agreement_id });
 
 export const cancelOffering = (id: string) =>
   del<{ success: boolean }>(`/market/offerings/${id}`);
@@ -92,7 +92,10 @@ export const createAgreement = (data: {
   buyer_player_id: string; resource_type: string; discount_rate: number;
   require_non_competition: boolean; require_msrp: boolean; msrp_price: number;
   disallow_white_labeling: boolean; expires_at_tick: number;
-}) => post<{ agreement_id: string }>('/agreements', data);
+}) => post<{ agreement_id: string }>('/agreements', {
+  ...data,
+  msrp_price: Math.round(data.msrp_price * 100),
+});
 
 export const respondAgreement = (id: string, response: string) =>
   put<{ success: boolean }>(`/agreements/${id}/respond`, { response });
@@ -106,7 +109,7 @@ export const listResearch = () =>
   get<{ projects: ResearchProgress[] }>('/research');
 
 export const startResearch = (resource_type: string, workers_assigned: number, budget_per_tick: number) =>
-  post<{ project_id: string }>('/research', { resource_type, workers_assigned, budget_per_tick });
+  post<{ project_id: string }>('/research', { resource_type, workers_assigned, budget_per_tick: Math.round(budget_per_tick * 100) });
 
 export const pauseResearch = (id: string, pause: boolean) =>
   put<{ success: boolean }>(`/research/${id}/pause`, { pause });
@@ -123,7 +126,7 @@ export const getBrandValue = (id: string) =>
   get<BrandValueResponse>(`/marketing/brands/${id}/value`);
 
 export const createCampaign = (brand_id: string, campaign_name: string, budget_per_tick: number, workers_allocated: number) =>
-  post<{ campaign_id: string }>('/marketing/campaigns', { brand_id, campaign_name, budget_per_tick, workers_allocated });
+  post<{ campaign_id: string }>('/marketing/campaigns', { brand_id, campaign_name, budget_per_tick: Math.round(budget_per_tick * 100), workers_allocated });
 
 export const pauseCampaign = (id: string, pause: boolean) =>
   put<{ success: boolean }>(`/marketing/campaigns/${id}/pause`, { pause });

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Radio } from 'lucide-react';
 import type { GameEvent } from '../types';
+import { fmtMoney } from '../types';
 
 function describeEvent(e: GameEvent): { icon: string; text: string; cls: string } {
   if (e.tick_completed)
@@ -8,11 +9,11 @@ function describeEvent(e: GameEvent): { icon: string; text: string; cls: string 
   if (e.resource_produced)
     return { icon: '🏭', text: `Produced ${e.resource_produced.quantity.toFixed(1)}× ${e.resource_produced.resource_type} (Q${e.resource_produced.quality.toFixed(2)})`, cls: 'text-slate-300' };
   if (e.trade_completed)
-    return { icon: '💰', text: `Trade: ${e.trade_completed.quantity.toFixed(1)}× ${e.trade_completed.resource_type} for $${e.trade_completed.total_price.toFixed(2)}`, cls: 'text-emerald-400' };
+    return { icon: '💰', text: `Trade: ${e.trade_completed.quantity.toFixed(1)}× ${e.trade_completed.resource_type} for ${fmtMoney(e.trade_completed.total_price)}`, cls: 'text-emerald-400' };
   if (e.market_price_changed) {
     const { resource_type, old_median_price: old, new_median_price: nw } = e.market_price_changed;
     const dir = nw > old ? '↑' : '↓';
-    return { icon: '📈', text: `${resource_type}: $${old.toFixed(2)} ${dir} $${nw.toFixed(2)}`, cls: nw > old ? 'text-emerald-400' : 'text-rose-400' };
+    return { icon: '📈', text: `${resource_type}: ${fmtMoney(old)} ${dir} ${fmtMoney(nw)}`, cls: nw > old ? 'text-emerald-400' : 'text-rose-400' };
   }
   if (e.building_constructed)
     return { icon: '🏗️', text: `New ${e.building_constructed.building_type} constructed`, cls: 'text-indigo-300' };
@@ -25,7 +26,7 @@ function describeEvent(e: GameEvent): { icon: string; text: string; cls: string 
   if (e.brand_value_changed)
     return { icon: '📣', text: `Brand weight: ${e.brand_value_changed.old_weight.toFixed(3)} → ${e.brand_value_changed.new_weight.toFixed(3)}`, cls: 'text-pink-400' };
   if (e.taxes_collected)
-    return { icon: '💸', text: `Taxes collected: $${e.taxes_collected.total_collected.toFixed(2)}`, cls: 'text-orange-400' };
+    return { icon: '💸', text: `Taxes collected: ${fmtMoney(e.taxes_collected.total_collected)}`, cls: 'text-orange-400' };
   return { icon: '•', text: 'Unknown event', cls: 'text-gray-600' };
 }
 

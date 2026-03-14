@@ -265,8 +265,8 @@ export function resourceColor(r: string): string {
   return RESOURCE_COLORS[r.toLowerCase()] ?? 'text-slate-300';
 }
 
-export function fmtMoney(n: number): string {
-  return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export function fmtMoney(cents: number): string {
+  return `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function fmtPct(n: number): string {

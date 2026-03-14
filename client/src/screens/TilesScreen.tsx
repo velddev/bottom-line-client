@@ -11,7 +11,7 @@ import {
   createOffering,
 } from '../api';
 import type { TileInfo, ListTilesResponse, RecipeInfo } from '../types';
-import { BUILDING_ICONS, BUILDING_TYPES } from '../types';
+import { BUILDING_ICONS, BUILDING_TYPES, fmtMoney } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
 import BankPanel from '../components/BankPanel';
@@ -174,10 +174,16 @@ function SellModal({
   });
   const activeRecipe = (recipesResp?.recipes ?? []).find((r: RecipeInfo) => r.recipe_id === bldg?.active_recipe);
 
-  const [form, setForm] = useState({ resource_type: activeRecipe?.output_type ?? '', price: '', quantity: '', visibility: 'public' });
-  useEffect(() => { if (activeRecipe?.output_type) setForm((f) => ({ ...f, resource_type: activeRecipe.output_type })); }, [activeRecipe?.output_type]);
+  const defaultResource = buildingType === 'store' ? 'Food' : (activeRecipe?.output_type ?? '');
+  const [form, setForm] = useState({ resource_type: defaultResource, price: '', quantity: '', visibility: 'public' });
+  useEffect(() => {
+    if (buildingType === 'store') return; // store default is already set
+    if (activeRecipe?.output_type) setForm((f) => ({ ...f, resource_type: activeRecipe.output_type }));
+  }, [activeRecipe?.output_type, buildingType]);
 
-  const RESOURCES = ['Food', 'Grain', 'Water', 'AnimalFeed', 'Cattle', 'Meat', 'Leather'];
+  const CONSUMER_GOODS = ['Food', 'Meat', 'Leather'];
+  const ALL_RESOURCES  = ['Food', 'Grain', 'Water', 'AnimalFeed', 'Cattle', 'Meat', 'Leather'];
+  const RESOURCES = buildingType === 'store' ? CONSUMER_GOODS : ALL_RESOURCES;
   const mut = useMutation({
     mutationFn: () => createOffering(buildingId, form.resource_type, parseFloat(form.price), parseFloat(form.quantity), form.visibility),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['offerings'] }); onClose(); },
@@ -449,7 +455,7 @@ export default function TilesScreen() {
     setIsPurchasing(true);
     try {
       const res = await purchaseTile(selectedTile.tile_id);
-      setFlash({ ok: true, msg: `Tile purchased! Balance: €${res.new_balance.toFixed(2)}` });
+      setFlash({ ok: true, msg: `Tile purchased! Balance: ${fmtMoney(res.new_balance)}` });
       const m = mapRef.current as unknown as { _refreshTileChunk?: (t: TileInfo) => void };
       m._refreshTileChunk?.(selectedTile);
       setSelectedTile(null);
@@ -545,7 +551,7 @@ export default function TilesScreen() {
               <span className="truncate">{selectedTile.owner_name || 'Unowned'}</span>
               {hasBuilding && <StatusBadge status={selectedTile.building_status} />}
               {selectedTile.is_for_sale && (
-                <span className="text-cyan-400 shrink-0">€{selectedTile.purchase_price.toFixed(2)}</span>
+                <span className="text-cyan-400 shrink-0">{fmtMoney(selectedTile.purchase_price)}</span>
               )}
             </div>
 
@@ -568,7 +574,7 @@ export default function TilesScreen() {
               {selectedTile.is_for_sale && auth && (
                 <button disabled={isPurchasing} onClick={handlePurchase}
                   className="w-full bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 text-white text-xs font-semibold py-2 rounded transition-colors">
-                  {isPurchasing ? 'Buying…' : `Buy for €${selectedTile.purchase_price.toFixed(2)}`}
+                  {isPurchasing ? 'Buying…' : `Buy for ${fmtMoney(selectedTile.purchase_price)}`}
                 </button>
               )}
 

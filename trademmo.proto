@@ -45,15 +45,15 @@ message GameEvent {
 
 message TickCompletedEvent        { string city_id = 1; }
 message ResourceProducedEvent     { string building_id = 1; string player_id = 2; string resource_type = 3; double quantity = 4; float quality = 5; }
-message TradeCompletedEvent       { string buyer_building_id = 1; string seller_building_id = 2; string resource_type = 3; double quantity = 4; double total_price = 5; }
-message MarketPriceChangedEvent   { string city_id = 1; string resource_type = 2; double old_median_price = 3; double new_median_price = 4; }
+message TradeCompletedEvent       { string buyer_building_id = 1; string seller_building_id = 2; string resource_type = 3; double quantity = 4; int64  total_price = 5; }
+message MarketPriceChangedEvent   { string city_id = 1; string resource_type = 2; int64  old_median_price = 3; int64  new_median_price = 4; }
 message BuildingConstructedEvent  { string building_id = 1; string player_id = 2; string building_type = 3; }
 message ElectionAnnouncedEvent    { string election_id = 1; string city_id = 2; int64 voting_start_tick = 3; }
 message ElectionConcludedEvent    { string election_id = 1; string city_id = 2; string winner_player_id = 3; }
 message TradeAgreementChangedEvent{ string agreement_id = 1; string creator_player_id = 2; string buyer_player_id = 3; string new_status = 4; }
 message BrandValueChangedEvent    { string brand_id = 1; string player_id = 2; string resource_category = 3; float old_weight = 4; float new_weight = 5; }
-message TaxesCollectedEvent       { string city_id = 1; double total_collected = 2; }
-message TileChangedEvent          { string city_id = 1; string tile_id = 2; int32 grid_x = 3; int32 grid_y = 4; string owner_player_id = 5; string owner_name = 6; bool is_for_sale = 7; double purchase_price = 8; string building_id = 9; string building_name = 10; string building_type = 11; string building_status = 12; }
+message TaxesCollectedEvent       { string city_id = 1; int64  total_collected = 2; }
+message TileChangedEvent          { string city_id = 1; string tile_id = 2; int32 grid_x = 3; int32 grid_y = 4; string owner_player_id = 5; string owner_name = 6; bool is_for_sale = 7; int64  purchase_price = 8; string building_id = 9; string building_name = 10; string building_type = 11; string building_status = 12; }
 
 // ─────────────────────────────────────────
 // PlayerService
@@ -73,7 +73,7 @@ message GetProfileRequest {}
 message PlayerProfile {
   string player_id         = 1;
   string username          = 2;
-  double balance           = 3;
+  int64  balance           = 3;
   float  public_perception = 4;
   string city_id           = 5;
   int64  joined_at_tick    = 6;
@@ -177,7 +177,7 @@ message PotentialSupplier {
   int32 tile_x = 3;
   int32 tile_y = 4;
   string owner_name = 5;
-  double price_per_unit = 6;
+  int64  price_per_unit = 6;
   double quantity_available = 7;
 }
 
@@ -206,7 +206,7 @@ message Offering {
   string offering_id    = 1;
   string seller_name    = 2;
   string resource_type  = 3;
-  double price_per_unit = 4;
+  int64  price_per_unit = 4;
   double quantity       = 5;
   float  quality        = 6;
   string brand_name     = 7;
@@ -216,7 +216,7 @@ message Offering {
 message CreateOfferingRequest {
   string building_id        = 1;
   string resource_type      = 2;
-  double price_per_unit     = 3;
+  int64  price_per_unit     = 3;
   double quantity           = 4;
   string visibility         = 5;
   string trade_agreement_id = 6;
@@ -227,7 +227,7 @@ message CancelOfferingRequest  { string offering_id = 1; }
 message CancelOfferingResponse { bool success = 1; }
 
 message PurchaseRequest  { string buyer_building_id = 1; string offering_id = 2; double quantity = 3; }
-message PurchaseResponse { double total_paid = 1; float quality = 2; }
+message PurchaseResponse { int64  total_paid = 1; float quality = 2; }
 
 message GetMarketShareRequest  { string city_id = 1; string resource_type = 2; int32 history_ticks = 3; }
 message MarketShareDataPoint   { string player_id = 1; string player_name = 2; string resource_type = 3; double sale_volume = 4; float share_percent = 5; int64 tick = 6; }
@@ -250,7 +250,7 @@ message CreateAgreementRequest {
   float  discount_rate           = 3;
   bool   require_non_competition = 4;
   bool   require_msrp            = 5;
-  double msrp_price              = 6;
+  int64  msrp_price              = 6;
   bool   disallow_white_labeling = 7;
   int64  expires_at_tick         = 8;
 }
@@ -271,7 +271,7 @@ message AgreementSummary {
   string status                  = 6;
   bool   require_non_competition = 7;
   bool   require_msrp            = 8;
-  double msrp_price              = 9;
+  int64  msrp_price              = 9;
   bool   disallow_white_labeling = 10;
   int64  expires_at_tick         = 11;
 }
@@ -290,7 +290,7 @@ service ResearchService {
   rpc PauseResearch (PauseResearchRequest) returns (PauseResearchResponse);
 }
 
-message StartResearchRequest  { string resource_type = 1; int32 workers_assigned = 2; double budget_per_tick = 3; }
+message StartResearchRequest  { string resource_type = 1; int32 workers_assigned = 2; int64  budget_per_tick = 3; }
 message StartResearchResponse { string project_id = 1; }
 
 message GetResearchRequest    { string resource_type = 1; }
@@ -300,7 +300,7 @@ message ResearchProgress {
   int32  level           = 2;
   float  progress        = 3;
   bool   is_active       = 4;
-  double budget_per_tick = 5;
+  int64  budget_per_tick = 5;
   int32  workers         = 6;
 }
 
@@ -325,7 +325,7 @@ service MarketingService {
 message CreateBrandRequest  { string name = 1; string resource_type = 2; }
 message CreateBrandResponse { string brand_id = 1; }
 
-message CreateCampaignRequest  { string brand_id = 1; string campaign_name = 2; double budget_per_tick = 3; int32 workers_allocated = 4; }
+message CreateCampaignRequest  { string brand_id = 1; string campaign_name = 2; int64  budget_per_tick = 3; int32 workers_allocated = 4; }
 message CreateCampaignResponse { string campaign_id = 1; }
 
 message PauseCampaignRequest  { string campaign_id = 1; bool pause = 2; }
@@ -418,18 +418,18 @@ service BankService {
 
 message GetLoanRequest       { string city_id = 1; }
 message GetLoanResponse      {
-  double balance           = 1;
+  int64  balance           = 1;
   double interest_rate     = 2;
-  double interest_per_tick = 3;
-  double max_borrow        = 4;
-  double player_balance    = 5;
+  int64  interest_per_tick = 3;
+  int64  max_borrow        = 4;
+  int64  player_balance    = 5;
 }
 
-message BorrowCapitalRequest  { string city_id = 1; double amount = 2; }
-message BorrowCapitalResponse { double new_loan_balance = 1; double player_balance = 2; string message = 3; }
+message BorrowCapitalRequest  { string city_id = 1; int64  amount = 2; }
+message BorrowCapitalResponse { int64  new_loan_balance = 1; int64  player_balance = 2; string message = 3; }
 
-message RepayDebtRequest      { string city_id = 1; double amount = 2; }
-message RepayDebtResponse     { double new_loan_balance = 1; double player_balance = 2; string message = 3; }
+message RepayDebtRequest      { string city_id = 1; int64  amount = 2; }
+message RepayDebtResponse     { int64  new_loan_balance = 1; int64  player_balance = 2; string message = 3; }
 
 // ─────────────────────────────────────────
 // CityService
@@ -447,7 +447,7 @@ message CityInfo {
   string city_id      = 1;
   string name         = 2;
   int32  population   = 3;
-  double gdp_per_tick = 4;
+  int64  gdp_per_tick = 4;
   int64  current_tick = 5;
 }
 
@@ -459,7 +459,7 @@ message CityStats {
   string city_id        = 1;
   string name           = 2;
   int32  population     = 3;
-  double gdp_per_tick   = 4;
+  int64  gdp_per_tick   = 4;
   int64  current_tick   = 5;
   int32  building_count = 6;
   int32  player_count   = 7;
@@ -506,7 +506,7 @@ message TileInfo {
   string owner_name               = 6;
   bool   is_reserved_for_citizens = 7;
   bool   is_for_sale              = 8;
-  double purchase_price           = 9;
+  int64  purchase_price           = 9;
   string building_id              = 10;
   string building_name            = 11;
   string building_type            = 12;
@@ -524,4 +524,6 @@ message ListTilesResponse {
 
 message GetTileRequest       { string tile_id = 1; }
 message PurchaseTileRequest  { string tile_id = 1; }
-message PurchaseTileResponse { string tile_id = 1; double new_balance = 2; }
+message PurchaseTileResponse { string tile_id = 1; int64  new_balance = 2; }
+
+
