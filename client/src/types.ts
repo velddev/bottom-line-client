@@ -213,7 +213,7 @@ export interface MarketShareResponse {
 
 export const BUILDING_TYPES = ['factory', 'field', 'store', 'warehouse'] as const;
 export const BUILDING_ICONS: Record<string, string> = {
-  factory: '🏭', field: '🌾', store: '🏪', warehouse: '📦',
+  factory: '🏭', field: '🌾', store: '🏪', warehouse: '📦', landmark: '🏛️',
 };
 
 export const RESOURCE_COLORS: Record<string, string> = {

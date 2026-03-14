@@ -594,6 +594,7 @@ export default function TilesScreen() {
 
   const isMine = !!selectedTile && selectedTile.owner_player_id === auth?.player_id;
   const hasBuilding = !!selectedTile?.building_id;
+  const isLandmark = selectedTile?.building_type?.toLowerCase() === 'landmark';
 
   return (
     <>
@@ -646,8 +647,8 @@ export default function TilesScreen() {
               )}
             </div>
 
-            {/* Tab bar (only for own buildings) */}
-            {isMine && hasBuilding && (
+            {/* Tab bar (only for own non-landmark buildings) */}
+            {isMine && hasBuilding && !isLandmark && (
               <div className="flex border-b border-gray-700">
                 {(['supply', 'info'] as const).map((tab) => (
                   <button key={tab}
@@ -702,7 +703,7 @@ export default function TilesScreen() {
               )}
 
               {/* Building tabs */}
-              {isMine && hasBuilding && activeTab === 'supply' && (
+              {isMine && hasBuilding && !isLandmark && activeTab === 'supply' && (
                 <SupplySection
                   buildingId={selectedTile.building_id}
                   buildingType={selectedTile.building_type?.toLowerCase() ?? ''}
@@ -710,16 +711,21 @@ export default function TilesScreen() {
                 />
               )}
 
-              {isMine && hasBuilding && activeTab === 'info' && (
+              {isMine && hasBuilding && !isLandmark && activeTab === 'info' && (
                 <div className="space-y-2 text-xs">
                   <p className="text-gray-400">Type: <span className="text-white capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
                   <p className="text-gray-400">Status: <StatusBadge status={selectedTile.building_status} /></p>
                 </div>
               )}
+
+              {/* Government landmark — read-only display */}
+              {isLandmark && (
+                <p className="text-xs text-gray-500">🏛️ Government landmark — not available for purchase or development.</p>
+              )}
             </div>
 
-            {/* Action bar for own buildings */}
-            {isMine && hasBuilding && (
+            {/* Action bar for own non-landmark buildings */}
+            {isMine && hasBuilding && !isLandmark && (
               <div className="border-t border-gray-700 px-4 py-2 flex gap-2">
                 <button onClick={() => setConfigTarget(selectedTile)}
                   className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
