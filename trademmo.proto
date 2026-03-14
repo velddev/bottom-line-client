@@ -105,6 +105,8 @@ service BuildingService {
   rpc AddSupplyLink (AddSupplyLinkRequest) returns (AddSupplyLinkResponse);
   rpc RemoveSupplyLink (RemoveSupplyLinkRequest) returns (RemoveSupplyLinkResponse);
   rpc ListPotentialSuppliers (ListPotentialSuppliersRequest) returns (ListPotentialSuppliersResponse);
+  rpc GetAutoSellConfigs (GetAutoSellConfigsRequest) returns (GetAutoSellConfigsResponse);
+  rpc SetAutoSellConfig  (SetAutoSellConfigRequest)  returns (SetAutoSellConfigResponse);
 }
 
 message ConstructRequest  { string city_id = 1; string building_type = 2; string name = 3; string tile_id = 4; }
@@ -186,6 +188,21 @@ message ListPotentialSuppliersRequest {
   string resource_type = 2;
 }
 message ListPotentialSuppliersResponse { repeated PotentialSupplier suppliers = 1; }
+
+message GetAutoSellConfigsRequest  { string building_id = 1; }
+message GetAutoSellConfigsResponse { repeated AutoSellConfigInfo configs = 1; }
+message AutoSellConfigInfo {
+  string resource_type  = 1;
+  int64  price_per_unit = 2;
+  bool   is_enabled     = 3;
+}
+message SetAutoSellConfigRequest {
+  string building_id    = 1;
+  string resource_type  = 2;
+  int64  price_per_unit = 3;
+  bool   is_enabled     = 4;
+}
+message SetAutoSellConfigResponse { bool success = 1; }
 
 // ─────────────────────────────────────────
 // MarketService

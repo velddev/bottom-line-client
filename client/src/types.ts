@@ -244,6 +244,12 @@ export interface PotentialSupplier {
   quantity_available: number;
 }
 
+export interface AutoSellConfigInfo {
+  resource_type: string;
+  price_per_unit: number;
+  is_enabled: boolean;
+}
+
 // ─── UI helpers ───────────────────────────────────────────────────────────
 
 export const BUILDING_TYPES = ['factory', 'field', 'store', 'warehouse'] as const;

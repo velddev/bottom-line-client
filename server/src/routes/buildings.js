@@ -42,6 +42,20 @@ router.get('/potential-suppliers', handle(async (req) => {
   return rpc(stubs.building, 'ListPotentialSuppliers', { city_id, resource_type }, getApiKey(req));
 }));
 
+router.get('/:id/auto-sell', handle(async (req) => {
+  return rpc(stubs.building, 'GetAutoSellConfigs', { building_id: req.params.id }, getApiKey(req));
+}));
+
+router.put('/:id/auto-sell', handle(async (req) => {
+  const { resource_type, price_per_unit, is_enabled } = req.body;
+  return rpc(stubs.building, 'SetAutoSellConfig', {
+    building_id: req.params.id,
+    resource_type,
+    price_per_unit,
+    is_enabled,
+  }, getApiKey(req));
+}));
+
 router.get('/:id', handle(async (req) => {
   return rpc(stubs.building, 'GetStatus', { building_id: req.params.id }, getApiKey(req));
 }));

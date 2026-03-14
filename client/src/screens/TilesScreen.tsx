@@ -16,6 +16,7 @@ import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
 import BankPanel from '../components/BankPanel';
 import SupplySection from '../components/SupplySection';
+import AutoSellSection from '../components/AutoSellSection';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 const CHUNK_SIZE = 20;
@@ -162,6 +163,7 @@ function SellModal({
   buildingId, buildingType, cityId, onClose,
 }: { buildingId: string; buildingType: string; cityId: string; onClose: () => void }) {
   const qc = useQueryClient();
+  const [tab, setTab] = useState<'manual' | 'auto'>('auto');
   const { data: recipesResp } = useQuery({
     queryKey: ['recipes', buildingType],
     queryFn: () => listRecipes(buildingType),
@@ -177,7 +179,7 @@ function SellModal({
   const defaultResource = buildingType === 'store' ? 'Food' : (activeRecipe?.output_type ?? '');
   const [form, setForm] = useState({ resource_type: defaultResource, price: '', quantity: '', visibility: 'public' });
   useEffect(() => {
-    if (buildingType === 'store') return; // store default is already set
+    if (buildingType === 'store') return;
     if (activeRecipe?.output_type) setForm((f) => ({ ...f, resource_type: activeRecipe.output_type }));
   }, [activeRecipe?.output_type, buildingType]);
 
@@ -191,35 +193,53 @@ function SellModal({
 
   return (
     <Modal
-      title="Create Market Offering"
+      title="Sell"
       onClose={onClose}
-      onSubmit={() => mut.mutate()}
+      onSubmit={tab === 'manual' ? () => mut.mutate() : undefined}
       submitLabel={mut.isPending ? 'Listing…' : 'List for Sale'}
-      submitDisabled={mut.isPending || !form.resource_type || !form.price || !form.quantity}
+      submitDisabled={tab === 'manual' && (mut.isPending || !form.resource_type || !form.price || !form.quantity)}
     >
-      <Field label="Resource">
-        <Select value={form.resource_type} onChange={(e) => setForm((f) => ({ ...f, resource_type: e.target.value }))}>
-          <option value="">— Select —</option>
-          {RESOURCES.map((r) => <option key={r} value={r} className="capitalize">{r}</option>)}
-        </Select>
-      </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Price / Unit">
-          <Input type="number" min="0" step="0.01" placeholder="0.00" value={form.price}
-            onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} />
-        </Field>
-        <Field label="Quantity">
-          <Input type="number" min="0.1" step="0.1" placeholder="100" value={form.quantity}
-            onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />
-        </Field>
+      {/* Tab bar */}
+      <div className="flex gap-1 mb-3 -mt-1">
+        {(['auto', 'manual'] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`flex-1 text-xs py-1.5 rounded transition-colors ${tab === t ? 'bg-indigo-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200'}`}>
+            {t === 'auto' ? '🔄 Auto-Sell' : '📋 Manual Listing'}
+          </button>
+        ))}
       </div>
-      <Field label="Visibility">
-        <Select value={form.visibility} onChange={(e) => setForm((f) => ({ ...f, visibility: e.target.value }))}>
-          <option value="public">Public</option>
-          <option value="private">Private (agreement only)</option>
-        </Select>
-      </Field>
-      {mut.isError && <p className="text-rose-400 text-xs">{(mut.error as Error).message}</p>}
+
+      {tab === 'auto' && (
+        <AutoSellSection buildingId={buildingId} buildingType={buildingType} />
+      )}
+
+      {tab === 'manual' && (
+        <>
+          <Field label="Resource">
+            <Select value={form.resource_type} onChange={(e) => setForm((f) => ({ ...f, resource_type: e.target.value }))}>
+              <option value="">— Select —</option>
+              {RESOURCES.map((r) => <option key={r} value={r} className="capitalize">{r}</option>)}
+            </Select>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Price / Unit">
+              <Input type="number" min="0" step="0.01" placeholder="0.00" value={form.price}
+                onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} />
+            </Field>
+            <Field label="Quantity">
+              <Input type="number" min="0.1" step="0.1" placeholder="100" value={form.quantity}
+                onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />
+            </Field>
+          </div>
+          <Field label="Visibility">
+            <Select value={form.visibility} onChange={(e) => setForm((f) => ({ ...f, visibility: e.target.value }))}>
+              <option value="public">Public</option>
+              <option value="private">Private (agreement only)</option>
+            </Select>
+          </Field>
+          {mut.isError && <p className="text-rose-400 text-xs">{(mut.error as Error).message}</p>}
+        </>
+      )}
     </Modal>
   );
 }

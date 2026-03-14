@@ -3,7 +3,7 @@ import type {
   AgreementSummary, ResearchProgress, BrandSummary, BrandValueResponse,
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
-  SupplyLinkInfo, PotentialSupplier,
+  SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo,
 } from './types';
 
 const BASE = '/api';
@@ -203,3 +203,9 @@ export const removeSupplyLink = (linkId: string) =>
 
 export const listPotentialSuppliers = (cityId: string, resourceType: string) =>
   get<{ suppliers: PotentialSupplier[] }>(`/buildings/potential-suppliers?city_id=${cityId}&resource_type=${resourceType}`);
+
+export const getAutoSellConfigs = (buildingId: string) =>
+  get<{ configs: AutoSellConfigInfo[] }>(`/buildings/${buildingId}/auto-sell`);
+
+export const setAutoSellConfig = (buildingId: string, resource_type: string, price_per_unit: number, is_enabled: boolean) =>
+  put<{ success: boolean }>(`/buildings/${buildingId}/auto-sell`, { resource_type, price_per_unit, is_enabled });
