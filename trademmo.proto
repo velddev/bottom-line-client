@@ -363,6 +363,31 @@ message EnactPolicyRequest {
 message EnactPolicyResponse { bool success = 1; string message = 2; }
 
 // ─────────────────────────────────────────
+// BankService
+// ─────────────────────────────────────────
+
+service BankService {
+  rpc GetLoan       (GetLoanRequest)       returns (GetLoanResponse);
+  rpc BorrowCapital (BorrowCapitalRequest) returns (BorrowCapitalResponse);
+  rpc RepayDebt     (RepayDebtRequest)     returns (RepayDebtResponse);
+}
+
+message GetLoanRequest       { string city_id = 1; }
+message GetLoanResponse      {
+  double balance           = 1;
+  double interest_rate     = 2;
+  double interest_per_tick = 3;
+  double max_borrow        = 4;
+  double player_balance    = 5;
+}
+
+message BorrowCapitalRequest  { string city_id = 1; double amount = 2; }
+message BorrowCapitalResponse { double new_loan_balance = 1; double player_balance = 2; string message = 3; }
+
+message RepayDebtRequest      { string city_id = 1; double amount = 2; }
+message RepayDebtResponse     { double new_loan_balance = 1; double player_balance = 2; string message = 3; }
+
+// ─────────────────────────────────────────
 // CityService
 // ─────────────────────────────────────────
 

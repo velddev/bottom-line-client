@@ -14,6 +14,7 @@ import type { TileInfo, ListTilesResponse, RecipeInfo, Offering } from '../types
 import { BUILDING_ICONS, BUILDING_TYPES, fmtMoney, fmtQuality } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
+import BankPanel from '../components/BankPanel';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 const CHUNK_SIZE = 20;
@@ -607,6 +608,8 @@ export default function TilesScreen() {
   const isMine = !!selectedTile && selectedTile.owner_player_id === auth?.player_id;
   const hasBuilding = !!selectedTile?.building_id;
   const isLandmark = selectedTile?.building_type?.toLowerCase() === 'landmark';
+  const isBank = selectedTile?.building_type?.toLowerCase() === 'bank';
+  const isGovBuilding = isLandmark || isBank;
 
   return (
     <>
@@ -660,7 +663,7 @@ export default function TilesScreen() {
             </div>
 
             {/* Tab bar (only for own non-landmark buildings) */}
-            {isMine && hasBuilding && !isLandmark && (
+            {isMine && hasBuilding && !isGovBuilding && (
               <div className="flex border-b border-gray-700">
                 {(['supply', 'info'] as const).map((tab) => (
                   <button key={tab}
@@ -715,7 +718,7 @@ export default function TilesScreen() {
               )}
 
               {/* Building tabs */}
-              {isMine && hasBuilding && !isLandmark && activeTab === 'supply' && (
+              {isMine && hasBuilding && !isGovBuilding && activeTab === 'supply' && (
                 <SupplySection
                   buildingId={selectedTile.building_id}
                   buildingType={selectedTile.building_type?.toLowerCase() ?? ''}
@@ -723,7 +726,7 @@ export default function TilesScreen() {
                 />
               )}
 
-              {isMine && hasBuilding && !isLandmark && activeTab === 'info' && (
+              {isMine && hasBuilding && !isGovBuilding && activeTab === 'info' && (
                 <div className="space-y-2 text-xs">
                   <p className="text-gray-400">Type: <span className="text-white capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
                   <p className="text-gray-400">Status: <StatusBadge status={selectedTile.building_status} /></p>
@@ -732,10 +735,11 @@ export default function TilesScreen() {
 
               {/* Government landmark — politics panel */}
               {isLandmark && <PoliticsPanel />}
+              {isBank     && <BankPanel />}
             </div>
 
             {/* Action bar for own non-landmark buildings */}
-            {isMine && hasBuilding && !isLandmark && (
+            {isMine && hasBuilding && !isGovBuilding && (
               <div className="border-t border-gray-700 px-4 py-2 flex gap-2">
                 <button onClick={() => setConfigTarget(selectedTile)}
                   className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">

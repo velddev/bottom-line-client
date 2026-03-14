@@ -2,7 +2,7 @@ import type {
   PlayerProfile, BuildingStatus, RecipeInfo, Offering,
   AgreementSummary, ResearchProgress, BrandSummary, BrandValueResponse,
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
-  TileInfo, ListTilesResponse, MarketShareResponse,
+  TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
 } from './types';
 
 const BASE = '/api';
@@ -140,6 +140,17 @@ export const runForElection = (election_id: string) =>
 
 export const enactPolicy = (city_id: string, consumer_tax_rate: number, profit_tax_rate: number, land_tax_rate: number, employee_tax_rate: number) =>
   post<{ success: boolean; message: string }>('/politics/policy', { city_id, consumer_tax_rate, profit_tax_rate, land_tax_rate, employee_tax_rate });
+
+// ─── Bank ─────────────────────────────────────────────────────────────────
+
+export const getLoan = (city_id: string) =>
+  get<LoanInfo>('/bank/loan', { city_id });
+
+export const borrowCapital = (city_id: string, amount: number) =>
+  post<LoanActionResponse>('/bank/borrow', { city_id, amount });
+
+export const repayDebt = (city_id: string, amount: number) =>
+  post<LoanActionResponse>('/bank/repay', { city_id, amount });
 
 // ─── Cities ───────────────────────────────────────────────────────────────────
 

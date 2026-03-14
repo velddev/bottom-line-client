@@ -9,6 +9,7 @@ import agreementRoutes from './routes/agreements.js';
 import researchRoutes  from './routes/research.js';
 import marketingRoutes from './routes/marketing.js';
 import politicsRoutes  from './routes/politics.js';
+import bankRoutes      from './routes/bank.js';
 import eventsRoutes    from './routes/events.js';
 
 const app = express();
@@ -24,6 +25,7 @@ app.use('/api/agreements', agreementRoutes);
 app.use('/api/research',   researchRoutes);
 app.use('/api/marketing',  marketingRoutes);
 app.use('/api/politics',   politicsRoutes);
+app.use('/api/bank',      bankRoutes);
 app.use('/api/events',     eventsRoutes);
 
 // eslint-disable-next-line no-unused-vars

@@ -30,6 +30,7 @@ export const stubs = {
   research:  new proto.ResearchService(TARGET, creds),
   marketing: new proto.MarketingService(TARGET, creds),
   politics:  new proto.PoliticsService(TARGET, creds),
+  bank:      new proto.BankService(TARGET, creds),
   events:    new proto.GameEventService(TARGET, creds),
 };
 

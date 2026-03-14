@@ -209,11 +209,25 @@ export interface MarketShareResponse {
   data: MarketShareDataPoint[];
 }
 
+export interface LoanInfo {
+  balance: number;
+  interest_rate: number;
+  interest_per_tick: number;
+  max_borrow: number;
+  player_balance: number;
+}
+
+export interface LoanActionResponse {
+  new_loan_balance: number;
+  player_balance: number;
+  message: string;
+}
+
 // ─── UI helpers ───────────────────────────────────────────────────────────
 
 export const BUILDING_TYPES = ['factory', 'field', 'store', 'warehouse'] as const;
 export const BUILDING_ICONS: Record<string, string> = {
-  factory: '🏭', field: '🌾', store: '🏪', warehouse: '📦', landmark: '🏛️',
+  factory: '🏭', field: '🌾', store: '🏪', warehouse: '📦', landmark: '🏛️', bank: '🏦',
 };
 
 export const RESOURCE_COLORS: Record<string, string> = {
