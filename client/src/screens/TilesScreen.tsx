@@ -9,12 +9,12 @@ import type { TileInfo, ListTilesResponse } from '../types';
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 const CHUNK_SIZE = 20;
 
+// Muted, dark-mode tile colors
 function tileColor(tile: TileInfo, myPlayerId: string): string {
-  if (tile.is_reserved_for_citizens) return '#374151';
-  if (tile.owner_player_id === myPlayerId) return '#059669';
-  if (tile.owner_player_id && tile.owner_player_id !== GOVERNMENT_ID) return '#d97706';
-  if (tile.is_for_sale) return '#0891b2';
-  return '#1e3a5f';
+  if (tile.owner_player_id === myPlayerId) return '#166534';      // muted green
+  if (tile.owner_player_id && tile.owner_player_id !== GOVERNMENT_ID) return '#92400e'; // muted amber
+  if (tile.is_for_sale) return '#1e3a5f';                          // muted navy
+  return '#1f2937';                                                 // government-owned
 }
 
 type TileMeta = Pick<ListTilesResponse,
@@ -39,17 +39,11 @@ function boundsToGrid(bounds: LatLngBounds, meta: TileMeta) {
   };
 }
 
-/** Canvas-based tile renderer — follows L.Renderer pattern for correct culling */
-const CANVAS_PADDING = 0.1; // 10% padding outside viewport
-
-function getCanvasBounds(map: LeafletMap) {
-  const size = map.getSize();
-  const min = map.containerPointToLayerPoint(size.multiplyBy(-CANVAS_PADDING)).round();
-  const max = map.containerPointToLayerPoint(size.multiplyBy(1 + CANVAS_PADDING)).round();
-  return { min, max, size: max.subtract(min) };
-}
-
-function TileCanvas({
+/**
+ * Renders land tiles using Leaflet's native L.Rectangle + L.canvas() renderer.
+ * Leaflet owns all coordinate transforms — zero parallax by construction.
+ */
+function TileLayer_({
   cityId, meta, myPlayerId,
   selectedTile, onSelect,
 }: {
@@ -60,82 +54,55 @@ function TileCanvas({
   onSelect: (t: TileInfo | null) => void;
 }) {
   const map = useMap();
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const cacheRef = useRef<Map<string, TileInfo>>(new Map());
-  const fetchedRef = useRef<Set<string>>(new Set());
+  const cacheRef    = useRef<Map<string, TileInfo>>(new Map());
+  const fetchedRef  = useRef<Set<string>>(new Set());
   const fetchingRef = useRef<Set<string>>(new Set());
-  // Track committed draw state for zoomanim transform computation
-  const committedRef = useRef({ zoom: 0, topLeft: L.latLng(0, 0) });
-  const stateRef = useRef({ selectedTile, onSelect, meta, cityId, myPlayerId });
+  const layerRef    = useRef<L.LayerGroup | null>(null);
+  const rendererRef = useRef<L.Canvas | null>(null);
+  const stateRef    = useRef({ selectedTile, onSelect, meta, cityId, myPlayerId });
   useEffect(() => { stateRef.current = { selectedTile, onSelect, meta, cityId, myPlayerId }; });
 
-  // ── Draw ─────────────────────────────────────────────────────────────────
-  // Follows Leaflet's L.Renderer pattern:
-  //   1. Size canvas to padded viewport bounds in layer coordinates
-  //   2. Position canvas with setPosition(min) so canvas origin = layer min
-  //   3. Translate ctx by -min → drawing at latLngToLayerPoint() coords works
-  //   4. Reset CSS transform (cleared after any zoomanim)
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  // ── Redraw visible tiles ───────────────────────────────────────────────────
+  const redraw = useCallback(() => {
+    const layer    = layerRef.current;
+    const renderer = rendererRef.current;
+    if (!layer || !renderer) return;
 
     const { meta, selectedTile, myPlayerId } = stateRef.current;
     const zoom = map.getZoom();
-    const cb = getCanvasBounds(map);
 
-    // Resize and reposition canvas within overlayPane
-    canvas.width  = cb.size.x;
-    canvas.height = cb.size.y;
-    L.DomUtil.setPosition(canvas, cb.min);
-    L.DomUtil.setTransform(canvas, new L.Point(0, 0), 1); // clear zoomanim CSS
-
-    // Store committed state for zoomanim
-    committedRef.current = {
-      zoom,
-      topLeft: map.layerPointToLatLng(cb.min),
-    };
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    layer.clearLayers();
     if (zoom < 14) return;
 
     const gv = boundsToGrid(map.getBounds(), meta);
 
-    ctx.save();
-    ctx.translate(-cb.min.x, -cb.min.y); // now drawing at layer coords
     for (let x = gv.minX; x <= gv.maxX; x++) {
       for (let y = gv.minY; y <= gv.maxY; y++) {
         const tile = cacheRef.current.get(`${x}_${y}`);
+        // Skip unknown tiles and citizen-reserved tiles (transparent)
         if (!tile || tile.is_reserved_for_citizens) continue;
 
         const sw = gridToLatLon(x,     y,     meta);
         const ne = gridToLatLon(x + 1, y + 1, meta);
-        const pSW = map.latLngToLayerPoint([sw.lat, sw.lon]);
-        const pNE = map.latLngToLayerPoint([ne.lat, ne.lon]);
+        const isSelected = selectedTile?.tile_id === tile.tile_id;
 
-        const px = Math.round(pSW.x);
-        const py = Math.round(pNE.y);
-        const pw = Math.round(pNE.x - pSW.x);
-        const ph = Math.round(pSW.y - pNE.y);
-
-        ctx.globalAlpha = 0.6;
-        ctx.fillStyle = tileColor(tile, myPlayerId);
-        ctx.fillRect(px, py, pw, ph);
-
-        if (selectedTile?.tile_id === tile.tile_id) {
-          ctx.globalAlpha = 1;
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
-        }
+        L.rectangle(
+          [[sw.lat, sw.lon], [ne.lat, ne.lon]],
+          {
+            renderer,
+            fillColor: tileColor(tile, myPlayerId),
+            fillOpacity: 0.55,
+            stroke: isSelected,
+            color: '#f9fafb',
+            weight: 2,
+            interactive: false,
+          },
+        ).addTo(layer);
       }
     }
-    ctx.restore();
-    ctx.globalAlpha = 1;
   }, [map]);
 
-  // ── Chunk fetch ───────────────────────────────────────────────────────────
+  // ── Chunk fetch ────────────────────────────────────────────────────────────
   const fetchMissing = useCallback(async () => {
     const { meta, cityId } = stateRef.current;
     const gv = boundsToGrid(map.getBounds(), meta);
@@ -149,7 +116,7 @@ function TileCanvas({
       }
     }
 
-    if (!toFetch.length) return;
+    if (!toFetch.length) { redraw(); return; }
 
     await Promise.all(toFetch.map(async ({ cx, cy }) => {
       const key = `${cx}_${cy}`;
@@ -167,44 +134,19 @@ function TileCanvas({
       }
     }));
 
-    draw();
-  }, [map, draw]);
+    redraw();
+  }, [map, redraw]);
 
-  // ── Canvas setup & event wiring ───────────────────────────────────────────
+  // ── Setup ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const container = map.getContainer();
-    const overlayPane = map.getPanes().overlayPane;
+    // Shared canvas renderer — all rectangles paint on one <canvas> element
+    const renderer = L.canvas({ padding: 0.1 });
+    const layer    = L.layerGroup().addTo(map);
+    rendererRef.current = renderer;
+    layerRef.current    = layer;
 
-    const canvas = document.createElement('canvas');
-    canvas.style.cssText = 'position:absolute;pointer-events:none;';
-    overlayPane.appendChild(canvas);
-    canvasRef.current = canvas;
-
-    const onViewChange = () => { fetchMissing(); draw(); };
-
-    const resizeObserver = new ResizeObserver(() => {
-      if (map.getSize().x === 0) return;
-      map.invalidateSize();
-      draw();
-    });
-    resizeObserver.observe(container);
-
-    // During zoom animation apply the same transform Leaflet's L.Renderer uses:
-    //   offset = _latLngToNewLayerPoint(canvasTopLeft, newZoom, newCenter)
-    //   scale  = getZoomScale(newZoom, committedZoom)
-    // This CSS-scales the canvas in exact sync with the OSM tile layer.
-    const onZoomAnim = (e: L.ZoomAnimEvent) => {
-      const m = map as unknown as {
-        _latLngToNewLayerPoint(ll: L.LatLng, zoom: number, center: L.LatLng): L.Point;
-      };
-      const { zoom: committedZoom, topLeft } = committedRef.current;
-      const scale  = map.getZoomScale(e.zoom, committedZoom);
-      const offset = m._latLngToNewLayerPoint(topLeft, e.zoom, e.center);
-      L.DomUtil.setTransform(canvas, offset, scale);
-    };
-
-    map.on('zoomanim', onZoomAnim as L.LeafletEventHandlerFn);
-    map.on('viewreset moveend', onViewChange);
+    const onViewChange = () => fetchMissing();
+    map.on('moveend zoomend', onViewChange);
 
     const onClick = (e: L.LeafletMouseEvent) => {
       const { meta, onSelect } = stateRef.current;
@@ -212,15 +154,15 @@ function TileCanvas({
       const gx = Math.floor((lng - meta.tile_origin_lon) / (meta.tile_size_meters / 67_600));
       const gy = Math.floor((lat - meta.tile_origin_lat) / (meta.tile_size_meters / 111_000));
       if (gx < 0 || gx >= meta.tile_grid_cols || gy < 0 || gy >= meta.tile_grid_rows) {
-        onSelect(null);
-        return;
+        onSelect(null); return;
       }
       const tile = cacheRef.current.get(`${gx}_${gy}`);
-      const cur = stateRef.current.selectedTile;
+      const cur  = stateRef.current.selectedTile;
       onSelect(tile ? (cur?.tile_id === tile.tile_id ? null : tile) : null);
     };
     map.on('click', onClick);
 
+    // Expose chunk-refresh hook for post-purchase invalidation
     (map as unknown as { _refreshTileChunk?: (t: TileInfo) => void })._refreshTileChunk =
       (tile: TileInfo) => {
         const cx = Math.floor(tile.grid_x / CHUNK_SIZE);
@@ -232,19 +174,16 @@ function TileCanvas({
     fetchMissing();
 
     return () => {
-      resizeObserver.disconnect();
-      map.off('zoomanim', onZoomAnim as L.LeafletEventHandlerFn);
-      map.off('viewreset moveend', onViewChange);
+      map.off('moveend zoomend', onViewChange);
       map.off('click', onClick);
-      canvas.remove();
-      canvasRef.current = null;
+      layer.remove();
     };
-  }, [map, draw, fetchMissing]); // eslint-disable-line
+  }, [map, fetchMissing]); // eslint-disable-line
 
-  // Redraw when selectedTile changes
-  useEffect(() => { draw(); }, [selectedTile, draw]);
+  // Redraw when selection changes (updates stroke on selected tile)
+  useEffect(() => { redraw(); }, [selectedTile, redraw]);
 
-  return null; // all rendering is on the canvas
+  return null;
 }
 
 export default function TilesScreen() {
@@ -257,7 +196,7 @@ export default function TilesScreen() {
   const cityId = auth?.city_id ?? citiesData?.cities?.[0]?.city_id ?? '';
 
   const [selectedTile, setSelectedTile] = useState<TileInfo | null>(null);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg]   = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isPurchasing, setIsPurchasing] = useState(false);
 
@@ -307,12 +246,12 @@ export default function TilesScreen() {
         </div>
         <div className="flex gap-3 text-xs text-gray-300">
           {[
-            { color: '#0891b2', label: 'For sale' },
-            { color: '#059669', label: 'Yours' },
-            { color: '#d97706', label: "Other player's" },
+            { color: '#1e3a5f', label: 'For sale' },
+            { color: '#166534', label: 'Yours' },
+            { color: '#92400e', label: "Other player's" },
           ].map(({ color, label }) => (
             <span key={label} className="flex items-center gap-1">
-              <span className="inline-block w-3 h-3 rounded-sm" style={{ background: color }} />
+              <span className="inline-block w-3 h-3 rounded-sm" style={{ background: color, opacity: 0.8 }} />
               {label}
             </span>
           ))}
@@ -339,15 +278,15 @@ export default function TilesScreen() {
             style={{ minHeight: '500px' }}
             ref={mapRef}
           >
-            {/* CartoDB Positron — clean, minimal, dark-UI friendly */}
+            {/* CartoDB Dark Matter — minimal dark map, grid lines visible */}
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
               subdomains="abcd"
               maxZoom={20}
             />
             {cityId && (
-              <TileCanvas
+              <TileLayer_
                 cityId={cityId}
                 meta={meta}
                 myPlayerId={auth?.player_id ?? ''}
