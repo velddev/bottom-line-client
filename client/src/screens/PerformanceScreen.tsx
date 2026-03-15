@@ -88,6 +88,7 @@ export default function PerformanceScreen() {
     'Marketing':          s.marketing_spend_cents,
     'Research':           s.research_spend_cents,
     'Loan Interest':      s.loan_interest_cents,
+    'Transport':          s.transport_fees_cents,
   }));
 
   if (isLoading) return <div className="text-gray-600 text-sm animate-pulse">Loading performance data…</div>;
@@ -208,6 +209,7 @@ export default function PerformanceScreen() {
                   <th className="text-right py-2 px-2">Marketing</th>
                   <th className="text-right py-2 px-2">Research</th>
                   <th className="text-right py-2 px-2">Loan Int.</th>
+                  <th className="text-right py-2 px-2">Transport</th>
                   <th className="text-right py-2 px-2">Total Exp</th>
                   <th className="text-right py-2 px-2 font-semibold">Net Profit</th>
                   <th className="text-right py-2 px-2">Balance</th>
@@ -226,6 +228,7 @@ export default function PerformanceScreen() {
                     <td className="py-1.5 px-2 text-right text-violet-400">{fmtMoney(s.marketing_spend_cents)}</td>
                     <td className="py-1.5 px-2 text-right text-blue-400">{fmtMoney(s.research_spend_cents)}</td>
                     <td className="py-1.5 px-2 text-right text-gray-600">{fmtMoney(s.loan_interest_cents)}</td>
+                    <td className="py-1.5 px-2 text-right text-yellow-600">{fmtMoney(s.transport_fees_cents)}</td>
                     <td className="py-1.5 px-2 text-right text-orange-400 font-medium">{fmtMoney(s.total_expenses_cents)}</td>
                     <td className={`py-1.5 px-2 text-right font-semibold ${s.net_profit_cents >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                       {fmtMoney(s.net_profit_cents)}
