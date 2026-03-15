@@ -907,6 +907,7 @@ message CompanyTickSnapshot {
   int64 marketing_spend_cents         = 7;   // active campaign budget deducted
   int64 research_spend_cents          = 8;   // research project budget deducted
   int64 loan_interest_cents           = 9;   // loan interest payments
+  int64 transport_fees_cents          = 15;  // distance-based supply-chain transport fees (to gov treasury)
 
   // Totals
   int64 total_revenue_cents           = 10;
