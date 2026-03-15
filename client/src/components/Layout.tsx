@@ -6,6 +6,7 @@ import { useAuth } from '../auth';
 import { getProfile, getCityStats } from '../api';
 import { fmtMoney } from '../types';
 import { useTickRefresh } from '../hooks/useTickRefresh';
+import EventFeed from './EventFeed';
 
 const NAV = [
   { to: '/dashboard',    label: 'Dashboard'    },
@@ -125,6 +126,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <main className={`flex-1 min-h-0 ${isMapPage ? 'overflow-hidden flex flex-col' : 'overflow-y-auto p-6'}`}>
         {children}
       </main>
+
+      {/* ── Live event feed ─────────────────────────────────────────────────── */}
+      {auth?.city_id && <EventFeed cityId={auth.city_id} apiKey={auth.api_key} />}
     </div>
   );
 }

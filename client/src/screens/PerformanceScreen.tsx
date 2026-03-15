@@ -32,8 +32,8 @@ function CustomTooltip({ active, payload, label }: {
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-slate-800 border border-slate-600 rounded p-2 text-xs space-y-1">
-      <p className="font-semibold text-slate-300">Tick {label}</p>
+    <div className="bg-gray-900 border border-gray-700 rounded p-2 text-xs space-y-1">
+      <p className="font-semibold text-gray-300">Tick {label}</p>
       {payload.map((p) => (
         <p key={p.name} style={{ color: p.color }}>
           {p.name}: {dollar(p.value)}
@@ -47,10 +47,10 @@ function StatCard({ label, value, sub, color = 'text-white' }: {
   label: string; value: string; sub?: string; color?: string;
 }) {
   return (
-    <div className="bg-slate-800 rounded-lg p-4 space-y-1">
-      <p className="text-xs text-slate-400">{label}</p>
+    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-1">
+      <p className="text-xs text-gray-400">{label}</p>
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
-      {sub && <p className="text-xs text-slate-500">{sub}</p>}
+      {sub && <p className="text-xs text-gray-500">{sub}</p>}
     </div>
   );
 }
@@ -90,13 +90,13 @@ export default function PerformanceScreen() {
     'Loan Interest':      s.loan_interest_cents,
   }));
 
-  if (isLoading) return <div className="p-6 text-slate-400">Loading performance data…</div>;
-  if (error)     return <div className="p-6 text-red-400">Failed to load performance data.</div>;
+  if (isLoading) return <div className="text-gray-400 text-sm animate-pulse">Loading performance data…</div>;
+  if (error)     return <div className="text-rose-400 text-sm">Failed to load performance data.</div>;
 
   return (
-    <div className="p-4 space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white">Company Performance</h1>
-      <p className="text-slate-400 text-sm">Last {LIMIT} ticks — refreshes every 15 s</p>
+      <p className="text-gray-500 text-sm">Last {LIMIT} ticks — refreshes every 15 s</p>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -124,13 +124,13 @@ export default function PerformanceScreen() {
       </div>
 
       {snapshots.length === 0 && (
-        <p className="text-slate-500 text-sm">No tick data yet — wait for the next game tick to see data.</p>
+        <p className="text-gray-500 text-sm">No tick data yet — wait for the next game tick to see data.</p>
       )}
 
       {/* Balance over time */}
       {chartData.length > 0 && (
-        <div className="bg-slate-800 rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-slate-300 mb-3">Balance Over Time</h2>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <h2 className="text-sm font-semibold text-gray-300 mb-3">Balance Over Time</h2>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
               <defs>
@@ -139,9 +139,9 @@ export default function PerformanceScreen() {
                   <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="tick" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-              <YAxis tickFormatter={shortDollar} tick={{ fill: '#94a3b8', fontSize: 10 }} width={60} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+              <XAxis dataKey="tick" tick={{ fill: '#6b7280', fontSize: 10 }} />
+              <YAxis tickFormatter={shortDollar} tick={{ fill: '#6b7280', fontSize: 10 }} width={60} />
               <Tooltip content={<CustomTooltip />} />
               <Area type="monotone" dataKey="Balance" stroke="#38bdf8" fill="url(#balGrad)" strokeWidth={2} dot={false} />
             </AreaChart>
@@ -151,15 +151,15 @@ export default function PerformanceScreen() {
 
       {/* Revenue vs Expenses vs Profit per tick */}
       {chartData.length > 0 && (
-        <div className="bg-slate-800 rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-slate-300 mb-3">Revenue / Expenses / Profit per Tick</h2>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <h2 className="text-sm font-semibold text-gray-300 mb-3">Revenue / Expenses / Profit per Tick</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="tick" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-              <YAxis tickFormatter={shortDollar} tick={{ fill: '#94a3b8', fontSize: 10 }} width={60} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+              <XAxis dataKey="tick" tick={{ fill: '#6b7280', fontSize: 10 }} />
+              <YAxis tickFormatter={shortDollar} tick={{ fill: '#6b7280', fontSize: 10 }} width={60} />
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />
+              <Legend wrapperStyle={{ fontSize: 11, color: '#6b7280' }} />
               <Bar dataKey="Revenue"  fill="#38bdf8" stackId="a" />
               <Bar dataKey="Expenses" fill="#f97316" stackId="b" />
               <Bar dataKey="Profit"   fill="#34d399" />
@@ -170,15 +170,15 @@ export default function PerformanceScreen() {
 
       {/* Expense breakdown */}
       {chartData.length > 0 && (
-        <div className="bg-slate-800 rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-slate-300 mb-3">Expense Breakdown per Tick</h2>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <h2 className="text-sm font-semibold text-gray-300 mb-3">Expense Breakdown per Tick</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="tick" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-              <YAxis tickFormatter={shortDollar} tick={{ fill: '#94a3b8', fontSize: 10 }} width={60} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+              <XAxis dataKey="tick" tick={{ fill: '#6b7280', fontSize: 10 }} />
+              <YAxis tickFormatter={shortDollar} tick={{ fill: '#6b7280', fontSize: 10 }} width={60} />
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />
+              <Legend wrapperStyle={{ fontSize: 11, color: '#6b7280' }} />
               <Bar dataKey="Consumer Tax"  stackId="x" fill="#f43f5e" />
               <Bar dataKey="Land Tax"      stackId="x" fill="#e11d48" />
               <Bar dataKey="Supply Buys"   stackId="x" fill="#f59e0b" />
@@ -192,12 +192,12 @@ export default function PerformanceScreen() {
 
       {/* Tick-by-tick table */}
       {snapshots.length > 0 && (
-        <div className="bg-slate-800 rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-slate-300 mb-3">Tick History (newest first)</h2>
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <h2 className="text-sm font-semibold text-gray-300 mb-3">Tick History (newest first)</h2>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-slate-300 border-collapse">
+            <table className="w-full text-xs text-gray-300 border-collapse">
               <thead>
-                <tr className="border-b border-slate-700 text-slate-400">
+                <tr className="border-b border-gray-800 text-gray-500">
                   <th className="text-left py-2 px-2">Tick</th>
                   <th className="text-right py-2 px-2">Store Rev</th>
                   <th className="text-right py-2 px-2">Supply Sales</th>
@@ -215,8 +215,8 @@ export default function PerformanceScreen() {
               </thead>
               <tbody>
                 {snapshots.map((s) => (
-                  <tr key={s.tick} className="border-b border-slate-700/50 hover:bg-slate-700/30">
-                    <td className="py-1.5 px-2 text-slate-400">{s.tick}</td>
+                  <tr key={s.tick} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="py-1.5 px-2 text-gray-500">{s.tick}</td>
                     <td className="py-1.5 px-2 text-right text-sky-400">{fmtMoney(s.store_revenue_cents)}</td>
                     <td className="py-1.5 px-2 text-right text-sky-300">{fmtMoney(s.supply_line_sales_cents)}</td>
                     <td className="py-1.5 px-2 text-right text-sky-200 font-medium">{fmtMoney(s.total_revenue_cents)}</td>
@@ -225,7 +225,7 @@ export default function PerformanceScreen() {
                     <td className="py-1.5 px-2 text-right text-amber-400">{fmtMoney(s.supply_purchases_cents)}</td>
                     <td className="py-1.5 px-2 text-right text-violet-400">{fmtMoney(s.marketing_spend_cents)}</td>
                     <td className="py-1.5 px-2 text-right text-blue-400">{fmtMoney(s.research_spend_cents)}</td>
-                    <td className="py-1.5 px-2 text-right text-slate-400">{fmtMoney(s.loan_interest_cents)}</td>
+                    <td className="py-1.5 px-2 text-right text-gray-400">{fmtMoney(s.loan_interest_cents)}</td>
                     <td className="py-1.5 px-2 text-right text-orange-400 font-medium">{fmtMoney(s.total_expenses_cents)}</td>
                     <td className={`py-1.5 px-2 text-right font-semibold ${s.net_profit_cents >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                       {fmtMoney(s.net_profit_cents)}

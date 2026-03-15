@@ -58,7 +58,7 @@ export default function AgreementsScreen() {
   });
 
   return (
-    <div className="max-w-5xl space-y-4">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-white">Trade Agreements</h1>
         {tab === 'creator' && (

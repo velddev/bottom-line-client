@@ -9,7 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "bundle:server": "esbuild ../server/src/index.js --bundle --platform=node --format=cjs --outfile=electron/server.cjs",
-    "bundle:ipc": "esbuild electron/ipc-handlers.js --bundle --platform=node --format=cjs --outfile=electron/ipc-bundle.cjs --external:electron",
+    "bundle:ipc": "esbuild electron/ipc-handlers.js --bundle --platform=node --format=cjs --outfile=electron/ipc-bundle.cjs --external:electron --external:@grpc/grpc-js --external:@grpc/proto-loader",
     "electron:dev": "npm run bundle:ipc && concurrently -k -n vite,electron -c blue,green \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run bundle:ipc && npm run bundle:server && tsc && vite build && electron-builder",
     "electron:release": "npm run bundle:ipc && npm run bundle:server && tsc && vite build && electron-builder --publish always"
@@ -27,7 +27,10 @@
       "assets/**/*"
     ],
     "extraResources": [
-      { "from": "../trademmo.proto", "to": "." }
+      {
+        "from": "../trademmo.proto",
+        "to": "."
+      }
     ],
     "win": {
       "target": "portable"
@@ -44,6 +47,8 @@
     }
   },
   "dependencies": {
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
     "@tanstack/react-query": "^5.40.0",
     "@types/leaflet": "^1.9.21",
     "leaflet": "^1.9.4",

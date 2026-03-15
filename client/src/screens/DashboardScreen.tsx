@@ -64,7 +64,7 @@ export default function DashboardScreen() {
     }, {});
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Welcome back, {profile.username}!</h1>
         <p className="text-gray-500 text-sm mt-0.5">
@@ -73,7 +73,7 @@ export default function DashboardScreen() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         <StatCard
           label="Your Balance"
           value={fmtMoney(profile.balance)}
@@ -118,6 +118,10 @@ export default function DashboardScreen() {
               <p className="text-gray-500 uppercase tracking-wider mb-0.5">Economy</p>
               <p className="text-emerald-400 font-semibold font-mono">{fmtMoney(city.gdp_per_tick)}</p>
             </div>
+            <div>
+              <p className="text-gray-500 uppercase tracking-wider mb-0.5">Tick</p>
+              <p className="text-white font-semibold font-mono">#{city.current_tick}</p>
+            </div>
           </div>
         </div>
       )}
@@ -145,12 +149,18 @@ export default function DashboardScreen() {
       </div>
 
       {/* Buildings overview */}
-      {buildings.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800">
-            <Building2 size={14} className="text-indigo-400" />
-            <h2 className="text-sm font-semibold text-white">Your Buildings</h2>
+      <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800">
+          <Building2 size={14} className="text-indigo-400" />
+          <h2 className="text-sm font-semibold text-white">Your Buildings</h2>
+          <span className="ml-auto text-xs text-gray-600">{buildings.length} total</span>
+        </div>
+        {buildings.length === 0 ? (
+          <div className="text-center py-10 text-gray-600">
+            <p className="text-3xl mb-2">🏗️</p>
+            <p className="text-sm">No buildings yet — head to the City Map to purchase a tile and construct your first building.</p>
           </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
@@ -163,7 +173,7 @@ export default function DashboardScreen() {
               <tbody>
                 {buildings.map((b) => (
                   <tr key={b.building_id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                    <td className="px-4 py-2 text-white font-medium">{b.name}</td>
+                    <td className="px-4 py-2 text-white font-medium max-w-[160px] truncate" title={b.name}>{b.name}</td>
                     <td className="px-4 py-2 text-gray-400 capitalize">{BUILDING_ICONS[b.building_type] ?? '🏗️'} {b.building_type.replace(/_/g, ' ')}</td>
                     <td className="px-4 py-2">
                       <span className={`px-1.5 py-0.5 rounded text-xs ${
@@ -191,8 +201,8 @@ export default function DashboardScreen() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Research overview */}
       {activeResearch.length > 0 && (
