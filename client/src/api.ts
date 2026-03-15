@@ -85,7 +85,7 @@ export function useApi(): IApiService {
 }
 
 // Re-use the HTTP base request for these two helpers
-const HTTP_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/v1';
+const HTTP_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'https://api.ventured.gg/v1';
 
 function httpGet<T>(path: string): Promise<T> {
   return fetch(`${HTTP_BASE}${path}`).then(async (res) => {

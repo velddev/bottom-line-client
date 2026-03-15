@@ -8,9 +8,9 @@ import type {
 } from './types';
 import type { IApiService } from './api-interface';
 
-// Production: .env.production sets VITE_API_BASE=https://api.ventured.gg/v1
-// Dev: falls back to /v1 — Vite proxies /v1/* to localhost:8081
-const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/v1';
+// API base — always points to the production API server.
+// Override with VITE_API_BASE env var for local development if needed.
+const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'https://api.ventured.gg/v1';
 
 function headers(): HeadersInit {
   const key = localStorage.getItem('api_key') ?? '';
