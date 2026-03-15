@@ -41,7 +41,7 @@ interface CowState {
 }
 
 interface Props {
-  tiles: Map<string, TileInfo>;
+  tiles: TileInfo[];
 }
 
 function mulberry32(seed: number) {
@@ -347,7 +347,7 @@ export default function FarmAnimals({ tiles }: Props) {
   const prevFieldKey = useRef('');
   const [fieldTiles, setFieldTiles] = useState<TileInfo[]>([]);
   useEffect(() => {
-    const fields = Array.from(tiles.values()).filter(
+    const fields = tiles.filter(
       (t) => t.building_type?.toLowerCase() === 'field' && t.building_id
     );
     const key = fields.map(t => t.building_id).sort().join(',');

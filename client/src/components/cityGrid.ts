@@ -123,3 +123,19 @@ export function computeRoadPlacements(): {
 
   return { straights, crossroads };
 }
+
+/** Split a full tiles Map into chunk-keyed sub-arrays by grid position. */
+export function splitTilesIntoChunks(
+  tiles: Map<string, import('../types').TileInfo>,
+): Map<string, import('../types').TileInfo[]> {
+  const chunks = new Map<string, import('../types').TileInfo[]>();
+  for (const tile of tiles.values()) {
+    const cx = Math.floor(tile.grid_x / RENDER_CHUNK);
+    const cy = Math.floor(tile.grid_y / RENDER_CHUNK);
+    const key = `${cx}_${cy}`;
+    let arr = chunks.get(key);
+    if (!arr) { arr = []; chunks.set(key, arr); }
+    arr.push(tile);
+  }
+  return chunks;
+}
