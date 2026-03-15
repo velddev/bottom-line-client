@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, Package, Tag } from 'lucide-react';
+import { Settings, Package } from 'lucide-react';
 import { useAuth } from '../auth';
 import {
   listTiles, purchaseTile, listCities,
@@ -13,7 +13,6 @@ import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
 import BankPanel from '../components/BankPanel';
 import SupplySection from '../components/SupplySection';
-import AutoSellSection from '../components/AutoSellSection';
 import EtaCountdown from '../components/EtaCountdown';
 import { useTickRefresh } from '../hooks/useTickRefresh';
 import CityScene3D from '../components/CityScene3D';
@@ -134,17 +133,6 @@ function InventoryModal({ buildingId, buildingName, onClose }: { buildingId: str
           ))}</tbody>
         </table>
       )}
-    </Modal>
-  );
-}
-
-// ── Sell (auto-sell config) modal ─────────────────────────────────────────────
-function SellModal({
-  buildingId, buildingType, onClose,
-}: { buildingId: string; buildingType: string; onClose: () => void }) {
-  return (
-    <Modal title="Auto-Sell" onClose={onClose}>
-      <AutoSellSection buildingId={buildingId} buildingType={buildingType} />
     </Modal>
   );
 }
@@ -318,7 +306,6 @@ export default function TilesScreen() {
 
   const [configTarget, setConfigTarget] = useState<TileInfo | null>(null);
   const [invTarget, setInvTarget] = useState<TileInfo | null>(null);
-  const [sellTarget, setSellTarget] = useState<TileInfo | null>(null);
 
   const [activeTab, setActiveTab] = useState<'supply' | 'info'>('supply');
   useEffect(() => { setActiveTab('supply'); }, [selectedTile?.tile_id]);
@@ -481,10 +468,6 @@ export default function TilesScreen() {
                     className="flex-1 flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-1.5 rounded transition-colors">
                     <Package size={12} /> Stock
                   </button>
-                  <button onClick={() => setSellTarget(selectedTile)}
-                    className="flex-1 flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-1.5 rounded transition-colors">
-                    <Tag size={12} /> Sell
-                  </button>
                 </div>
               ) : undefined
             }
@@ -577,13 +560,6 @@ export default function TilesScreen() {
           buildingId={invTarget.building_id}
           buildingName={invTarget.building_name}
           onClose={() => setInvTarget(null)}
-        />
-      )}
-      {sellTarget?.building_id && (
-        <SellModal
-          buildingId={sellTarget.building_id}
-          buildingType={sellTarget.building_type?.toLowerCase() ?? ''}
-          onClose={() => setSellTarget(null)}
         />
       )}
     </>
