@@ -19,6 +19,7 @@ const creds = grpc.credentials.createSsl();
 const TARGET = 'play.veld.gg:443';
 
 export const stubs = {
+  auth:      new proto.AuthService(TARGET, creds),
   player:    new proto.PlayerService(TARGET, creds),
   city:      new proto.CityService(TARGET, creds),
   tile:      new proto.TileService(TARGET, creds),

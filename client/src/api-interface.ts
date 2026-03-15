@@ -8,6 +8,11 @@ import type {
 } from './types';
 
 export interface IApiService {
+  // ─── Auth ────────────────────────────────────────────────────────────────
+  getOAuthClientId(provider: string): Promise<{ client_id: string }>;
+  exchangeOAuthCode(provider: string, code: string, redirectUri: string, displayName?: string): Promise<{ player_id: string; api_key: string }>;
+  openDiscordOAuth(clientId: string): Promise<{ ok: boolean }>;
+  // ─── Player ──────────────────────────────────────────────────────────────
   registerPlayer(username: string): Promise<{ player_id: string; api_key: string }>;
   getProfile(): Promise<PlayerProfile>;
   getInventory(building_id?: string): Promise<{ items: { building_id: string; building_name: string; resource_type: string; quantity: number; quality: number; brand_id: string }[] }>;

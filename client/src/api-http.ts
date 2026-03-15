@@ -33,6 +33,12 @@ const del  = <T>(path: string)                                  => req<T>('DELET
 
 export function createHttpApi(): IApiService {
   return {
+    // ─── Auth ───────────────────────────────────────────────────────────────
+    // HTTP/web OAuth is not supported in the web client; these stubs satisfy the interface.
+    getOAuthClientId: () => Promise.reject(new Error('OAuth not supported in web client')),
+    exchangeOAuthCode: () => Promise.reject(new Error('OAuth not supported in web client')),
+    openDiscordOAuth: () => Promise.reject(new Error('OAuth not supported in web client')),
+
     // ─── Player ─────────────────────────────────────────────────────────────
     registerPlayer: (username) =>
       post<{ player_id: string; api_key: string }>('/player/register', { username }),

@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, shell } from 'electron';
 import { stubs, rpc, makeMeta } from '../../server/src/grpc-client.js';
 import { toProtoEnum, normalizeResponse } from '../../server/src/util.js';
 
@@ -22,6 +22,32 @@ function handle(channel, fn) {
 }
 
 export function registerIpcHandlers() {
+  // ─── Auth (OAuth) ─────────────────────────────────────────────────────────
+  // Returns the Discord client_id so the renderer can build the auth URL.
+  handle('api:getOAuthClientId', async ({ provider = 'DISCORD' }) =>
+    normalizeResponse(await rpc(stubs.auth, 'GetOAuthClientId', { provider }, '')));
+
+  // Exchanges a Discord OAuth code for a player_id + api_key.
+  handle('api:exchangeOAuthCode', async ({ provider = 'DISCORD', code, redirectUri, displayName = '' }) =>
+    normalizeResponse(await rpc(stubs.auth, 'ExchangeOAuthCode', {
+      provider,
+      code,
+      redirect_uri: redirectUri,
+      display_name: displayName,
+    }, '')));
+
+  // Opens the Discord OAuth URL in the user's default browser.
+  handle('api:openDiscordOAuth', async ({ clientId }) => {
+    const params = new URLSearchParams({
+      client_id:     clientId,
+      redirect_uri:  'trademmo://auth',
+      response_type: 'code',
+      scope:         'identify',
+    });
+    await shell.openExternal(`https://discord.com/oauth2/authorize?${params}`);
+    return { ok: true };
+  });
+
   // ─── Player ───────────────────────────────────────────────────────────────
   handle('api:registerPlayer', async ({ username }) =>
     normalizeResponse(await rpc(stubs.player, 'Register', { username, city_id: '' }, '')));

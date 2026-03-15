@@ -18,4 +18,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('api:event-error', listener);
     return () => ipcRenderer.off('api:event-error', listener);
   },
+  onDiscordAuth: (callback) => {
+    const listener = (_, data) => callback(data);
+    ipcRenderer.on('auth:discord-code', listener);
+    return () => ipcRenderer.off('auth:discord-code', listener);
+  },
 });

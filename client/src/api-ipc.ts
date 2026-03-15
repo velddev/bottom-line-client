@@ -14,6 +14,7 @@ declare global {
       invoke: (channel: string, data?: unknown) => Promise<unknown>;
       onEvent: (cb: (data: unknown) => void) => () => void;
       onEventError: (cb: (data: unknown) => void) => () => void;
+      onDiscordAuth: (cb: (data: { code: string }) => void) => () => void;
     };
   }
 }
@@ -28,6 +29,17 @@ function apiKey(): string {
 
 export function createIpcApi(): IApiService {
   return {
+    // ─── Auth ───────────────────────────────────────────────────────────────
+    getOAuthClientId: (provider) =>
+      invoke<{ client_id: string }>('api:getOAuthClientId', { provider }),
+
+    exchangeOAuthCode: (provider, code, redirectUri, displayName = '') =>
+      invoke<{ player_id: string; api_key: string }>(
+        'api:exchangeOAuthCode', { provider, code, redirectUri, displayName }),
+
+    openDiscordOAuth: (clientId) =>
+      invoke<{ ok: boolean }>('api:openDiscordOAuth', { clientId }),
+
     // ─── Player ─────────────────────────────────────────────────────────────
     registerPlayer: (username) =>
       invoke<{ player_id: string; api_key: string }>('api:registerPlayer', { username }),

@@ -17,6 +17,7 @@ declare global {
       invoke: (channel: string, data?: unknown) => Promise<unknown>;
       onEvent: (cb: (data: unknown) => void) => () => void;
       onEventError: (cb: (data: unknown) => void) => () => void;
+      onDiscordAuth: (cb: (data: { code: string }) => void) => () => void;
     };
   }
 }
@@ -79,7 +80,9 @@ export const listDmConversations: IApiService['listDmConversations'] = () => api
 export const findPlayerByHandle: IApiService['findPlayerByHandle'] = (...args) => api.findPlayerByHandle(...args);
 export const subscribeToEvents: IApiService['subscribeToEvents'] = (...args) => api.subscribeToEvents(...args);
 
-// ─── HTTP-only helpers (browser dev / no IPC equivalent needed) ──────────────
+export function useApi(): IApiService {
+  return api;
+}
 
 // Re-use the HTTP base request for these two helpers
 function httpGet<T>(path: string): Promise<T> {

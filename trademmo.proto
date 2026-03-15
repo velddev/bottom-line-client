@@ -166,6 +166,51 @@ message CancelAgreementResponse {
 
 
 // ─────────────────────────────────────────────────────────────────────────
+// auth.proto
+// ─────────────────────────────────────────────────────────────────────────
+enum OAuthProvider {
+  DISCORD = 0;
+  // future: GOOGLE = 1; APPLE = 2; STEAM = 3; etc.
+}
+
+service AuthService {
+  // Returns the OAuth2 client_id for the requested provider so the client can build the auth URL.
+  // No authentication required.
+  rpc GetOAuthClientId (GetOAuthClientIdRequest) returns (GetOAuthClientIdResponse) {}
+
+  // Client-side OAuth exchange:
+  //   1. Client opens provider auth URL (using client_id from above)
+  //   2. Provider redirects to client deep link with ?code=...
+  //   3. Client calls this RPC with the code and the redirect_uri it used
+  //   4. Server exchanges code with the provider, creates/finds player, returns API key
+  // No authentication required.
+  rpc ExchangeOAuthCode (ExchangeOAuthCodeRequest) returns (ExchangeOAuthCodeResponse) {}
+}
+
+message GetOAuthClientIdRequest {
+  OAuthProvider provider = 1;
+}
+
+message GetOAuthClientIdResponse {
+  string client_id = 1;
+}
+
+message ExchangeOAuthCodeRequest {
+  OAuthProvider provider    = 1;
+  string        code        = 2;
+  string        redirect_uri = 3;
+  // Optional display name override for new accounts.
+  // Ignored for existing accounts (returning users keep their existing username).
+  string        display_name = 4;
+}
+
+message ExchangeOAuthCodeResponse {
+  string player_id = 1;
+  string api_key   = 2; // raw key — shown once, store it!
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────
 // bank.proto
 // ─────────────────────────────────────────────────────────────────────────
 service BankService {
