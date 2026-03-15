@@ -1,12 +1,14 @@
 import { useRef, useEffect, useMemo } from 'react';
+import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
-import { GAME_GRID, tileToWorld } from './cityGrid';
+import { GAME_GRID, WORLD_SIZE, CHUNKS_PER_AXIS, tileToWorld } from './cityGrid';
 
 const HEDGE_MODEL = '/models/nature/hedge.glb';
 const HEDGE_SX = 1.0;
 const HEDGE_SY = 0.8;
 const HEDGE_SZ = 1.0;
+const CHUNK_WORLD = WORLD_SIZE / CHUNKS_PER_AXIS;
 
 function extractMesh(scene: THREE.Group) {
   const results: Array<{ geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }> = [];
@@ -72,20 +74,26 @@ const _pos = new THREE.Matrix4();
 
 useGLTF.preload(HEDGE_MODEL);
 
-export default function MapBorder() {
-  const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
-  const { scene } = useGLTF(HEDGE_MODEL) as any;
-  const parts = useMemo(() => extractMesh(scene), [scene]);
-  const placements = useMemo(() => computeBorderPlacements(), []);
+function chunkBorder(placements: Placement[]): Map<string, Placement[]> {
+  const chunks = new Map<string, Placement[]>();
+  for (const p of placements) {
+    const cx = Math.min(Math.floor(p.x / CHUNK_WORLD), CHUNKS_PER_AXIS - 1);
+    const cz = Math.min(Math.floor(p.z / CHUNK_WORLD), CHUNKS_PER_AXIS - 1);
+    const key = `${Math.max(0, cx)}_${Math.max(0, cz)}`;
+    let arr = chunks.get(key);
+    if (!arr) { arr = []; chunks.set(key, arr); }
+    arr.push(p);
+  }
+  return chunks;
+}
 
-  const bounds = useMemo(() => {
-    const box = new THREE.Box3();
-    parts.forEach(p => {
-      p.geometry.computeBoundingBox();
-      box.union(p.geometry.boundingBox!);
-    });
-    return box;
-  }, [parts]);
+function BorderChunk({ placements, parts, bounds }: {
+  placements: Placement[];
+  parts: Array<{ geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }>;
+  bounds: THREE.Box3;
+}) {
+  const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
+  const { invalidate } = useThree();
 
   useEffect(() => {
     if (parts.length === 0 || placements.length === 0) return;
@@ -105,20 +113,51 @@ export default function MapBorder() {
         mesh.setMatrixAt(i, _m);
       });
       mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
     });
-  }, [placements, parts, bounds]);
-
-  if (parts.length === 0 || placements.length === 0) return null;
+    invalidate();
+  }, [placements, parts, bounds, invalidate]);
 
   return (
-    <group>
+    <>
       {parts.map((part, idx) => (
         <instancedMesh
           name="MapBorder"
           key={idx}
           ref={el => { meshRefs.current[idx] = el; }}
           args={[part.geometry, part.material, placements.length]}
-          frustumCulled={false}
+        />
+      ))}
+    </>
+  );
+}
+
+export default function MapBorder() {
+  const { scene } = useGLTF(HEDGE_MODEL) as any;
+  const parts = useMemo(() => extractMesh(scene), [scene]);
+  const placements = useMemo(() => computeBorderPlacements(), []);
+
+  const bounds = useMemo(() => {
+    const box = new THREE.Box3();
+    parts.forEach(p => {
+      p.geometry.computeBoundingBox();
+      box.union(p.geometry.boundingBox!);
+    });
+    return box;
+  }, [parts]);
+
+  const chunks = useMemo(() => chunkBorder(placements), [placements]);
+
+  if (parts.length === 0 || placements.length === 0) return null;
+
+  return (
+    <group>
+      {Array.from(chunks.entries()).map(([key, chunkPlacements]) => (
+        <BorderChunk
+          key={key}
+          placements={chunkPlacements}
+          parts={parts}
+          bounds={bounds}
         />
       ))}
     </group>
