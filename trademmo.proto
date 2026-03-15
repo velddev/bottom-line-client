@@ -74,6 +74,13 @@ enum ElectionStatus {
   ELECTION_STATUS_CONCLUDED   = 4; // winner determined
 }
 
+// Road tile classification in the city grid.
+enum RoadType {
+  ROAD_TYPE_UNSPECIFIED = 0;
+  ROAD_TYPE_STRAIGHT    = 1; // single-direction road segment
+  ROAD_TYPE_CROSSROAD   = 2; // intersection of two road strips
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────
 // agreement.proto
@@ -1073,12 +1080,12 @@ message PauseResearchResponse {
 // tile.proto
 // ─────────────────────────────────────────────────────────────────────────
 service TileService {
-  rpc ListTiles    (ListTilesRequest)    returns (ListTilesResponse) {
-  }
-  rpc GetTile      (GetTileRequest)      returns (TileInfo) {
-  }
-  rpc PurchaseTile (PurchaseTileRequest) returns (PurchaseTileResponse) {
-  }
+  rpc ListTiles       (ListTilesRequest)       returns (ListTilesResponse);
+  rpc GetTile         (GetTileRequest)         returns (TileInfo);
+  rpc PurchaseTile    (PurchaseTileRequest)    returns (PurchaseTileResponse);
+  // Returns the deterministic road network for the city grid.
+  // No city_id is required — the road layout is identical for all cities.
+  rpc GetRoadNetwork  (GetRoadNetworkRequest)  returns (GetRoadNetworkResponse);
 }
 
 // Viewport query — returns tiles whose GridX/Y is within the given bounds
@@ -1120,4 +1127,24 @@ message GetTileRequest    { string tile_id = 1; }
 
 message PurchaseTileRequest  { string tile_id = 1; }
 message PurchaseTileResponse { string tile_id = 1; int64 new_balance = 2; }
+
+// Road network ─────────────────────────────────────────────────────────────────
+
+message GetRoadNetworkRequest {} // layout is identical for all cities
+
+// A single road tile in world (visual) space.
+message RoadTileInfo {
+  int32    world_x   = 1; // world X position (accounts for road offsets)
+  int32    world_z   = 2; // world Z position
+  RoadType road_type = 3; // straight or crossroad
+  float    rotation  = 4; // Y-axis rotation in radians (0 = horizontal, PI/2 = vertical)
+}
+
+message GetRoadNetworkResponse {
+  repeated RoadTileInfo tiles = 1;
+  // Grid constants so the client can validate its local mirror
+  int32 world_size = 2; // total world-space dimension (143)
+  int32 game_grid  = 3; // game tile dimension (120)
+  int32 block_size = 4; // tiles per city block (5)
+}
 

@@ -17,6 +17,11 @@ router.get('/', handle(async (req) => {
   }, '');
 }));
 
+// Get road network — no auth, deterministic layout
+router.get('/road-network', handle(async () => {
+  return rpc(stubs.tile, 'GetRoadNetwork', {}, '');
+}));
+
 // Get a single tile — no auth required
 router.get('/:id', handle(async (req) => {
   return rpc(stubs.tile, 'GetTile', { tile_id: req.params.id }, '');
