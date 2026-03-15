@@ -47,6 +47,8 @@
     },
     "publish": {
       "provider": "github",
+      "owner": "velddev",
+      "repo": "bottom-line-client",
       "releaseType": "release"
     }
   },
