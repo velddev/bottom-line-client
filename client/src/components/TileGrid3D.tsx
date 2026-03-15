@@ -61,7 +61,6 @@ export default function TileGrid3D({
       roughness: 0.9,
       metalness: 0.0,
       side: THREE.FrontSide,
-      vertexColors: true,
     }),
     []
   );
