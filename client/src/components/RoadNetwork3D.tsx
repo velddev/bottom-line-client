@@ -8,37 +8,67 @@ const CHUNK_WORLD = WORLD_SIZE / CHUNKS_PER_AXIS;
 const ROAD_MODEL = '/models/roads/road-straight.glb';
 useGLTF.preload(ROAD_MODEL);
 
-// Procedural geometries (2 tris each instead of 44/116 from GLTF)
-// Straight road surface: narrower (0.8 perpendicular to road direction)
-const straightGeometry = new THREE.PlaneGeometry(1, 0.8);
-straightGeometry.rotateX(-Math.PI / 2);
-// Crossroad surface: full tile
-const crossroadGeometry = new THREE.PlaneGeometry(1, 1);
-crossroadGeometry.rotateX(-Math.PI / 2);
-// Sidewalk: full tile behind road surface
-const sidewalkGeometry = new THREE.PlaneGeometry(1, 1);
-sidewalkGeometry.rotateX(-Math.PI / 2);
-
-// UV coordinates from Kenney colormap — shifted brighter to compensate for
-// GLTF multi-UV interpolation that single-point sampling can't replicate
+// UV coordinates from Kenney colormap
 const ROAD_UV: [number, number] = [0.0312, 0.875];       // #515566 road surface
-const SIDEWALK_UV: [number, number] = [0.96875, 0.90625]; // #d5d5e5 curb highlight (row 14, col 15)
+const SIDEWALK_UV: [number, number] = [0.96875, 0.90625]; // #d5d5e5 curb highlight
 const MARKING_UV: [number, number] = [0.28125, 0.90625];  // #8e95b3 center line marking
 
-// Center line marking: short strip for dashed effect (gaps between tiles)
-const markingGeometry = new THREE.PlaneGeometry(0.5, 0.03);
-markingGeometry.rotateX(-Math.PI / 2);
-
-function setPlaneUVs(geo: THREE.PlaneGeometry, uv: [number, number]) {
+// Base plane geometries (rotated to XZ plane)
+function makePlane(w: number, h: number, uv: [number, number]): THREE.PlaneGeometry {
+  const geo = new THREE.PlaneGeometry(w, h);
+  geo.rotateX(-Math.PI / 2);
   const uvAttr = geo.attributes.uv;
-  for (let i = 0; i < uvAttr.count; i++) {
-    uvAttr.setXY(i, uv[0], uv[1]);
-  }
+  for (let i = 0; i < uvAttr.count; i++) uvAttr.setXY(i, uv[0], uv[1]);
+  return geo;
 }
-setPlaneUVs(straightGeometry, ROAD_UV);
-setPlaneUVs(crossroadGeometry, ROAD_UV);
-setPlaneUVs(sidewalkGeometry, SIDEWALK_UV);
-setPlaneUVs(markingGeometry, MARKING_UV);
+const sidewalkPlane = makePlane(1, 1, SIDEWALK_UV);
+const roadPlane     = makePlane(1, 0.8, ROAD_UV);
+const markingPlane  = makePlane(0.5, 0.03, MARKING_UV);
+
+/** Merge multiple sub-geometries (with Y offsets and optional Y rotation) into one. */
+function mergeLayered(parts: { geo: THREE.BufferGeometry; y: number; rotY?: number }[]): THREE.BufferGeometry {
+  const pos: number[] = [], uv: number[] = [], nrm: number[] = [], idx: number[] = [];
+  let vOff = 0;
+  for (const { geo, y, rotY = 0 } of parts) {
+    const p = geo.attributes.position, u = geo.attributes.uv, n = geo.attributes.normal, ix = geo.index;
+    const c = Math.cos(rotY), s = Math.sin(rotY);
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), z = p.getZ(i);
+      pos.push(x * c - z * s, p.getY(i) + y, x * s + z * c);
+      uv.push(u.getX(i), u.getY(i));
+      if (n) {
+        const nx = n.getX(i), nz = n.getZ(i);
+        nrm.push(nx * c - nz * s, n.getY(i), nx * s + nz * c);
+      } else {
+        nrm.push(0, 1, 0);
+      }
+    }
+    if (ix) for (let i = 0; i < ix.count; i++) idx.push(ix.array[i] + vOff);
+    vOff += p.count;
+  }
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  merged.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  merged.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  merged.setIndex(idx);
+  return merged;
+}
+
+// Merged geometries: one draw call per tile type per chunk
+const straightMerged = mergeLayered([
+  { geo: sidewalkPlane, y: 0.015 },
+  { geo: roadPlane,     y: 0.02 },
+  { geo: markingPlane,  y: 0.021 },
+]);  // 6 tris
+
+const crossroadMerged = mergeLayered([
+  { geo: sidewalkPlane, y: 0.015 },
+  { geo: roadPlane,     y: 0.02 },
+  { geo: roadPlane,     y: 0.02,  rotY: Math.PI / 2 },
+  { geo: markingPlane,  y: 0.021 },
+  { geo: markingPlane,  y: 0.021, rotY: Math.PI / 2 },
+]);  // 10 tris
+
 
 /** Bucket road placements into chunks by world position */
 function chunkRoads(placements: RoadPlacement[]): Map<string, RoadPlacement[]> {
@@ -69,105 +99,27 @@ function applyMatrices(mesh: THREE.InstancedMesh, placements: RoadPlacement[], y
   mesh.computeBoundingSphere();
 }
 
-function StraightChunk({ placements, material }: { placements: RoadPlacement[]; material: THREE.Material }) {
-  const sidewalkRef = useRef<THREE.InstancedMesh>(null);
-  const roadRef = useRef<THREE.InstancedMesh>(null);
-  const markingRef = useRef<THREE.InstancedMesh>(null);
+function RoadChunk({ placements, material, geometry, name }: {
+  placements: RoadPlacement[]; material: THREE.Material; geometry: THREE.BufferGeometry; name: string;
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
   const { invalidate } = useThree();
 
   useEffect(() => {
-    if (placements.length === 0) return;
-    if (sidewalkRef.current) applyMatrices(sidewalkRef.current, placements, 0.015);
-    if (roadRef.current) applyMatrices(roadRef.current, placements, 0.02);
-    if (markingRef.current) applyMatrices(markingRef.current, placements, 0.021);
+    if (placements.length === 0 || !meshRef.current) return;
+    applyMatrices(meshRef.current, placements, 0);
     invalidate();
   }, [placements, invalidate]);
 
   if (placements.length === 0) return null;
 
   return (
-    <group>
-      <instancedMesh
-        name="Road-sidewalk"
-        ref={sidewalkRef}
-        args={[sidewalkGeometry, material, placements.length]}
-        receiveShadow
-      />
-      <instancedMesh
-        name="Road-straight"
-        ref={roadRef}
-        args={[straightGeometry, material, placements.length]}
-        receiveShadow
-      />
-      <instancedMesh
-        name="Road-marking"
-        ref={markingRef}
-        args={[markingGeometry, material, placements.length]}
-        receiveShadow
-      />
-    </group>
-  );
-}
-
-function CrossroadChunk({ placements, material }: { placements: RoadPlacement[]; material: THREE.Material }) {
-  const sidewalkRef = useRef<THREE.InstancedMesh>(null);
-  const bar1Ref = useRef<THREE.InstancedMesh>(null);
-  const bar2Ref = useRef<THREE.InstancedMesh>(null);
-  const mark1Ref = useRef<THREE.InstancedMesh>(null);
-  const mark2Ref = useRef<THREE.InstancedMesh>(null);
-  const { invalidate } = useThree();
-
-  // Build rotated placements for the perpendicular bar/marking
-  const crossPlacements = useMemo(() =>
-    placements.map(p => ({ ...p, rotation: p.rotation + Math.PI / 2 })),
-    [placements]
-  );
-
-  useEffect(() => {
-    if (placements.length === 0) return;
-    if (sidewalkRef.current) applyMatrices(sidewalkRef.current, placements, 0.015);
-    if (bar1Ref.current) applyMatrices(bar1Ref.current, placements, 0.02);
-    if (bar2Ref.current) applyMatrices(bar2Ref.current, crossPlacements, 0.02);
-    if (mark1Ref.current) applyMatrices(mark1Ref.current, placements, 0.021);
-    if (mark2Ref.current) applyMatrices(mark2Ref.current, crossPlacements, 0.021);
-    invalidate();
-  }, [placements, crossPlacements, invalidate]);
-
-  if (placements.length === 0) return null;
-
-  return (
-    <group>
-      <instancedMesh
-        name="Road-crossroad-sidewalk"
-        ref={sidewalkRef}
-        args={[sidewalkGeometry, material, placements.length]}
-        receiveShadow
-      />
-      <instancedMesh
-        name="Road-crossroad-bar1"
-        ref={bar1Ref}
-        args={[straightGeometry, material, placements.length]}
-        receiveShadow
-      />
-      <instancedMesh
-        name="Road-crossroad-bar2"
-        ref={bar2Ref}
-        args={[straightGeometry, material, placements.length]}
-        receiveShadow
-      />
-      <instancedMesh
-        name="Road-crossroad-mark1"
-        ref={mark1Ref}
-        args={[markingGeometry, material, placements.length]}
-        receiveShadow
-      />
-      <instancedMesh
-        name="Road-crossroad-mark2"
-        ref={mark2Ref}
-        args={[markingGeometry, material, placements.length]}
-        receiveShadow
-      />
-    </group>
+    <instancedMesh
+      name={name}
+      ref={meshRef}
+      args={[geometry, material, placements.length]}
+      receiveShadow
+    />
   );
 }
 
@@ -202,8 +154,8 @@ export default function RoadNetwork3D() {
         const cp = crossroadChunks.get(key);
         return (
           <group key={key}>
-            {sp && sp.length > 0 && <StraightChunk placements={sp} material={material} />}
-            {cp && cp.length > 0 && <CrossroadChunk placements={cp} material={material} />}
+            {sp && sp.length > 0 && <RoadChunk placements={sp} material={material} geometry={straightMerged} name="Road-straight" />}
+            {cp && cp.length > 0 && <RoadChunk placements={cp} material={material} geometry={crossroadMerged} name="Road-crossroad" />}
           </group>
         );
       })}
