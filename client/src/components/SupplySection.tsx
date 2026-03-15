@@ -44,7 +44,7 @@ function SupplierPickerModal({
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60">
-      <div className="bg-white border border-gray-200 rounded-lg w-80 max-h-[70vh] flex flex-col shadow-2xl">
+      <div className="bg-gray-200 border border-gray-200 rounded-lg w-80 max-h-[70vh] flex flex-col shadow-2xl">
         <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
           <h3 className="text-gray-900 font-semibold text-sm capitalize">
             Add supplier — {resourceType}
@@ -341,7 +341,7 @@ function RecipePicker({
             <div className="flex items-center justify-between">
               <span className="text-gray-900 text-xs font-medium capitalize">{r.output_type}</span>
               <span className="text-gray-500 text-xs">
-                ×{r.output_min}–{r.output_max} / {r.ticks_required}t
+                ×{r.output_min}–{r.output_max} / {r.ticks_required}d
               </span>
             </div>
             {r.ingredients.length > 0 && (
@@ -532,7 +532,7 @@ function StoreAnalyticsPanel({ buildingId }: { buildingId: string }) {
               <div key={res} className="mb-3">
                 <p className="text-xs font-medium text-gray-700 mb-1 capitalize">{res}</p>
                 <div className="text-xs text-gray-500 flex gap-4 mb-1">
-                  <span>Last {rows.length} ticks</span>
+                  <span>Last {rows.length} days</span>
                   <span>Units: <span className="text-gray-900 font-mono">{totalUnits.toFixed(1)}</span></span>
                   <span>Revenue: <span className="text-green-400 font-mono">{fmtMoney(totalRev)}</span></span>
                 </div>
@@ -540,7 +540,7 @@ function StoreAnalyticsPanel({ buildingId }: { buildingId: string }) {
                   <table className="w-full text-[10px] text-gray-500">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left py-0.5 pr-3">Tick</th>
+                        <th className="text-left py-0.5 pr-3">Day</th>
                         <th className="text-right pr-3">Units sold</th>
                         <th className="text-right">Revenue</th>
                       </tr>
@@ -626,7 +626,7 @@ export default function SupplySection({
       <div className="mb-3 pb-3 border-b border-gray-200">
         <p className="text-xs text-gray-500">
           Produces <span className="text-gray-900 font-medium">{recipe.output_type}</span>
-          <span className="text-gray-600 ml-1">× {recipe.output_min}–{recipe.output_max} / {recipe.ticks_required}t</span>
+          <span className="text-gray-600 ml-1">× {recipe.output_min}–{recipe.output_max} / {recipe.ticks_required}d</span>
         </p>
         {(() => {
           // Calculate input cost per run using cheapest linked supplier for each ingredient

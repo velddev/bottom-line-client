@@ -1,11 +1,12 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { LogOut } from 'lucide-react';
+import { LogOut, Settings, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../auth';
 import { getProfile, getCityStats } from '../api';
 import { fmtMoney } from '../types';
 import { useTickRefresh } from '../hooks/useTickRefresh';
+import SettingsModal from './SettingsModal';
 
 const NAV = [
   { to: '/dashboard',    label: 'Dashboard'    },
@@ -32,13 +33,31 @@ function TickCountdown({ nextTickAt }: { nextTickAt: number }) {
   const urgent = secsLeft <= 5;
   return (
     <span
-      title="Next tick"
+      title="Next day"
       className={`font-mono text-xs tabular-nums transition-colors ${
         urgent ? 'text-amber-400' : 'text-gray-500'
       }`}
     >
       ⏱ {String(Math.floor(secsLeft / 60)).padStart(2, '0')}:{String(secsLeft % 60).padStart(2, '0')}
     </span>
+  );
+}
+
+function ThemeToggle() {
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  const toggle = () => {
+    const nowDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('bl-theme', nowDark ? 'dark' : 'light');
+    setIsDark(nowDark);
+  };
+  return (
+    <button
+      onClick={toggle}
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      className="text-gray-500 hover:text-gold transition-colors p-1"
+    >
+      {isDark ? <Sun size={14} /> : <Moon size={14} />}
+    </button>
   );
 }
 
@@ -50,6 +69,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isChatPage = location.pathname === '/chat';
 
   const { nextTickAt } = useTickRefresh();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -112,7 +132,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="font-mono text-emerald-400">{fmtMoney(profile.balance)}</span>
           )}
           <span className="text-gray-600 hidden md:block">{auth?.username}</span>
+          <ThemeToggle />
           <button
+              onClick={() => setSettingsOpen(true)}
+              title="Settings"
+              className="text-gray-500 hover:text-gray-900 transition-colors p-1"
+            >
+              <Settings size={15} />
+            </button>
+            <button
             onClick={handleLogout}
             title="Logout"
             className="text-gray-500 hover:text-red-400 transition-colors p-1"
@@ -126,6 +154,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <main className={`flex-1 min-h-0 ${(isMapPage || isChatPage) ? 'overflow-hidden flex flex-col' : 'overflow-y-auto p-6'}`}>
         {children}
       </main>
+
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

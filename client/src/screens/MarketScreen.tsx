@@ -68,7 +68,7 @@ export default function MarketScreen() {
       )}
 
       {offerings.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
           <table className="w-full text-xs">
             <thead>
               <tr className="text-gray-600 border-b border-gray-200">

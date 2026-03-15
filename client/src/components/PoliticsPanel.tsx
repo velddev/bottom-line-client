@@ -105,7 +105,7 @@ export default function PoliticsPanel() {
               <p className="text-gray-700 text-xs mb-0.5">Current Ruler</p>
               <p className="text-gray-900 text-sm font-semibold">{gov.ruling_player_name || 'AI Government'}</p>
               {isRuler && <span className="text-indigo-400 text-xs">← You</span>}
-              <p className="text-gray-600 text-xs">Term: t{gov.term_start_tick} – t{gov.term_end_tick}</p>
+              <p className="text-gray-600 text-xs">Term: Day {gov.term_start_tick} – Day {gov.term_end_tick}</p>
             </div>
 
             <div className="space-y-2">

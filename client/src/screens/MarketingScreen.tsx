@@ -54,7 +54,7 @@ export default function MarketingScreen() {
         </button>
       </div>
 
-      <p className="text-xs text-gray-600 bg-white border border-gray-200 rounded p-3">
+      <p className="text-xs text-gray-600 bg-gray-200 border border-gray-200 rounded p-3">
         Branded items command higher prices via brand power. Brand weight is relative to all brands in the same category per city.
         Without competition, only the government default brand competes with you.
       </p>
@@ -71,7 +71,7 @@ export default function MarketingScreen() {
       {brands.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {brands.map((b) => (
-            <div key={b.brand_id} className="bg-white border border-gray-200 rounded-lg p-4">
+            <div key={b.brand_id} className="bg-gray-200 border border-gray-200 rounded-lg p-4">
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-gray-900 font-semibold text-sm">{b.name}</h3>
@@ -150,7 +150,7 @@ export default function MarketingScreen() {
               onChange={(e) => setCampaignForm((f) => ({ ...f, campaign_name: e.target.value }))} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Budget / Tick ($)">
+            <Field label="Budget / Day ($)">
               <Input type="number" min="0" step="1" value={campaignForm.budget_per_tick}
                 onChange={(e) => setCampaignForm((f) => ({ ...f, budget_per_tick: e.target.value }))} />
             </Field>

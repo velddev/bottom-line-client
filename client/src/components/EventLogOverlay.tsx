@@ -38,14 +38,14 @@ const CATEGORY_BADGE: Record<Category, { label: string; cls: string }> = {
   politics:   { label: 'Politics',   cls: 'bg-purple-900/50 text-purple-400' },
   world:      { label: 'World',      cls: 'bg-indigo-900/50 text-indigo-400' },
   social:     { label: 'Social',     cls: 'bg-gray-100 text-gray-700' },
-  system:     { label: 'System',     cls: 'bg-white text-gray-600' },
+  system:     { label: 'System',     cls: 'bg-gray-200 text-gray-600' },
 };
 
 function describe(e: GameEvent): EventEntry {
   if (e.tick_completed) {
     return {
       icon: '🕐', category: 'system',
-      headline: `Tick ${e.tick} processed`,
+      headline: `Day ${e.tick} processed`,
       cls: 'text-gray-500',
     };
   }
@@ -105,7 +105,7 @@ function describe(e: GameEvent): EventEntry {
     return {
       icon: '⚒️', category: 'world',
       headline: `${label} — construction started`,
-      detail: `${cap} · Ready in ${construction_ticks_remaining} tick${construction_ticks_remaining !== 1 ? 's' : ''} · Owner ${shortId(player_id)}`,
+      detail: `${cap} · Ready in ${construction_ticks_remaining} day${construction_ticks_remaining !== 1 ? 's' : ''} · Owner ${shortId(player_id)}`,
       cls: 'text-cyan-300',
     };
   }
@@ -133,7 +133,7 @@ function describe(e: GameEvent): EventEntry {
     return {
       icon: '🗳️', category: 'politics',
       headline: 'Election season begins',
-      detail: `Campaign phase • Voting starts in ${ticksUntil} tick${ticksUntil !== 1 ? 's' : ''} (tick ${voting_start_tick})`,
+      detail: `Campaign phase • Voting starts in ${ticksUntil} day${ticksUntil !== 1 ? 's' : ''} (Day ${voting_start_tick})`,
       cls: 'text-amber-400',
     };
   }
@@ -281,8 +281,8 @@ export default function EventLogOverlay({ cityId, apiKey }: { cityId: string; ap
     <div className="absolute bottom-4 right-4 z-[1001] flex flex-col items-end">
       {open && (
         <div
-          className="mb-2 w-80 flex flex-col rounded-xl overflow-hidden shadow-2xl border border-gray-200"
-          style={{ height: 400, background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(8px)' }}
+          className="mb-2 w-80 flex flex-col rounded-xl overflow-hidden overlay-panel shadow-overlay border border-gray-200"
+          style={{ height: 400 }}
         >
           {/* Header */}
           <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 shrink-0">
@@ -346,7 +346,7 @@ export default function EventLogOverlay({ cityId, apiKey }: { cityId: string; ap
                     {entry.detail && (
                       <p className="text-[11px] text-gray-500 mt-0.5 leading-snug break-words">{entry.detail}</p>
                     )}
-                    <p className="text-[10px] text-gray-700 mt-0.5 font-mono">tick {e.tick}</p>
+                    <p className="text-[10px] text-gray-700 mt-0.5 font-mono">Day {e.tick}</p>
                   </div>
                 </div>
               );
@@ -358,12 +358,11 @@ export default function EventLogOverlay({ cityId, apiKey }: { cityId: string; ap
       {/* Toggle button */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium shadow-lg transition-all ${
+        className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium overlay-panel transition-all ${
           open
             ? 'bg-gray-200 text-gray-900'
-            : 'bg-white/90 text-gray-700 hover:bg-gray-100 border border-gray-200'
+            : 'text-gray-700 hover:text-gray-900'
         }`}
-        style={{ backdropFilter: 'blur(8px)' }}
       >
         {open ? <X size={13} /> : <Radio size={13} className={connected ? 'text-emerald-400' : 'text-gray-500'} />}
         <span>Events</span>

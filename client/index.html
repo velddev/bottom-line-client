@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,8 +7,21 @@
     <title>Bottom Line</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <!--
+      Theme init — runs before first paint to prevent flash of wrong theme.
+      Defaults to dark (the game's native mode). Persists via localStorage.
+      Toggle from React: document.documentElement.classList.toggle('dark')
+                         localStorage.setItem('bl-theme', isDark ? 'dark' : 'light')
+    -->
+    <script>
+      (function () {
+        var saved = localStorage.getItem('bl-theme');
+        if (saved === 'light') document.documentElement.classList.remove('dark');
+        else document.documentElement.classList.add('dark');
+      })();
+    </script>
   </head>
-  <body class="bg-gray-100 text-gray-900 font-mono" style="background-color:#f3f4f6;color:#111827">
+  <body class="bg-gray-100 text-gray-900 font-mono antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

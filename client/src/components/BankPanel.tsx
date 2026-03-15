@@ -53,10 +53,10 @@ export default function BankPanel() {
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-gray-700">Interest rate</span>
-          <span className="font-mono text-amber-400">{fmtPct(loan?.interest_rate ?? 0.005)} / tick</span>
+          <span className="font-mono text-amber-400">{fmtPct(loan?.interest_rate ?? 0.005)} / day</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-700">Cost per tick</span>
+          <span className="text-gray-700">Cost per day</span>
           <span className="font-mono text-amber-400">{fmtMoney(loan?.interest_per_tick ?? 0)}</span>
         </div>
         <div className="flex justify-between text-xs">

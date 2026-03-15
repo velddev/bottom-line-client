@@ -112,7 +112,7 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
     return (
       <button
         onClick={() => setPanelOpen(true)}
-        className="absolute top-3 left-3 z-[1000] bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 shadow-xl text-xs text-gray-700 hover:text-gray-900 transition-colors flex items-center gap-1.5"
+        className="pointer-events-auto overlay-panel rounded-lg px-3 py-2 shadow-xl text-xs text-gray-700 hover:text-gray-900 transition-colors flex items-center gap-1.5"
       >
         <Building2 size={14} />
         Buildings
@@ -122,7 +122,7 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
 
   return (
     <Panel
-      className="absolute top-3 left-3 z-[1000] w-64 max-h-[calc(100%-1.5rem)]"
+      className="pointer-events-auto w-64 h-full"
       title={<><Building2 size={14} /> Buildings</>}
       onClose={() => setPanelOpen(false)}
       headerActions={

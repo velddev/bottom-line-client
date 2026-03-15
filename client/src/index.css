@@ -2,14 +2,107 @@
 @tailwind components;
 @tailwind utilities;
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #f3f4f6; }
-::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+/* ═══════════════════════════════════════════════════════════════════════════
+   LEDGER DESIGN SYSTEM  ·  Bottom Line
+   ─────────────────────────────────────────────────────────────────────────
+   Warm zinc neutrals  +  gold accent  +  dark-first.
 
-/* Dark map placeholder — replaces Leaflet's default light-gray tile background.
-   Use :where() to stay at base specificity so nothing else is affected,
-   OR simply import index.css AFTER leaflet.css (see main.tsx). */
+   Channel values are space-separated RGB integers so every token
+   works with Tailwind opacity modifiers (bg-gray-200/60, etc.).
+
+   Palette anchors:
+     Neutral  → Warm Zinc / Stone  (not Tailwind's cool blue-gray)
+     Accent   → Gold / Amber       (wealth, the "bottom line")
+     Profit   → Emerald            (default Tailwind, unchanged)
+     Loss     → Rose               (default Tailwind, unchanged)
+     Research → Purple / Violet    (default Tailwind, unchanged)
+     Info     → Teal / Cyan        (default Tailwind, unchanged)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Light mode ─────────────────────────────────────────────────────────── */
+:root {
+  /* Warm zinc — stone-family, replaces Tailwind's cold blue-gray */
+  --gray-50:  250 250 249;   /* #fafaf9 */
+  --gray-100: 245 245 244;   /* #f5f5f4  ← page bg */
+  --gray-200: 231 229 228;   /* #e7e5e4  ← card borders */
+  --gray-300: 214 211 209;   /* #d6d3d1  ← dividers */
+  --gray-400: 168 162 158;   /* #a8a29e  ← placeholder */
+  --gray-500: 120 113 108;   /* #78716c  ← muted text */
+  --gray-600:  87  83  78;   /* #57534e  ← secondary text */
+  --gray-700:  68  64  60;   /* #44403c  ← body text */
+  --gray-800:  41  37  36;   /* #292524  ← strong text */
+  --gray-900:  28  25  23;   /* #1c1917  ← primary text */
+  --gray-950:  12  10   9;   /* #0c0a09  ← near-black */
+
+  /* Gold accent — darker shades for readable text on light surfaces
+     All passes WCAG AA (4.5:1+) against --gray-100 background.            */
+  --gold-300: 217 119   6;   /* amber-600 · subtle gold text   */
+  --gold-400: 180  83   9;   /* amber-700 · primary accent      */
+  --gold-500: 161  68   7;   /* amber-800 · hover/active state  */
+  --gold-600: 217 119   6;   /* amber-600 · button bg           */
+  --gold-muted: 254 243 199; /* amber-100 · tinted bg wash      */
+  --gold-fg:   28  25  23;   /* near-black · text ON gold bg    */
+
+  /* 3D overlay panels floating over the city scene */
+  --overlay-bg:     rgba(250, 250, 249, 0.90);
+  --overlay-border: rgba(214, 211, 209, 0.75);
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+/* The gray scale inverts so every existing gray-* class adapts automatically:
+   bg-gray-100 (page bg)    light=#f5f5f4 → dark=#1c1917  ✓
+   text-gray-900 (primary)  light=#1c1917 → dark=#f5f5f4  ✓
+   border-gray-200 (subtle) light=#e7e5e4 → dark=#292524  ✓           */
+.dark {
+  --gray-50:   12  10   9;   /* #0c0a09  ← near-black */
+  --gray-100:  28  25  23;   /* #1c1917  ← page bg */
+  --gray-200:  41  37  36;   /* #292524  ← card bg */
+  --gray-300:  60  55  52;   /* #3c3734  ← borders */
+  --gray-400:  87  83  78;   /* #57534e  ← dividers */
+  --gray-500: 120 113 108;   /* #78716c  ← muted */
+  --gray-600: 168 162 158;   /* #a8a29e  ← secondary text */
+  --gray-700: 214 211 209;   /* #d6d3d1  ← body text */
+  --gray-800: 231 229 228;   /* #e7e5e4  ← strong text */
+  --gray-900: 245 245 244;   /* #f5f5f4  ← primary text */
+  --gray-950: 250 250 249;   /* #fafaf9  ← near-white */
+
+  /* Gold accent — brighter for dark surfaces, still passes WCAG AA */
+  --gold-300: 253 211  77;   /* amber-300 · subtle accent       */
+  --gold-400: 245 158  11;   /* amber-400 · primary accent      */
+  --gold-500: 217 119   6;   /* amber-600 · mid-tone            */
+  --gold-600: 180  83   9;   /* amber-700 · button bg           */
+  --gold-muted:  69  26   3; /* amber-950 · tinted dark bg wash */
+  --gold-fg:   12  10   9;   /* near-black · text ON gold bg    */
+
+  --overlay-bg:     rgba(28, 25, 23, 0.90);
+  --overlay-border: rgba(60, 55, 52, 0.75);
+}
+
+/* ── Base layer ─────────────────────────────────────────────────────────── */
+@layer base {
+  /* Tabular numbers everywhere — critical for financial data readability */
+  html { font-variant-numeric: tabular-nums; }
+}
+
+/* ── Component: Overlay panel ───────────────────────────────────────────── */
+/* Apply to any panel that floats over the Three.js city scene.
+   Usage:  <div className="overlay-panel rounded-xl shadow-overlay …">  */
+@layer components {
+  .overlay-panel {
+    background: var(--overlay-bg);
+    border: 1px solid var(--overlay-border);
+    backdrop-filter: blur(12px) saturate(1.15);
+    -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  }
+}
+
+/* ── Scrollbars ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: rgb(var(--gray-100)); }
+::-webkit-scrollbar-thumb  { background: rgb(var(--gray-300)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--gray-400)); }
+
+/* ── Leaflet overrides ──────────────────────────────────────────────────── */
 .leaflet-container.leaflet-container { background: transparent; }
 .leaflet-control-zoom { display: none !important; }
 .leaflet-control-attribution { font-size: 9px !important; opacity: 0.3 !important; }

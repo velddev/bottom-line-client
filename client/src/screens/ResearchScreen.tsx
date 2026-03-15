@@ -42,7 +42,7 @@ export default function ResearchScreen() {
         </button>
       </div>
 
-      <p className="text-xs text-gray-600 bg-white border border-gray-200 rounded p-3">
+      <p className="text-xs text-gray-600 bg-gray-200 border border-gray-200 rounded p-3">
         Research improves the quality of your produced resources. Higher quality means better demand and higher prices.
         Quality is benchmarked against the city median — being above average gives you a demand bonus of up to 100%.
       </p>
@@ -58,11 +58,11 @@ export default function ResearchScreen() {
 
       <div className="space-y-3">
         {projects.map((p) => (
-          <div key={p.resource_type} className="bg-white border border-gray-200 rounded-lg p-4">
+          <div key={p.resource_type} className="bg-gray-200 border border-gray-200 rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="text-gray-900 font-semibold capitalize text-sm">{p.resource_type}</h3>
-                <p className="text-gray-600 text-xs mt-0.5">Level {p.level} · {p.workers} workers · {fmtMoney(p.budget_per_tick)}/tick</p>
+                <p className="text-gray-600 text-xs mt-0.5">Level {p.level} · {p.workers} workers · {fmtMoney(p.budget_per_tick)}/day</p>
               </div>
               <div className="flex items-center gap-2">
                 <span className={`text-xs px-2 py-0.5 rounded ${p.is_active ? 'text-emerald-400 bg-emerald-900/20' : 'text-gray-500 bg-gray-100'}`}>
@@ -117,7 +117,7 @@ export default function ResearchScreen() {
               <Input type="number" min="0" value={form.workers_assigned}
                 onChange={(e) => setForm((f) => ({ ...f, workers_assigned: e.target.value }))} />
             </Field>
-            <Field label="Budget / Tick ($)">
+            <Field label="Budget / Day ($)">
               <Input type="number" min="0" step="1" value={form.budget_per_tick}
                 onChange={(e) => setForm((f) => ({ ...f, budget_per_tick: e.target.value }))} />
             </Field>

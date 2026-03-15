@@ -14,7 +14,7 @@ const RESOURCE_ICONS: Record<string, string> = {
 
 function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4">
+    <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
       <p className="text-gray-700 text-xs uppercase tracking-wider mb-1">{label}</p>
       <p className={`text-xl font-bold font-mono ${accent ?? 'text-gray-900'}`}>{value}</p>
       {sub && <p className="text-gray-600 text-xs mt-1">{sub}</p>}
@@ -99,7 +99,7 @@ export default function DashboardScreen() {
 
       {/* City snapshot */}
       {city && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
           <h2 className="text-sm font-semibold text-gray-900 mb-3">🏙️ {city.name} at a Glance</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
             <div>
@@ -119,7 +119,7 @@ export default function DashboardScreen() {
               <p className="text-emerald-400 font-semibold font-mono">{fmtMoney(city.gdp_per_tick)}</p>
             </div>
             <div>
-              <p className="text-gray-700 uppercase tracking-wider mb-0.5">Tick</p>
+              <p className="text-gray-700 uppercase tracking-wider mb-0.5">Day</p>
               <p className="text-gray-900 font-semibold font-mono">#{city.current_tick}</p>
             </div>
           </div>
@@ -127,7 +127,7 @@ export default function DashboardScreen() {
       )}
 
       {/* Resources overview */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
         <div className="flex items-center gap-2 mb-3">
           <Package size={14} className="text-teal-400" />
           <h2 className="text-sm font-semibold text-gray-900">Your Resources</h2>
@@ -149,7 +149,7 @@ export default function DashboardScreen() {
       </div>
 
       {/* Buildings overview */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
           <Building2 size={14} className="text-indigo-400" />
           <h2 className="text-sm font-semibold text-gray-900">Your Buildings</h2>
@@ -206,7 +206,7 @@ export default function DashboardScreen() {
 
       {/* Research overview */}
       {activeResearch.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
             <FlaskConical size={14} className="text-purple-400" />
             <h2 className="text-sm font-semibold text-gray-900">Active Research</h2>

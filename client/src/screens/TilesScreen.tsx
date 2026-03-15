@@ -28,6 +28,8 @@ import TileSelector3D from '../components/TileSelector3D';
 import CompanyList from '../components/CompanyList';
 import Panel from '../components/Panel';
 import UnifiedChatPanel from '../components/UnifiedChatPanel';
+import SupplyVehicles3D from '../components/SupplyVehicles3D';
+import { useAllPlayerSupplyLinks } from '../hooks/useAllPlayerSupplyLinks';
 import { tileToWorld } from '../components/cityGrid';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
@@ -87,7 +89,7 @@ function ConfigureModal({
         <Select value={form.recipe_id} onChange={(e) => setForm((f) => ({ ...f, recipe_id: e.target.value }))}>
           <option value="">— None —</option>
           {(recipesResp?.recipes ?? []).map((r: RecipeInfo) => (
-            <option key={r.recipe_id} value={r.recipe_id}>{r.name} ({r.output_type}, {r.ticks_required}t)</option>
+            <option key={r.recipe_id} value={r.recipe_id}>{r.name} ({r.output_type}, {r.ticks_required}d)</option>
           ))}
         </Select>
       </Field>
@@ -152,7 +154,7 @@ export default function TilesScreen() {
   const { nextTickAt } = useTickRefresh();
   const { data: myBuildingsData } = useQuery({ queryKey: ['buildings'], queryFn: listBuildings, staleTime: 60_000, enabled: !!auth });
   const myBuildings = (myBuildingsData?.buildings ?? []) as BuildingStatus[];
-
+  const supplyRoutes = useAllPlayerSupplyLinks(myBuildings);
   const [citiesData, setCitiesData] = useState<{ cities: { city_id: string }[] } | null>(null);
   useEffect(() => { listCities().then(setCitiesData).catch(() => {}); }, []);
   const cityId = citiesData?.cities?.[0]?.city_id ?? '';
@@ -303,7 +305,7 @@ export default function TilesScreen() {
   const buildMut = useMutation({
     mutationFn: () => constructBuilding(auth!.city_id, buildForm.building_type, buildForm.name, selectedTile!.tile_id),
     onSuccess: (res) => {
-      setFlash({ ok: true, msg: `Building started! Ready in ${res.construction_ticks_remaining} ticks.` });
+      setFlash({ ok: true, msg: `Building started! Ready in ${res.construction_ticks_remaining} days.` });
       qc.invalidateQueries({ queryKey: ['buildings'] });
       refreshTileChunk(selectedTile!);
       setSelectedTile(null);
@@ -400,6 +402,7 @@ export default function TilesScreen() {
           <TileDecorations />
           <MapBorder />
           <FarmAnimals tiles={tiles} buildings={myBuildings} />
+          <SupplyVehicles3D routes={supplyRoutes} />
           {selectedTile && (
             <TileSelector3D gridX={selectedTile.grid_x} gridY={selectedTile.grid_y} />
           )}
@@ -410,16 +413,17 @@ export default function TilesScreen() {
         </CityScene3D>
       </div>
 
-      {/* Company list — left panel (slides in with map) */}
+      {/* Left overlay column: buildings (top, flex-1) + chat (bottom, shrink-0) */}
       <div
-        className="absolute inset-0 z-[1000] pointer-events-none"
+        className="absolute top-3 left-3 bottom-4 z-[1001] flex flex-col gap-2 pointer-events-none items-start"
         style={{
           opacity: mapReady ? 1 : 0,
           transform: mapReady ? 'translateX(0)' : 'translateX(-1rem)',
           transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
         }}
       >
-        <div className="pointer-events-auto">
+        {/* Buildings panel fills all remaining height above chat */}
+        <div className="pointer-events-none flex-1 min-h-0 w-64 flex flex-col">
           <CompanyList
             tiles={tiles}
             myPlayerId={auth?.player_id ?? ''}
@@ -427,22 +431,14 @@ export default function TilesScreen() {
             selectedTileId={selectedTile?.tile_id}
           />
         </div>
-      </div>
 
-      {/* Unified chat + events panel — bottom-left */}
-      {auth?.city_id && (
-        <div
-          className="absolute inset-0 z-[1001] pointer-events-none"
-          style={{
-            opacity: mapReady ? 1 : 0,
-            transition: 'opacity 0.5s ease-out',
-          }}
-        >
-          <div className="pointer-events-auto">
+        {/* Chat panel anchored to the bottom of the column */}
+        {auth?.city_id && (
+          <div className="pointer-events-none shrink-0">
             <UnifiedChatPanel cityId={auth.city_id} apiKey={auth.api_key} />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Flash toast (top-center) */}
       {flash && (

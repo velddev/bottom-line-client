@@ -134,8 +134,8 @@ export default function ChatOverlay() {
     <div className="absolute bottom-4 left-4 z-[1001] flex flex-col items-start">
       {open && (
         <div
-          className="mb-2 w-72 flex flex-col rounded-xl overflow-hidden shadow-2xl border border-gray-200"
-          style={{ height: 320, background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(8px)' }}
+          className="mb-2 w-72 flex flex-col rounded-xl overflow-hidden overlay-panel shadow-overlay border border-gray-200"
+          style={{ height: 320 }}
         >
           {/* Tab / thread header */}
           <div className="flex items-center border-b border-gray-200 shrink-0">
@@ -240,12 +240,11 @@ export default function ChatOverlay() {
       {/* Toggle button */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium shadow-lg transition-all ${
+        className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium overlay-panel transition-all ${
           open
             ? 'bg-indigo-600 text-gray-900'
-            : 'bg-white/90 text-gray-700 hover:bg-gray-100 border border-gray-200'
+            : 'text-gray-700 hover:text-gray-900'
         }`}
-        style={{ backdropFilter: 'blur(8px)' }}
       >
         {open ? <X size={13} /> : <MessageSquare size={13} />}
         <span>Chat</span>

@@ -50,7 +50,7 @@ export default function MarketShareChart({ cityId, historyTicks = 60 }: Props) {
   });
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4">
+    <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-gray-900">
           🛒 Citizen Market Share
@@ -87,7 +87,7 @@ export default function MarketShareChart({ cityId, historyTicks = 60 }: Props) {
               tickFormatter={(v) => `${v}%`}
             />
             <Tooltip
-              contentStyle={{ background: '#ffffff', border: '1px solid #e5e7eb', fontSize: 11 }}
+              contentStyle={{ background: 'rgb(var(--gray-200))', border: '1px solid rgb(var(--gray-300))', fontSize: 11 }}
               formatter={(value, name) => [`${value}%`, name]}
             />
             <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />

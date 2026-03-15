@@ -121,7 +121,7 @@ export default function PoliticsScreen() {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Government panel */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
             <h2 className="text-sm font-semibold text-gray-900">🏛️ Government</h2>
             {isRuler && (
@@ -149,7 +149,7 @@ export default function PoliticsScreen() {
                   <p className="text-gray-500 text-xs mb-0.5">Current Ruler</p>
                   <p className="text-gray-900 font-semibold">{gov.ruling_player_name || 'AI Government'}</p>
                   {isRuler && <span className="text-indigo-400 text-xs">← You</span>}
-                  <p className="text-gray-600 text-xs">Term: t{gov.term_start_tick} – t{gov.term_end_tick}</p>
+                  <p className="text-gray-600 text-xs">Term: Day {gov.term_start_tick} – Day {gov.term_end_tick}</p>
                 </div>
 
                 <div className="space-y-2">
@@ -172,7 +172,7 @@ export default function PoliticsScreen() {
         </div>
 
         {/* Election panel */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
             <h2 className="text-sm font-semibold text-gray-900">🗳️ Election</h2>
             <div className="flex items-center gap-2">
@@ -205,7 +205,7 @@ export default function PoliticsScreen() {
                     {inVoting ? 'Voting ends' : 'Voting starts'} t{inVoting ? election.voting_end : election.voting_start}
                   </span>
                   {election.last_polled_tick > 0 && (
-                    <span className="text-gray-700 text-xs">· polled t{election.last_polled_tick}</span>
+                    <span className="text-gray-700 text-xs">· polled Day {election.last_polled_tick}</span>
                   )}
                 </div>
 

@@ -19,7 +19,7 @@ function ChatBubble({ msg, myId }: { msg: ChatMessage; myId: string }) {
       }`}>
         {msg.content}
       </div>
-      <span className="text-[10px] text-gray-700 mt-0.5 px-1">t{msg.sent_at_tick}</span>
+      <span className="text-[10px] text-gray-700 mt-0.5 px-1">Day {msg.sent_at_tick}</span>
     </div>
   );
 }
@@ -119,7 +119,7 @@ export default function ChatScreen() {
         <button
           onClick={() => { setTab('city'); setDmPartner(null); }}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-            tab === 'city' ? 'bg-indigo-600 text-gray-900' : 'bg-white text-gray-600 hover:text-gray-800'
+            tab === 'city' ? 'bg-indigo-600 text-gray-900' : 'bg-gray-200 text-gray-600 hover:text-gray-800'
           }`}
         >
           <Users size={14} /> City Chat
@@ -137,7 +137,7 @@ export default function ChatScreen() {
               className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                 tab === 'dm' && dmPartner?.id === c.partner_player_id
                   ? 'bg-indigo-600 text-gray-900'
-                  : 'bg-white text-gray-600 hover:text-gray-800'
+                  : 'bg-gray-200 text-gray-600 hover:text-gray-800'
               }`}
             >
               <div className="flex items-center gap-1.5">
@@ -151,7 +151,7 @@ export default function ChatScreen() {
       </div>
 
       {/* ── Main chat panel ─────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="flex-1 flex flex-col bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
 
         {/* Header */}
         <div className="px-4 py-3 border-b border-gray-200 shrink-0">

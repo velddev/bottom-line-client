@@ -6,7 +6,7 @@ import { api } from '../api';
 
 function describeEvent(e: GameEvent): { icon: string; text: string; cls: string } {
   if (e.tick_completed)
-    return { icon: '🕐', text: `Tick ${e.tick} complete`, cls: 'text-gray-600' };
+    return { icon: '🕐', text: `Day ${e.tick} complete`, cls: 'text-gray-600' };
   if (e.resource_produced)
     return { icon: '🏭', text: `Produced ${e.resource_produced.quantity.toFixed(1)}× ${e.resource_produced.resource_type} (Q${e.resource_produced.quality.toFixed(2)})`, cls: 'text-slate-700' };
   if (e.trade_completed)
@@ -19,7 +19,7 @@ function describeEvent(e: GameEvent): { icon: string; text: string; cls: string 
   if (e.building_constructed)
     return { icon: '🏗️', text: `New ${e.building_constructed.building_type} constructed`, cls: 'text-indigo-300' };
   if (e.election_announced)
-    return { icon: '🗳️', text: `Election announced (voting @ tick ${e.election_announced.voting_start_tick})`, cls: 'text-amber-400' };
+    return { icon: '🗳️', text: `Election announced (voting @ Day ${e.election_announced.voting_start_tick})`, cls: 'text-amber-400' };
   if (e.election_concluded)
     return { icon: '🏛️', text: `Election concluded — winner: ${e.election_concluded.winner_player_id.slice(0, 8)}…`, cls: 'text-purple-400' };
   if (e.agreement_changed)
@@ -87,7 +87,7 @@ export default function EventFeed({ cityId, apiKey }: { cityId: string; apiKey: 
             return (
               <div key={e.event_id} className="flex items-center gap-2 text-xs">
                 <span className="shrink-0 w-4">{icon}</span>
-                <span className="text-gray-500 font-mono shrink-0">t{e.tick}</span>
+                <span className="text-gray-500 font-mono shrink-0">Day {e.tick}</span>
                 <span className={cls}>{text}</span>
               </div>
             );

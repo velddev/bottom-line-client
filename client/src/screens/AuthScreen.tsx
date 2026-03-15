@@ -68,7 +68,7 @@ export default function AuthScreen() {
             <div>
               <label className="block text-xs text-gray-600 mb-1 uppercase tracking-wider">Username</label>
               <input
-                className="w-full bg-white border border-gray-200 rounded px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500"
+                className="w-full bg-gray-100 border border-gray-200 rounded px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500"
                 placeholder="your_handle"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -102,7 +102,7 @@ export default function AuthScreen() {
               <div key={label}>
                 <label className="block text-xs text-gray-600 mb-1 uppercase tracking-wider">{label}</label>
                 <input
-                  className="w-full bg-white border border-gray-200 rounded px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 font-mono"
+                  className="w-full bg-gray-100 border border-gray-200 rounded px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 font-mono"
                   value={val}
                   onChange={(e) => set(e.target.value)}
                   required

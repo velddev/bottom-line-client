@@ -32,8 +32,8 @@ function CustomTooltip({ active, payload, label }: {
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-gray-200 rounded p-2 text-xs space-y-1">
-      <p className="font-semibold text-gray-700">Tick {label}</p>
+    <div className="bg-gray-200 border border-gray-200 rounded p-2 text-xs space-y-1">
+      <p className="font-semibold text-gray-700">Day {label}</p>
       {payload.map((p) => (
         <p key={p.name} style={{ color: p.color }}>
           {p.name}: {dollar(p.value)}
@@ -47,7 +47,7 @@ function StatCard({ label, value, sub, color = 'text-gray-900' }: {
   label: string; value: string; sub?: string; color?: string;
 }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-1">
+    <div className="bg-gray-200 border border-gray-200 rounded-lg p-4 space-y-1">
       <p className="text-xs text-gray-700">{label}</p>
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
       {sub && <p className="text-xs text-gray-600">{sub}</p>}
@@ -97,40 +97,40 @@ export default function PerformanceScreen() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Company Performance</h1>
-      <p className="text-gray-600 text-sm">Last {LIMIT} ticks — refreshes every 15 s</p>
+      <p className="text-gray-600 text-sm">Last {LIMIT} days — refreshes every 15 s</p>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           label="Current Balance"
           value={latest ? dollar(latest.balance_after_tick) : '—'}
-          sub={latest && prev ? `${latest.balance_after_tick >= prev.balance_after_tick ? '▲' : '▼'} ${dollar(Math.abs(latest.balance_after_tick - prev.balance_after_tick))} vs prev tick` : undefined}
+          sub={latest && prev ? `${latest.balance_after_tick >= prev.balance_after_tick ? '▲' : '▼'} ${dollar(Math.abs(latest.balance_after_tick - prev.balance_after_tick))} vs prev day` : undefined}
           color={latest?.balance_after_tick >= 0 ? 'text-green-400' : 'text-red-400'}
         />
         <StatCard
-          label={`Revenue (last ${snapshots.length} ticks)`}
+          label={`Revenue (last ${snapshots.length} days)`}
           value={dollar(totalRevenue)}
           color="text-sky-400"
         />
         <StatCard
-          label={`Expenses (last ${snapshots.length} ticks)`}
+          label={`Expenses (last ${snapshots.length} days)`}
           value={dollar(totalExpenses)}
           color="text-orange-400"
         />
         <StatCard
-          label={`Net Profit (last ${snapshots.length} ticks)`}
+          label={`Net Profit (last ${snapshots.length} days)`}
           value={dollar(totalProfit)}
           color={totalProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}
         />
       </div>
 
       {snapshots.length === 0 && (
-        <p className="text-gray-600 text-sm">No tick data yet — wait for the next game tick to see data.</p>
+        <p className="text-gray-600 text-sm">No day data yet — wait for the next game day to see data.</p>
       )}
 
       {/* Balance over time */}
       {chartData.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
           <h2 className="text-sm font-semibold text-gray-700 mb-3">Balance Over Time</h2>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
@@ -152,8 +152,8 @@ export default function PerformanceScreen() {
 
       {/* Revenue vs Expenses vs Profit per tick */}
       {chartData.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Revenue / Expenses / Profit per Tick</h2>
+        <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">Revenue / Expenses / Profit per Day</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -171,8 +171,8 @@ export default function PerformanceScreen() {
 
       {/* Expense breakdown */}
       {chartData.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Expense Breakdown per Tick</h2>
+        <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">Expense Breakdown per Day</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -193,13 +193,13 @@ export default function PerformanceScreen() {
 
       {/* Tick-by-tick table */}
       {snapshots.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Tick History (newest first)</h2>
+        <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">Day History (newest first)</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-gray-700 border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 text-gray-600">
-                  <th className="text-left py-2 px-2">Tick</th>
+                  <th className="text-left py-2 px-2">Day</th>
                   <th className="text-right py-2 px-2">Store Rev</th>
                   <th className="text-right py-2 px-2">Supply Sales</th>
                   <th className="text-right py-2 px-2">Total Rev</th>

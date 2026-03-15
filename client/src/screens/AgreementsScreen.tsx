@@ -72,7 +72,7 @@ export default function AgreementsScreen() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border border-gray-200 rounded w-fit p-0.5 bg-white">
+      <div className="flex gap-1 border border-gray-200 rounded w-fit p-0.5 bg-gray-200">
         {(['creator', 'buyer'] as const).map((t) => (
           <button
             key={t}
@@ -94,7 +94,7 @@ export default function AgreementsScreen() {
       )}
 
       {agreements.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
           <table className="w-full text-xs">
             <thead>
               <tr className="text-gray-600 border-b border-gray-200">
@@ -120,7 +120,7 @@ export default function AgreementsScreen() {
                       <span className={`px-1.5 py-0.5 rounded ${STATUS_COLORS[a.status] ?? 'text-gray-600'}`}>{a.status}</span>
                     </td>
                     <td className="px-3 py-2.5 text-gray-600">{flags.join(', ') || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{a.expires_at_tick ? `t${a.expires_at_tick}` : '∞'}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{a.expires_at_tick ? `Day ${a.expires_at_tick}` : '∞'}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {tab === 'buyer' && a.status === 'pending' && (
@@ -171,7 +171,7 @@ export default function AgreementsScreen() {
               <Input type="number" min="0" max="100" step="0.1" value={form.discount_rate}
                 onChange={(e) => setForm((f) => ({ ...f, discount_rate: e.target.value }))} />
             </Field>
-            <Field label="Expires at Tick">
+            <Field label="Expires at Day">
               <Input type="number" min="0" placeholder="0 = never" value={form.expires_at_tick}
                 onChange={(e) => setForm((f) => ({ ...f, expires_at_tick: e.target.value }))} />
             </Field>

@@ -28,7 +28,7 @@ export default function TileTooltip3D({ hoveredTile, selectedTile }: TileTooltip
       distanceFactor={undefined}
       style={{ pointerEvents: 'none' }}
     >
-      <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 shadow-xl text-xs whitespace-nowrap">
+      <div className="overlay-panel rounded-lg px-3 py-2 shadow-xl text-xs whitespace-nowrap">
         <div className="flex items-center gap-1.5">
           {icon && <span className="text-sm">{icon}</span>}
           <span className="text-gray-900 font-semibold">

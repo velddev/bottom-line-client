@@ -40,7 +40,7 @@ export default function Panel({
   const defaultBody = compact ? 'p-3 space-y-3' : 'p-4 space-y-3';
 
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden ${className}`}>
+    <div className={`bg-gray-200 border border-gray-200 rounded-lg flex flex-col overflow-hidden ${className}`}>
 
       {hasHeader && (
         <div className={`${headerPad} border-b border-gray-200 flex items-center gap-2 shrink-0`}>

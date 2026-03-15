@@ -10,7 +10,7 @@ import { fmtMoney } from '../types';
 // ── Event description helper (same logic as EventLogOverlay) ──────────────────
 function describeEvent(e: GameEvent): { icon: string; text: string; cls: string } {
   if (e.tick_completed)
-    return { icon: '🕐', text: `Tick ${e.tick} complete`, cls: 'text-gray-500' };
+    return { icon: '🕐', text: `Day ${e.tick} complete`, cls: 'text-gray-500' };
   if (e.resource_produced)
     return { icon: '🏭', text: `Produced ${e.resource_produced.quantity.toFixed(1)}× ${e.resource_produced.resource_type}`, cls: 'text-slate-700' };
   if (e.trade_completed)
@@ -23,7 +23,7 @@ function describeEvent(e: GameEvent): { icon: string; text: string; cls: string 
   if (e.building_constructed)
     return { icon: '🏗️', text: `New ${e.building_constructed.building_type} constructed`, cls: 'text-indigo-300' };
   if (e.election_announced)
-    return { icon: '🗳️', text: `Election announced (voting @ tick ${e.election_announced.voting_start_tick})`, cls: 'text-amber-400' };
+    return { icon: '🗳️', text: `Election announced (voting @ Day ${e.election_announced.voting_start_tick})`, cls: 'text-amber-400' };
   if (e.election_concluded)
     return { icon: '🏛️', text: `Election concluded — winner: ${e.election_concluded.winner_player_id.slice(0, 8)}…`, cls: 'text-purple-400' };
   if (e.agreement_changed)
@@ -44,17 +44,58 @@ function describeEvent(e: GameEvent): { icon: string; text: string; cls: string 
   return { icon: '•', text: 'Event', cls: 'text-gray-600' };
 }
 
+// ── Mention-aware content renderer ───────────────────────────────────────────
+function renderWithMentions(content: string, myUsername: string): React.ReactNode {
+  const parts = content.split(/(@\S+)/g);
+  return parts.map((part, i) => {
+    if (!part.startsWith('@')) return part;
+    const handle = part.slice(1);
+    const isMe = handle.toLowerCase() === myUsername.toLowerCase();
+    return (
+      <mark
+        key={i}
+        className={isMe
+          ? 'bg-amber-400/30 text-amber-600 dark:text-amber-400 not-italic rounded px-0.5'
+          : 'bg-transparent text-indigo-500 dark:text-indigo-400 not-italic'}
+      >
+        {part}
+      </mark>
+    );
+  });
+}
+
+// ── Typing indicator ──────────────────────────────────────────────────────────
+function TypingIndicator({ users }: { users: string[] }) {
+  if (users.length === 0) return null;
+  const label = users.length === 1
+    ? `${users[0]} is typing`
+    : `${users.length} people are typing`;
+  return (
+    <div className="flex items-center gap-1.5 text-[10px] text-gray-500 self-start px-1 py-0.5">
+      <span className="flex gap-0.5 items-end">
+        <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+        <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+        <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+      </span>
+      <span>{label}</span>
+    </div>
+  );
+}
+
 // ── Chat bubble ───────────────────────────────────────────────────────────────
 function Bubble({
   msg,
   myId,
+  myUsername,
   onClickName,
 }: {
   msg: ChatMessage;
   myId: string;
+  myUsername: string;
   onClickName: (playerId: string, playerName: string) => void;
 }) {
   const isMe = msg.from_player_id === myId;
+  const isMentioned = !isMe && msg.content.toLowerCase().includes(`@${myUsername.toLowerCase()}`);
   return (
     <div className={`flex flex-col max-w-[85%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}>
       {!isMe && (
@@ -66,9 +107,13 @@ function Bubble({
         </button>
       )}
       <div className={`rounded-xl px-2.5 py-1 text-xs leading-snug ${
-        isMe ? 'bg-indigo-600 text-gray-900 rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'
+        isMe
+          ? 'bg-indigo-600 text-gray-900 rounded-br-none'
+          : isMentioned
+            ? 'bg-amber-400/15 text-gray-800 ring-1 ring-amber-400/50 rounded-bl-none'
+            : 'bg-gray-200 text-gray-800 rounded-bl-none'
       }`}>
-        {msg.content}
+        {renderWithMentions(msg.content, myUsername)}
       </div>
     </div>
   );
@@ -120,6 +165,7 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
   const [input, setInput] = useState('');
   const [events, setEvents] = useState<GameEvent[]>([]);
   const [connected, setConnected] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const eventsListRef = useRef<HTMLDivElement>(null);
@@ -270,11 +316,11 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
     : 'Message city…';
 
   return (
-    <div className="absolute bottom-4 left-4 z-[1001] flex flex-col items-start">
+    <div className="pointer-events-auto flex flex-col items-start">
       {open && (
         <div
-          className="mb-2 w-80 flex flex-col rounded-xl overflow-hidden shadow-2xl border border-gray-200"
-          style={{ height: 340, background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(8px)' }}
+          className="mb-2 w-96 flex flex-col rounded-xl overflow-hidden overlay-panel shadow-overlay border border-gray-200"
+          style={{ height: 260 }}
         >
           {/* ── Tab bar ──────────────────────────────────────────────────── */}
           <div
@@ -351,7 +397,7 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
                 return (
                   <div key={e.event_id} className="flex items-start gap-1.5 text-xs">
                     <span className="shrink-0 w-4 mt-px">{icon}</span>
-                    <span className="text-gray-700 font-mono shrink-0 tabular-nums">t{e.tick}</span>
+                    <span className="text-gray-700 font-mono shrink-0 tabular-nums">Day {e.tick}</span>
                     <span className={`${cls} leading-snug`}>{text}</span>
                   </div>
                 );
@@ -373,9 +419,11 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
                     key={m.message_id}
                     msg={m}
                     myId={auth?.player_id ?? ''}
+                    myUsername={auth?.username ?? ''}
                     onClickName={openDmTab}
                   />
                 ))}
+                <TypingIndicator users={typingUsers} />
                 <div ref={bottomRef} />
               </div>
 
@@ -407,12 +455,11 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
       {/* ── Toggle button ──────────────────────────────────────────────────── */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium shadow-lg transition-all ${
+        className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all ${
           open
-            ? 'bg-indigo-600 text-gray-900'
-            : 'bg-white/90 text-gray-700 hover:bg-gray-100 border border-gray-200'
+            ? 'bg-gray-100 text-gray-900 border-gray-300 shadow-sm'
+            : 'overlay-panel text-gray-700 hover:text-gray-900'
         }`}
-        style={{ backdropFilter: 'blur(8px)' }}
       >
         {open ? <X size={13} /> : <MessageSquare size={13} />}
         <span>Chat</span>

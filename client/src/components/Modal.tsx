@@ -20,7 +20,7 @@ export default function Modal({ title, onClose, onSubmit, submitLabel = 'Confirm
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-white border border-gray-200 rounded-lg w-full max-w-lg mx-4 shadow-2xl">
+      <div className="bg-gray-200 border border-gray-200 rounded-lg w-full max-w-lg mx-4 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
           <h2 className="text-gray-900 font-semibold text-sm tracking-wide">{title}</h2>
