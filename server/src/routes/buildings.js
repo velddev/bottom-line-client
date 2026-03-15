@@ -56,6 +56,14 @@ router.put('/:id/auto-sell', handle(async (req) => {
   }, getApiKey(req));
 }));
 
+router.get('/:id/sales', handle(async (req) => {
+  const history_ticks = parseInt(req.query.history_ticks ?? '20', 10);
+  return rpc(stubs.building, 'GetBuildingSales', {
+    building_id: req.params.id,
+    history_ticks,
+  }, getApiKey(req));
+}));
+
 router.get('/:id', handle(async (req) => {
   return rpc(stubs.building, 'GetStatus', { building_id: req.params.id }, getApiKey(req));
 }));

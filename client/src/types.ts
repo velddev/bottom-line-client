@@ -252,6 +252,17 @@ export interface AutoSellConfigInfo {
   is_enabled: boolean;
 }
 
+export interface SalesTick {
+  tick: number;
+  resource_type: string;
+  sale_volume: number;
+  revenue_cents: number;
+}
+
+export interface GetBuildingSalesResponse {
+  ticks: SalesTick[];
+}
+
 // ─── UI helpers ───────────────────────────────────────────────────────────
 
 export const BUILDING_TYPES = ['factory', 'field', 'store', 'warehouse'] as const;

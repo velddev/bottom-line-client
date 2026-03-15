@@ -3,7 +3,7 @@ import type {
   AgreementSummary, ResearchProgress, BrandSummary, BrandValueResponse,
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
-  SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo,
+  SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
 } from './types';
 
 const BASE = '/api';
@@ -206,3 +206,6 @@ export const getAutoSellConfigs = (buildingId: string) =>
 
 export const setAutoSellConfig = (buildingId: string, resource_type: string, price_per_unit: number, is_enabled: boolean) =>
   put<{ success: boolean }>(`/buildings/${buildingId}/auto-sell`, { resource_type, price_per_unit, is_enabled });
+
+export const getBuildingSales = (buildingId: string, historyTicks = 20) =>
+  get<GetBuildingSalesResponse>(`/buildings/${buildingId}/sales?history_ticks=${historyTicks}`);

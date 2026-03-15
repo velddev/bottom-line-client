@@ -107,6 +107,7 @@ service BuildingService {
   rpc ListPotentialSuppliers (ListPotentialSuppliersRequest) returns (ListPotentialSuppliersResponse);
   rpc GetAutoSellConfigs (GetAutoSellConfigsRequest) returns (GetAutoSellConfigsResponse);
   rpc SetAutoSellConfig  (SetAutoSellConfigRequest)  returns (SetAutoSellConfigResponse);
+  rpc GetBuildingSales   (GetBuildingSalesRequest)   returns (GetBuildingSalesResponse);
 }
 
 message ConstructRequest  { string city_id = 1; string building_type = 2; string name = 3; string tile_id = 4; }
@@ -204,6 +205,20 @@ message SetAutoSellConfigRequest {
   bool   is_enabled     = 4;
 }
 message SetAutoSellConfigResponse { bool success = 1; }
+
+message GetBuildingSalesRequest {
+  string building_id   = 1;
+  int32  history_ticks = 2;
+}
+message SalesTick {
+  int64  tick          = 1;
+  string resource_type = 2;
+  double sale_volume   = 3;
+  int64  revenue_cents = 4;
+}
+message GetBuildingSalesResponse {
+  repeated SalesTick ticks = 1;
+}
 
 // ─────────────────────────────────────────
 // MarketService

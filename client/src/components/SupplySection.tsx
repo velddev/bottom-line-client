@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, X, ChevronDown, ChevronUp, BarChart2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getBuilding, listRecipes, getSupplyLinks, addSupplyLink,
   removeSupplyLink, listPotentialSuppliers, configureBuilding,
-  getAutoSellConfigs, setAutoSellConfig,
+  getAutoSellConfigs, setAutoSellConfig, getBuildingSales,
 } from '../api';
-import type { RecipeInfo, SupplyLinkInfo, PotentialSupplier } from '../types';
+import type { RecipeInfo, SupplyLinkInfo, PotentialSupplier, SalesTick } from '../types';
 import { fmtMoney, fmtQuality } from '../types';
 
 const ALL_RESOURCES = ['Food', 'Grain', 'Water', 'AnimalFeed', 'Cattle', 'Meat', 'Leather'];
@@ -494,6 +494,86 @@ function AutoSellRow({ buildingId, resourceType }: { buildingId: string; resourc
   );
 }
 
+// ── Store performance analytics panel ─────────────────────────────────────────
+function StoreAnalyticsPanel({ buildingId }: { buildingId: string }) {
+  const [open, setOpen] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['building-sales', buildingId],
+    queryFn: () => getBuildingSales(buildingId, 20),
+    enabled: open,
+    staleTime: 30_000,
+  });
+
+  const ticks: SalesTick[] = data?.ticks ?? [];
+
+  // Group by resource then by tick for a simple table
+  const byResource = ticks.reduce<Record<string, SalesTick[]>>((acc, t) => {
+    if (!acc[t.resource_type]) acc[t.resource_type] = [];
+    acc[t.resource_type].push(t);
+    return acc;
+  }, {});
+
+  const resources = Object.keys(byResource);
+
+  return (
+    <div className="mt-4 border-t border-gray-700/50 pt-3">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+      >
+        <BarChart2 size={11} />
+        <span>Performance</span>
+        {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+      </button>
+
+      {open && (
+        <div className="mt-2">
+          {isLoading && <p className="text-xs text-gray-600 animate-pulse">Loading…</p>}
+          {!isLoading && ticks.length === 0 && (
+            <p className="text-xs text-gray-600">No sales recorded yet.</p>
+          )}
+          {resources.map(res => {
+            const rows = byResource[res].slice(0, 10);
+            const totalUnits = rows.reduce((s, r) => s + r.sale_volume, 0);
+            const totalRev   = rows.reduce((s, r) => s + r.revenue_cents, 0);
+            return (
+              <div key={res} className="mb-3">
+                <p className="text-xs font-medium text-gray-300 mb-1 capitalize">{res}</p>
+                <div className="text-xs text-gray-500 flex gap-4 mb-1">
+                  <span>Last {rows.length} ticks</span>
+                  <span>Units: <span className="text-white font-mono">{totalUnits.toFixed(1)}</span></span>
+                  <span>Revenue: <span className="text-green-400 font-mono">{fmtMoney(totalRev)}</span></span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[10px] text-gray-500">
+                    <thead>
+                      <tr className="border-b border-gray-700/40">
+                        <th className="text-left py-0.5 pr-3">Tick</th>
+                        <th className="text-right pr-3">Units sold</th>
+                        <th className="text-right">Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map(r => (
+                        <tr key={r.tick} className="border-b border-gray-800/40">
+                          <td className="py-0.5 pr-3 font-mono">{r.tick}</td>
+                          <td className="text-right pr-3 font-mono text-white">{r.sale_volume.toFixed(2)}</td>
+                          <td className="text-right font-mono text-green-400">{fmtMoney(r.revenue_cents)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main SupplySection component ──────────────────────────────────────────────
 export default function SupplySection({
   buildingId,
@@ -528,7 +608,12 @@ export default function SupplySection({
 
   // Stores: only consumer goods have supply chain meaning
   if (buildingType === 'store') {
-    return <StoreSupplySection buildingId={buildingId} cityId={cityId} links={links} />;
+    return (
+      <div>
+        <StoreSupplySection buildingId={buildingId} cityId={cityId} links={links} />
+        <StoreAnalyticsPanel buildingId={buildingId} />
+      </div>
+    );
   }
 
   const recipe = (recipesResp?.recipes ?? []).find((r: RecipeInfo) => r.recipe_id === bldg.active_recipe);
