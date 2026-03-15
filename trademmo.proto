@@ -691,11 +691,13 @@ message ListBrandsResponse {
 // player.proto
 // ─────────────────────────────────────────────────────────────────────────
 service PlayerService {
-  rpc Register     (RegisterRequest)     returns (RegisterResponse) {
+  rpc Register            (RegisterRequest)            returns (RegisterResponse) {
   }
-  rpc GetProfile   (GetProfileRequest)   returns (PlayerProfile) {
+  rpc GetProfile          (GetProfileRequest)          returns (PlayerProfile) {
   }
-  rpc GetInventory (GetInventoryRequest) returns (InventoryResponse) {
+  rpc GetInventory        (GetInventoryRequest)        returns (InventoryResponse) {
+  }
+  rpc GetCompanyHistory   (GetCompanyHistoryRequest)   returns (GetCompanyHistoryResponse) {
   }
 }
 
@@ -736,6 +738,43 @@ message InventoryItem {
 
 message InventoryResponse {
   repeated InventoryItem items = 1;
+}
+
+// ── Company History ──────────────────────────────────────────────────────────
+
+message GetCompanyHistoryRequest {
+  // Number of ticks of history to return; defaults to 60 (last hour).
+  int32 limit = 1;
+}
+
+/// One tick's financial snapshot for the calling player.
+message CompanyTickSnapshot {
+  int64 tick                          = 1;
+
+  // Revenue
+  int64 store_revenue_cents           = 2;   // net received from citizen store sales
+  int64 supply_line_sales_cents       = 3;   // received when others bought from your buildings
+
+  // Expenses
+  int64 consumer_tax_cents            = 4;   // withheld from gross store sales
+  int64 land_tax_cents                = 5;   // land tax paid per owned building
+  int64 supply_purchases_cents        = 6;   // paid to suppliers via supply links
+  int64 marketing_spend_cents         = 7;   // active campaign budget deducted
+  int64 research_spend_cents          = 8;   // research project budget deducted
+  int64 loan_interest_cents           = 9;   // loan interest payments
+
+  // Totals
+  int64 total_revenue_cents           = 10;
+  int64 total_expenses_cents          = 11;
+  int64 net_profit_cents              = 12;
+
+  // Balance snapshot
+  int64 balance_before_tick           = 13;
+  int64 balance_after_tick            = 14;
+}
+
+message GetCompanyHistoryResponse {
+  repeated CompanyTickSnapshot snapshots = 1;
 }
 
 
