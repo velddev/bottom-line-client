@@ -218,7 +218,7 @@ function SupplyLineLayer({ meta }: { meta: TileMeta }) {
 
   const supplyQueries = useQueries({
     queries: buildings.map(b => ({
-      queryKey: ['supplyLinks', b.building_id],
+      queryKey: ['supply-links', b.building_id],
       queryFn: () => getSupplyLinks(b.building_id),
       staleTime: 60_000,
     })),
