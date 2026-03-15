@@ -167,12 +167,17 @@ export default function TilesScreen() {
     setTiles(new Map());
   }, [cityId]);
 
-  // Load all tile chunks on mount
-  const loadAllTiles = useCallback(async () => {
+  // Load only chunks that overlap the visible tile bounds
+  const loadVisibleChunks = useCallback(async (bounds: { minX: number; maxX: number; minY: number; maxY: number }) => {
     if (!cityId) return;
+    const minCX = Math.floor(bounds.minX / CHUNK_SIZE);
+    const maxCX = Math.floor(bounds.maxX / CHUNK_SIZE);
+    const minCY = Math.floor(bounds.minY / CHUNK_SIZE);
+    const maxCY = Math.floor(bounds.maxY / CHUNK_SIZE);
+
     const chunks: Promise<void>[] = [];
-    for (let cx = 0; cx < Math.ceil(GRID_COLS / CHUNK_SIZE); cx++) {
-      for (let cy = 0; cy < Math.ceil(GRID_ROWS / CHUNK_SIZE); cy++) {
+    for (let cx = minCX; cx <= maxCX; cx++) {
+      for (let cy = minCY; cy <= maxCY; cy++) {
         const key = `${cx}_${cy}`;
         if (fetchedRef.current.has(key) || fetchingRef.current.has(key)) continue;
         chunks.push((async () => {
@@ -190,11 +195,22 @@ export default function TilesScreen() {
         })());
       }
     }
-    await Promise.all(chunks);
-    setTiles(new Map(tileCache.current));
+    if (chunks.length > 0) {
+      await Promise.all(chunks);
+      setTiles(new Map(tileCache.current));
+    }
   }, [cityId]);
 
-  useEffect(() => { loadAllTiles(); }, [loadAllTiles]);
+  // Stable callback ref for visible bounds changes (avoids re-renders in CityScene3D)
+  const loadVisibleChunksRef = useRef(loadVisibleChunks);
+  loadVisibleChunksRef.current = loadVisibleChunks;
+  const lastVisibleBoundsRef = useRef<{ minX: number; maxX: number; minY: number; maxY: number } | null>(null);
+  const handleVisibleBoundsChange = useCallback(
+    (bounds: { minX: number; maxX: number; minY: number; maxY: number }) => {
+      lastVisibleBoundsRef.current = bounds;
+      loadVisibleChunksRef.current(bounds);
+    }, []
+  );
 
   // SSE subscription for live tile updates
   useEffect(() => {
@@ -252,22 +268,29 @@ export default function TilesScreen() {
       } catch { /* ignore parse errors */ }
     };
 
-    // 60-second fallback refresh
+    // 60-second fallback refresh — re-fetch visible chunks
     const refresh = setInterval(() => {
       fetchedRef.current.clear();
-      loadAllTiles();
+      if (lastVisibleBoundsRef.current) {
+        loadVisibleChunksRef.current(lastVisibleBoundsRef.current);
+      }
     }, 60_000);
 
     return () => { es.close(); clearInterval(refresh); };
-  }, [auth?.api_key, cityId, loadAllTiles]);
+  }, [auth?.api_key, cityId]);
 
   // Refresh tile chunk after purchase/build
   const refreshTileChunk = useCallback((tile: TileInfo) => {
     const cx = Math.floor(tile.grid_x / CHUNK_SIZE);
     const cy = Math.floor(tile.grid_y / CHUNK_SIZE);
     fetchedRef.current.delete(`${cx}_${cy}`);
-    loadAllTiles();
-  }, [loadAllTiles]);
+    loadVisibleChunks({
+      minX: cx * CHUNK_SIZE,
+      maxX: cx * CHUNK_SIZE + CHUNK_SIZE - 1,
+      minY: cy * CHUNK_SIZE,
+      maxY: cy * CHUNK_SIZE + CHUNK_SIZE - 1,
+    });
+  }, [loadVisibleChunks]);
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
   useEffect(() => {
     if (!flash) return;
@@ -382,7 +405,7 @@ export default function TilesScreen() {
           transition: 'opacity 0.5s ease-in',
         }}
       >
-        <CityScene3D focusWorldPos={focusWorldPos} snapNextFocus={snapCamera}>
+        <CityScene3D focusWorldPos={focusWorldPos} snapNextFocus={snapCamera} onVisibleBoundsChange={handleVisibleBoundsChange}>
           <TileGrid3D
             tiles={tiles}
             myPlayerId={auth?.player_id ?? ''}

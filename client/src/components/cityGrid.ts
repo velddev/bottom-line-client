@@ -32,7 +32,34 @@ export function tileToWorld(gx: number, gy: number): [number, number] {
   return [wx, wz];
 }
 
-// Road strip positions along each axis
+// Convert world (visual) position → game grid position (inverse of tileToWorld)
+export function worldToTile(wx: number, wz: number): [number, number] {
+  // X: blocks of 6 world units (5 tiles + 1 road)
+  const blockX = Math.floor(wx / (BLOCK_SIZE + ROAD_WIDTH));
+  const posInBlockX = wx - blockX * (BLOCK_SIZE + ROAD_WIDTH);
+  const gx = Math.min(GAME_GRID - 1, Math.max(0,
+    blockX * BLOCK_SIZE + Math.min(posInBlockX, BLOCK_SIZE - 1)));
+
+  // Y: 12 world-unit cycles (10 tiles + 2 roads)
+  const worldCycle = Y_CYCLE + 2; // 12
+  const cycleY = Math.floor(wz / worldCycle);
+  const posInCycleY = wz - cycleY * worldCycle;
+  let gy: number;
+  if (posInCycleY < Y_BLUE) {
+    gy = cycleY * Y_CYCLE + posInCycleY;
+  } else if (posInCycleY === Y_BLUE) {
+    // Road after blue section
+    gy = cycleY * Y_CYCLE + Y_BLUE - 1;
+  } else if (posInCycleY <= Y_BLUE + 1 + (Y_CYCLE - Y_BLUE) - 1) {
+    gy = cycleY * Y_CYCLE + Y_BLUE + (posInCycleY - Y_BLUE - 1);
+  } else {
+    // Road between cycles
+    gy = cycleY * Y_CYCLE + Y_CYCLE - 1;
+  }
+  gy = Math.min(GAME_GRID - 1, Math.max(0, Math.round(gy)));
+
+  return [gx, gy];
+}
 function getXRoadStrips(): number[] {
   const strips: number[] = [];
   for (let block = 0; block < BLOCKS_PER_AXIS - 1; block++) {

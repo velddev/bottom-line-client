@@ -2,13 +2,15 @@ import { useRef, useEffect, useMemo, useCallback } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { MapControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { WORLD_SIZE } from './cityGrid';
+import { WORLD_SIZE, worldToTile, GAME_GRID } from './cityGrid';
 
 interface CityScene3DProps {
   children?: React.ReactNode;
   focusWorldPos?: [number, number] | null;
   /** If true, the next focusWorldPos change will snap instantly (no animation). */
   snapNextFocus?: boolean;
+  /** Called when the visible tile bounds change (debounced). */
+  onVisibleBoundsChange?: (bounds: { minX: number; maxX: number; minY: number; maxY: number }) => void;
 }
 
 function IsometricCamera() {
@@ -158,6 +160,63 @@ function CameraFocus({ controlsRef, focusWorldPos, snap }: { controlsRef: React.
   return null;
 }
 
+/** Tracks which tile grid range is visible and reports changes via callback. */
+function VisibleBoundsTracker({ onChange }: { onChange: (bounds: { minX: number; maxX: number; minY: number; maxY: number }) => void }) {
+  const { camera, size } = useThree();
+  const lastBounds = useRef('');
+  const throttleRef = useRef(0);
+
+  useFrame(() => {
+    // Throttle to ~4 checks per second
+    const now = Date.now();
+    if (now - throttleRef.current < 250) return;
+    throttleRef.current = now;
+
+    if (!(camera instanceof THREE.OrthographicCamera)) return;
+
+    // Compute visible world rectangle from orthographic camera
+    const halfW = (camera.right - camera.left) / (2 * camera.zoom);
+    const halfH = (camera.top - camera.bottom) / (2 * camera.zoom);
+
+    // Camera target is where the camera looks at on the ground plane
+    const target = camera.position.clone();
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+
+    // Ray from camera to ground plane (y=0)
+    if (dir.y !== 0) {
+      const t = -target.y / dir.y;
+      target.addScaledVector(dir, t);
+    }
+
+    // The visible area in world-space (conservative estimate using larger extent)
+    const extent = Math.max(halfW, halfH) * 1.5;
+    const minWX = Math.max(0, target.x - extent);
+    const maxWX = Math.min(WORLD_SIZE, target.x + extent);
+    const minWZ = Math.max(0, target.z - extent);
+    const maxWZ = Math.min(WORLD_SIZE, target.z + extent);
+
+    // Convert world bounds to tile grid bounds
+    const [tMinX, tMinY] = worldToTile(minWX, minWZ);
+    const [tMaxX, tMaxY] = worldToTile(maxWX, maxWZ);
+
+    const bounds = {
+      minX: Math.max(0, tMinX - 5),
+      maxX: Math.min(GAME_GRID - 1, tMaxX + 5),
+      minY: Math.max(0, tMinY - 5),
+      maxY: Math.min(GAME_GRID - 1, tMaxY + 5),
+    };
+
+    const key = `${bounds.minX}_${bounds.maxX}_${bounds.minY}_${bounds.maxY}`;
+    if (key !== lastBounds.current) {
+      lastBounds.current = key;
+      onChange(bounds);
+    }
+  });
+
+  return null;
+}
+
 function GridGround() {
   const gridRef = useRef<THREE.GridHelper>(null);
 
@@ -181,7 +240,7 @@ function GridGround() {
 const ISO_ANGLE = Math.PI / 6;
 const ISO_DISTANCE = 140;
 
-export default function CityScene3D({ children, focusWorldPos, snapNextFocus }: CityScene3DProps) {
+export default function CityScene3D({ children, focusWorldPos, snapNextFocus, onVisibleBoundsChange }: CityScene3DProps) {
   const controlsRef = useRef<any>(null);
 
   const cameraPosition = useMemo(() => {
@@ -215,6 +274,7 @@ export default function CityScene3D({ children, focusWorldPos, snapNextFocus }: 
       <IsometricCamera />
       <KeyboardControls controlsRef={controlsRef} />
       <CameraFocus controlsRef={controlsRef} focusWorldPos={focusWorldPos} snap={snapNextFocus} />
+      {onVisibleBoundsChange && <VisibleBoundsTracker onChange={onVisibleBoundsChange} />}
 
       {/* Sky color */}
       <color attach="background" args={['#87CEEB']} />
