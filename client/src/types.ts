@@ -7,6 +7,8 @@ export interface PlayerProfile {
   public_perception: number;
   city_id: string;
   joined_at_tick: number;
+  /** True for government and other non-playable system players */
+  is_system: boolean;
 }
 
 export interface InventoryItem {

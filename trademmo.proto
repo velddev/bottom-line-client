@@ -872,6 +872,7 @@ message PlayerProfile {
   float  public_perception = 4;
   string city_id           = 5;
   int64  joined_at_tick    = 6;
+  bool   is_system         = 7; // true for government and other non-playable system players
 }
 
 message GetInventoryRequest {
