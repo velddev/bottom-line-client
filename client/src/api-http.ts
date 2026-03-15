@@ -8,9 +8,22 @@ import type {
 } from './types';
 import type { IApiService } from './api-interface';
 
-// API base — always points to the production API server.
-// Override with VITE_API_BASE env var for local development if needed.
-const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'https://api.ventured.gg/v1';
+// API base — auto-detects Discord Activity proxy or uses direct URL.
+// Discord Activities can't call external APIs directly due to CSP;
+// they must go through Discord's URL mapping proxy.
+function getApiBase(): string {
+  const envBase = (import.meta.env.VITE_API_BASE as string | undefined);
+  if (envBase) return envBase;
+
+  // Discord Activity: use proxy path (requires URL mapping in Developer Portal)
+  if (new URLSearchParams(window.location.search).has('frame_id')) {
+    return '/.proxy/api/v1';
+  }
+
+  return 'https://api.ventured.gg/v1';
+}
+
+const BASE = getApiBase();
 
 function headers(): HeadersInit {
   const key = localStorage.getItem('api_key') ?? '';
