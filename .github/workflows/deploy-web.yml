@@ -9,9 +9,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Trigger infrastructure deploy
+      - name: Trigger trade-mmo deploy
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.DEPLOY_TOKEN }}
-          repository: velddev/ventured-infrastructure
-          event-type: deploy-frontend
+          repository: velddev/trade-mmo
+          event-type: deploy
