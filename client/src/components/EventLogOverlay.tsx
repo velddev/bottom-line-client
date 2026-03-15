@@ -87,13 +87,43 @@ function describe(e: GameEvent): EventEntry {
   }
 
   if (e.building_constructed) {
-    const { building_type, building_id, player_id } = e.building_constructed;
+    const { building_type, building_id, player_id, building_name } = e.building_constructed;
     const cap = building_type.charAt(0).toUpperCase() + building_type.slice(1);
+    const label = building_name || `${cap} #${shortId(building_id)}`;
     return {
       icon: '🏗️', category: 'world',
-      headline: `${cap} constructed`,
-      detail: `Building ${shortId(building_id)} · Owner ${shortId(player_id)}`,
+      headline: `${label} construction complete`,
+      detail: `${cap} · Owner ${shortId(player_id)}`,
       cls: 'text-indigo-300',
+    };
+  }
+
+  if (e.building_construction_started) {
+    const { building_type, building_id, player_id, building_name, construction_ticks_remaining } = e.building_construction_started;
+    const cap = building_type.charAt(0).toUpperCase() + building_type.slice(1);
+    const label = building_name || `${cap} #${shortId(building_id)}`;
+    return {
+      icon: '⚒️', category: 'world',
+      headline: `${label} — construction started`,
+      detail: `${cap} · Ready in ${construction_ticks_remaining} tick${construction_ticks_remaining !== 1 ? 's' : ''} · Owner ${shortId(player_id)}`,
+      cls: 'text-cyan-300',
+    };
+  }
+
+  if (e.building_status_changed) {
+    const { building_name, building_type, old_status, new_status } = e.building_status_changed;
+    const isBad = new_status === 'MissingResources' || new_status === 'Paused';
+    const isGood = new_status === 'Producing';
+    const statusLabel: Record<string, string> = {
+      Producing: '▶ Producing', Idle: '⏸ Idle',
+      MissingResources: '⚠️ Missing Resources', Paused: '🚫 Paused',
+    };
+    const label = building_name || building_type;
+    return {
+      icon: isBad ? '⚠️' : isGood ? '✅' : '🔄', category: 'production',
+      headline: `${label} — ${statusLabel[new_status] ?? new_status}`,
+      detail: `Was ${old_status} · ${building_type}`,
+      cls: isBad ? 'text-rose-400' : isGood ? 'text-emerald-400' : 'text-gray-400',
     };
   }
 

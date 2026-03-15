@@ -202,7 +202,9 @@ export interface GameEvent {
   resource_produced?: { building_id: string; player_id: string; resource_type: string; quantity: number; quality: number };
   trade_completed?: { buyer_building_id: string; seller_building_id: string; resource_type: string; quantity: number; total_price: number };
   market_price_changed?: { city_id: string; resource_type: string; old_median_price: number; new_median_price: number };
-  building_constructed?: { building_id: string; player_id: string; building_type: string };
+  building_constructed?: { building_id: string; player_id: string; building_type: string; building_name: string; city_id: string };
+  building_construction_started?: { city_id: string; building_id: string; player_id: string; building_name: string; building_type: string; construction_ticks_remaining: number };
+  building_status_changed?: { city_id: string; building_id: string; player_id: string; building_name: string; building_type: string; old_status: string; new_status: string };
   election_announced?: { election_id: string; city_id: string; voting_start_tick: number };
   election_concluded?: { election_id: string; city_id: string; winner_player_id: string };
   agreement_changed?: { agreement_id: string; creator_player_id: string; buyer_player_id: string; new_status: string };

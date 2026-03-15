@@ -26,8 +26,7 @@ import MapBorder from '../components/MapBorder';
 import FarmAnimals from '../components/FarmAnimals';
 import TileSelector3D from '../components/TileSelector3D';
 import CompanyList from '../components/CompanyList';
-import ChatOverlay from '../components/ChatOverlay';
-import EventLogOverlay from '../components/EventLogOverlay';
+import UnifiedChatPanel from '../components/UnifiedChatPanel';
 import { tileToWorld } from '../components/cityGrid';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
@@ -407,20 +406,7 @@ export default function TilesScreen() {
         </div>
       </div>
 
-      {/* Chat overlay — bottom-left */}
-      <div
-        className="absolute inset-0 z-[1001] pointer-events-none"
-        style={{
-          opacity: mapReady ? 1 : 0,
-          transition: 'opacity 0.5s ease-out',
-        }}
-      >
-        <div className="pointer-events-auto">
-          <ChatOverlay />
-        </div>
-      </div>
-
-      {/* Events log overlay — bottom-right */}
+      {/* Unified chat + events panel — bottom-left */}
       {auth?.city_id && (
         <div
           className="absolute inset-0 z-[1001] pointer-events-none"
@@ -430,7 +416,7 @@ export default function TilesScreen() {
           }}
         >
           <div className="pointer-events-auto">
-            <EventLogOverlay cityId={auth.city_id} apiKey={auth.api_key} />
+            <UnifiedChatPanel cityId={auth.city_id} apiKey={auth.api_key} />
           </div>
         </div>
       )}
