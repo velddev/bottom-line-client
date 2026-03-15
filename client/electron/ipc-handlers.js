@@ -40,7 +40,7 @@ export function registerIpcHandlers() {
   handle('api:openDiscordOAuth', async ({ clientId }) => {
     const params = new URLSearchParams({
       client_id:     clientId,
-      redirect_uri:  'trademmo://auth',
+      redirect_uri:  'bottomline://auth',
       response_type: 'code',
       scope:         'identify',
     });

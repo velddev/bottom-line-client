@@ -26,7 +26,7 @@ export default function AuthScreen() {
   // Capture pending username for use inside the deep-link callback
   const pendingUsername = useRef('');
 
-  // Listen for the trademmo://auth deep-link code from Electron main process
+  // Listen for the bottomline://auth deep-link code from Electron main process
   useEffect(() => {
     if (!window.electronAPI?.onDiscordAuth) return;
     const stop = window.electronAPI.onDiscordAuth(async ({ code }) => {
@@ -34,7 +34,7 @@ export default function AuthScreen() {
       setError(null);
       try {
         const result = await api.exchangeOAuthCode(
-          'DISCORD', code, 'trademmo://auth', pendingUsername.current);
+          'DISCORD', code, 'bottomline://auth', pendingUsername.current);
         localStorage.setItem('api_key', result.api_key);
         const profile = await getProfile();
         login({
@@ -57,21 +57,21 @@ export default function AuthScreen() {
       <LoginShell error={error}>
         <button
           onClick={() => setStep({ kind: 'pick-username' })}
-          className="w-full flex items-center justify-center gap-3 bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded text-sm font-semibold transition-colors"
+          className="w-full flex items-center justify-center gap-3 bg-[#5865F2] hover:bg-[#4752C4] text-white py-3 rounded-xl text-sm font-semibold transition-colors"
         >
           <DiscordIcon />
           Login with Discord
         </button>
 
         <div className="flex items-center gap-2 my-2">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-xs text-gray-400">or</span>
-          <div className="flex-1 h-px bg-gray-200" />
+          <div className="flex-1 h-px bg-stone-700" />
+          <span className="text-xs text-stone-600">or</span>
+          <div className="flex-1 h-px bg-stone-700" />
         </div>
 
         <button
           onClick={() => { setError(null); setStep({ kind: 'manual' }); }}
-          className="w-full text-xs text-gray-500 hover:text-gray-700 py-2 transition-colors"
+          className="w-full text-xs text-stone-500 hover:text-stone-300 py-2 transition-colors"
         >
           Enter credentials manually
         </button>
@@ -104,19 +104,19 @@ export default function AuthScreen() {
             </label>
             <input
               autoFocus
-              className="w-full bg-gray-100 border border-gray-200 rounded px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500"
+              className="w-full bg-gray-100 border border-gray-200 rounded-lg px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500"
               placeholder="your_handle  (leave blank to use Discord name)"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               Only matters for new accounts. Returning players keep their existing name.
             </p>
           </div>
 
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-3 bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded text-sm font-semibold transition-colors"
+            className="w-full flex items-center justify-center gap-3 bg-[#5865F2] hover:bg-[#4752C4] text-white py-3 rounded-xl text-sm font-semibold transition-colors"
           >
             <DiscordIcon />
             Open Discord →
@@ -140,7 +140,7 @@ export default function AuthScreen() {
       <LoginShell>
         <div className="text-center space-y-3 py-4">
           <p className="text-gray-700 text-sm">Waiting for Discord authorization…</p>
-          <p className="text-gray-400 text-xs">
+          <p className="text-gray-500 text-xs">
             Approve in the browser window that opened, then return here.
           </p>
           <button
@@ -188,7 +188,7 @@ export default function AuthScreen() {
           <div key={label}>
             <label className="block text-xs text-gray-600 mb-1 uppercase tracking-wider">{label}</label>
             <input
-              className="w-full bg-gray-100 border border-gray-200 rounded px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 font-mono"
+              className="w-full bg-gray-100 border border-gray-200 rounded-lg px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500 font-mono"
               value={val}
               onChange={(e) => set(e.target.value)}
               required
@@ -197,7 +197,7 @@ export default function AuthScreen() {
         ))}
         <button
           type="submit"
-          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded text-sm font-semibold transition-colors"
+          className="w-full bg-indigo-600 hover:bg-indigo-500 text-gray-900 py-2.5 rounded-xl text-sm font-bold transition-colors"
         >
           Enter Game
         </button>
@@ -217,23 +217,48 @@ export default function AuthScreen() {
 
 function LoginShell({ children, error }: { children: React.ReactNode; error?: string | null }) {
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm space-y-4">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold tracking-widest">
-            <span className="text-indigo-400">TRADE</span>
-            <span className="text-gray-600">MMO</span>
-          </h1>
-          <p className="text-gray-600 text-xs mt-2 tracking-widest uppercase">Open World Economy</p>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 relative overflow-hidden">
+
+      {/* Subtle grid — decorative only */}
+      <div className="absolute inset-0 opacity-[0.06]" style={{
+        backgroundImage: 'linear-gradient(#d97706 1px, transparent 1px), linear-gradient(90deg, #d97706 1px, transparent 1px)',
+        backgroundSize: '64px 64px',
+      }} />
+
+      {/* Centre glow — decorative only */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: 'radial-gradient(ellipse 70% 45% at 50% 50%, rgba(217,119,6,0.10) 0%, transparent 70%)',
+      }} />
+
+      {/* Content */}
+      <div className="relative w-full max-w-sm">
+
+        {/* Logo */}
+        <div className="text-center mb-10">
+          <div className="mb-2 flex items-baseline justify-center gap-2">
+            <span className="text-5xl font-extrabold tracking-widest text-indigo-400">
+              BOTTOM
+            </span>
+            <span className="text-5xl font-extrabold tracking-widest text-gray-600">
+              LINE
+            </span>
+          </div>
+          <p className="text-gray-500 text-[10px] tracking-[0.4em] uppercase">Open World Economy</p>
         </div>
 
-        {error && (
-          <p className="text-rose-600 text-xs bg-rose-50 border border-rose-200 rounded px-3 py-2">
-            {error}
-          </p>
-        )}
+        {/* Card */}
+        <div className="bg-gray-200 border border-gray-300 rounded-2xl p-7 shadow-panel space-y-4">
+          {error && (
+            <p className="text-rose-400 text-xs bg-rose-900/20 border border-rose-900/30 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+          {children}
+        </div>
 
-        {children}
+        <p className="text-center text-gray-500 text-[10px] tracking-widest uppercase mt-6">
+          Season 1 · Alpha
+        </p>
       </div>
     </div>
   );

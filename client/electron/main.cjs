@@ -6,14 +6,14 @@ const url = require('url');
 
 const isDev = !app.isPackaged;
 
-// Register trademmo:// as a protocol handler for Discord OAuth deep links.
+// Register bottomline:// as a protocol handler for Discord OAuth deep links.
 // On Windows/Linux this must be called before app.whenReady().
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('trademmo', process.execPath, [path.resolve(process.argv[1])]);
+    app.setAsDefaultProtocolClient('bottomline', process.execPath, [path.resolve(process.argv[1])]);
   }
 } else {
-  app.setAsDefaultProtocolClient('trademmo');
+  app.setAsDefaultProtocolClient('bottomline');
 }
 
 function getMainWindow() {
@@ -48,7 +48,7 @@ if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', (_, argv) => {
-    const deepUrl = argv.find((arg) => arg.startsWith('trademmo://'));
+    const deepUrl = argv.find((arg) => arg.startsWith('bottomline://'));
     if (deepUrl) handleDeepLink(deepUrl);
 
     // Bring the existing window to focus
