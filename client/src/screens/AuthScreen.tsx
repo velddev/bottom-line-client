@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getProfile, useApi } from '../api';
 import { useAuth } from '../auth';
 import { detectAuthStrategy } from '../auth/detect-strategy';
@@ -25,7 +25,7 @@ export default function AuthScreen({ strategyOverride }: { strategyOverride?: Au
   const [manualUsername, setManualUsername]   = useState('');
 
   // Handle an OAuthResult: either a pre-exchanged token or a code to exchange
-  const handleOAuthResult = async (result: OAuthResult) => {
+  const handleOAuthResult = useCallback(async (result: OAuthResult) => {
     setStep({ kind: 'exchanging' });
     setError(null);
     try {
@@ -57,7 +57,11 @@ export default function AuthScreen({ strategyOverride }: { strategyOverride?: Au
       setError((err as Error).message);
       setStep({ kind: 'idle' });
     }
-  };
+  }, [api, login]);
+
+  // Keep a ref to the latest handler so the IPC listener always calls the current version
+  const handleOAuthResultRef = useRef(handleOAuthResult);
+  handleOAuthResultRef.current = handleOAuthResult;
 
   // ── Auto-login (Discord Activity) ──────────────────────────────────────────
   useEffect(() => {
@@ -85,13 +89,13 @@ export default function AuthScreen({ strategyOverride }: { strategyOverride?: Au
     })();
 
     return () => { cancelled = true; };
-  }, [strategy, api, login]);
+  }, [strategy, api, login, handleOAuthResult]);
 
   // ── Async result listener (Electron deep-link) ────────────────────────────
   useEffect(() => {
     if (!strategy.onResultReceived) return;
     return strategy.onResultReceived((result) => {
-      handleOAuthResult(result);
+      handleOAuthResultRef.current(result);
     });
   }, [strategy]);
 
