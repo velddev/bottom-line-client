@@ -112,7 +112,7 @@ export default function ChatScreen() {
   const messages = tab === 'city' ? (cityChat?.messages ?? []) : (dmChat?.messages ?? []);
 
   return (
-    <div className="max-w-4xl h-full flex gap-4">
+    <div className="h-full flex gap-4">
 
       {/* ── Left sidebar: tabs + DM list ──────────────────────────────────── */}
       <div className="w-52 shrink-0 flex flex-col gap-2">
