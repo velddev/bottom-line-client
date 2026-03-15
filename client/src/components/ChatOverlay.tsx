@@ -4,6 +4,7 @@ import { MessageSquare, Send, X, ChevronDown, ArrowLeft, Users } from 'lucide-re
 import { getChatMessages, sendChatMessage, listDmConversations, subscribeToEvents } from '../api';
 import { useAuth } from '../auth';
 import type { ChatMessage, ChatMessageEvent, DmConversation } from '../types';
+import AlertBubble from './ui/AlertBubble';
 
 // ── Mention-aware content renderer ───────────────────────────────────────────
 function renderWithMentions(content: string, myUsername: string): React.ReactNode {
@@ -273,11 +274,7 @@ export default function ChatOverlay() {
       >
         {open ? <X size={13} /> : <MessageSquare size={13} />}
         <span>Chat</span>
-        {!open && unread > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-indigo-500 text-gray-900 text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-            {unread > 99 ? '99+' : unread}
-          </span>
-        )}
+        {!open && <AlertBubble count={unread} className="absolute -top-1.5 -right-1.5" />}
       </button>
     </div>
   );

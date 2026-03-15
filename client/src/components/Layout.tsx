@@ -1,7 +1,7 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { LogOut, Settings, Sun, Moon } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 import { useAuth } from '../auth';
 import { getProfile, getCityStats } from '../api';
 import { fmtMoney } from '../types';
@@ -40,24 +40,6 @@ function TickCountdown({ nextTickAt }: { nextTickAt: number }) {
     >
       ⏱ {String(Math.floor(secsLeft / 60)).padStart(2, '0')}:{String(secsLeft % 60).padStart(2, '0')}
     </span>
-  );
-}
-
-function ThemeToggle() {
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
-  const toggle = () => {
-    const nowDark = document.documentElement.classList.toggle('dark');
-    localStorage.setItem('bl-theme', nowDark ? 'dark' : 'light');
-    setIsDark(nowDark);
-  };
-  return (
-    <button
-      onClick={toggle}
-      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="text-gray-500 hover:text-gold transition-colors p-1"
-    >
-      {isDark ? <Sun size={14} /> : <Moon size={14} />}
-    </button>
   );
 }
 
@@ -132,7 +114,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="font-mono text-emerald-400">{fmtMoney(profile.balance)}</span>
           )}
           <span className="text-gray-600 hidden md:block">{auth?.username}</span>
-          <ThemeToggle />
           <button
               onClick={() => setSettingsOpen(true)}
               title="Settings"

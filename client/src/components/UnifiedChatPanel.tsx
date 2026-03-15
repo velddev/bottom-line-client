@@ -6,6 +6,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import type { ChatMessage, ChatMessageEvent, GameEvent } from '../types';
 import { fmtMoney } from '../types';
+import AlertBubble from './ui/AlertBubble';
 
 // ── Event description helper (same logic as EventLogOverlay) ──────────────────
 function describeEvent(e: GameEvent): { icon: string; text: string; cls: string } {
@@ -122,9 +123,7 @@ function TabBtn({
     >
       {children}
       {!!unreadCount && unreadCount > 0 && (
-        <span className="bg-indigo-500 text-gray-900 text-[9px] font-bold rounded-full px-1 min-w-[14px] text-center leading-4">
-          {unreadCount > 99 ? '99+' : unreadCount}
-        </span>
+        <AlertBubble count={unreadCount} size="sm" />
       )}
     </button>
   );
@@ -374,11 +373,7 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
                   >
                     <MessageSquare size={10} />
                     <span className="max-w-[56px] truncate">{t.playerName}</span>
-                    {(unread[tabKey] ?? 0) > 0 && (
-                      <span className="bg-indigo-500 text-gray-900 text-[9px] font-bold rounded-full px-1 min-w-[14px] text-center leading-4 ml-0.5">
-                        {unread[tabKey] > 99 ? '99+' : unread[tabKey]}
-                      </span>
-                    )}
+                    <AlertBubble count={unread[tabKey] ?? 0} size="sm" />
                   </button>
                   <button
                     onClick={(e) => closeDmTab(t.playerId, e)}
@@ -503,11 +498,7 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
       >
         {open ? <X size={13} /> : <MessageSquare size={13} />}
         <span>Chat</span>
-        {!open && totalUnread > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-indigo-500 text-gray-900 text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-            {totalUnread > 99 ? '99+' : totalUnread}
-          </span>
-        )}
+        {!open && <AlertBubble count={totalUnread} className="absolute -top-1.5 -right-1.5" />}
       </button>
     </div>
   );

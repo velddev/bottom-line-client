@@ -96,4 +96,4 @@ export const getTileMarketScore = (cityId: string, tileId: string) =>
   httpGet<TileMarketScore>(`/buildings/tile-market-score?city_id=${cityId}&tile_id=${tileId}`);
 
 export const getDemandUtilization = (cityId: string, historyTicks = 10) =>
-  httpGet<{ points: DemandUtilizationPoint[] }>(`/market/demand-utilization?city_id=${cityId}&history_ticks=${historyTicks}`);
+  httpGet<{ data: DemandUtilizationPoint[] }>(`/market/demand-utilization?city_id=${cityId}&history_ticks=${historyTicks}`);

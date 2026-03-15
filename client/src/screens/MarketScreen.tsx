@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ShoppingCart, X } from 'lucide-react';
-import { listOfferings, cancelOffering, purchase, listBuildings } from '../api';
+import { listOfferings, cancelOffering, purchase, listBuildings, getDemandUtilization } from '../api';
 import { useAuth } from '../auth';
-import { fmtMoney, fmtQuality, resourceColor } from '../types';
+import { fmtMoney, fmtQuality, resourceColor, type DemandUtilizationPoint } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 
 const RESOURCES = ['grain', 'water', 'animal_feed', 'cattle', 'meat', 'leather', 'food'];
@@ -35,6 +35,21 @@ export default function MarketScreen() {
     mutationFn: (id: string) => cancelOffering(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['offerings'] }),
   });
+
+  const { data: demandResp } = useQuery({
+    queryKey: ['demand-utilization', auth?.city_id],
+    queryFn: () => getDemandUtilization(auth!.city_id, 1),
+    enabled: !!auth?.city_id,
+    refetchInterval: 60_000,
+  });
+
+  // Latest tick per resource: highest tick wins
+  const latestDemand = Object.values(
+    (demandResp?.data ?? []).reduce<Record<string, DemandUtilizationPoint>>((acc, p) => {
+      if (!acc[p.resource_type] || p.tick > acc[p.resource_type].tick) acc[p.resource_type] = p;
+      return acc;
+    }, {})
+  );
 
   return (
     <div className="max-w-6xl space-y-4">
@@ -140,6 +155,47 @@ export default function MarketScreen() {
           )}
           {buyMut.isError && <p className="text-rose-400 text-xs">{(buyMut.error as Error).message}</p>}
         </Modal>
+      )}
+
+      {/* Citizen demand utilization — shows how much of each resource's demand is being met */}
+      {latestDemand.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700 mb-2">Citizen Demand Utilization</h2>
+          <div className="bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-gray-600 border-b border-gray-200">
+                  {['Resource', 'Demand', 'Fulfilled', 'Utilization'].map((h) => (
+                    <th key={h} className="text-left px-3 py-2 font-medium uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {latestDemand.map((p) => {
+                  const pct = p.utilization_pct;
+                  const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 40 ? 'bg-yellow-400' : 'bg-rose-500';
+                  return (
+                    <tr key={p.resource_type} className="border-b border-gray-200">
+                      <td className={`px-3 py-2 capitalize font-medium ${resourceColor(p.resource_type)}`}>{p.resource_type.replace('_', ' ')}</td>
+                      <td className="px-3 py-2 text-gray-700 font-mono">{p.total_demand.toFixed(1)}</td>
+                      <td className="px-3 py-2 text-gray-700 font-mono">{p.fulfilled_demand.toFixed(1)}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-24 h-1.5 bg-gray-300 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                          </div>
+                          <span className={`font-mono text-xs ${pct >= 80 ? 'text-emerald-400' : pct >= 40 ? 'text-yellow-400' : 'text-rose-400'}`}>
+                            {pct.toFixed(1)}%
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );

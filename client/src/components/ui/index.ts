@@ -26,3 +26,6 @@ export type { TabsProps, TabItem }  from './Tabs';
 
 export { default as SectionHeader } from './SectionHeader';
 export type { SectionHeaderProps }  from './SectionHeader';
+
+export { default as AlertBubble }   from './AlertBubble';
+export type { AlertBubbleProps }    from './AlertBubble';

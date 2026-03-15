@@ -5,15 +5,13 @@ import * as THREE from 'three';
 import { tileToWorld, BLOCK_SIZE, ROAD_WIDTH, GAME_GRID } from './cityGrid';
 import type { SupplyRoute } from '../hooks/useAllPlayerSupplyLinks';
 
-const CARS_PER_LINK = 2;
-// Full round-trip: 3 s each way + 1 s dwell at destination = 7 s total.
-const TRIP_DURATION = 7;
-const DWELL_TIME    = 1.0;
-const T_TRAVEL      = (TRIP_DURATION - DWELL_TIME) / 2; // 3 s per one-way trip
+const CARS_PER_LINK   = 2;
+const VEHICLE_SPEED   = 1;   // world-units per second (same for every vehicle)
+const DWELL_TIME      = 1.0; // seconds parked at destination road edge
+const LANE_OFFSET     = 0.25; // metres from road centre to lane centre
 
-const CAR_Y        = 0.05;
+const CAR_Y         = 0.05;
 const VEHICLE_SCALE = 0.20;
-const LANE_OFFSET   = 0.25; // half-lane width offset from road centre
 
 // ── Vehicle model URLs ────────────────────────────────────────────────────────
 const VEHICLE_URLS = {
@@ -67,10 +65,13 @@ function nearest(centers: number[], value: number): number {
   return best;
 }
 
-// ── Right-side lane path builder ──────────────────────────────────────────────
-// Takes 2-D waypoints (xz pairs) and returns 3-D Vector3 positions offset to
-// the right-hand lane of each segment.  At corners the offset changes, which
-// produces a natural-looking tight turn.
+// ── Lane path builder ─────────────────────────────────────────────────────────
+// Applies a right-hand lane offset to intermediate waypoints only.
+// First and last waypoints use the road centre so that the dwell positions
+// are identical for forward/reversed paths (no teleport at transitions).
+// Path shape per segment: center → mid-lane → center
+// This keeps straight road segments in the correct lane while vehicles
+// navigate through crossings at the road centre (natural-looking turns).
 function buildLanePath(pts: [number, number][]): THREE.Vector3[] {
   const result: THREE.Vector3[] = [];
   for (let i = 0; i < pts.length - 1; i++) {
@@ -78,27 +79,33 @@ function buildLanePath(pts: [number, number][]): THREE.Vector3[] {
     const [bx, bz] = pts[i + 1];
     const dx = bx - ax, dz = bz - az;
     const len = Math.sqrt(dx * dx + dz * dz);
-    // Right-side offset: rotate direction 90° CW about Y → (dz, -dx) / len * OFFSET
+    // Right-hand lane offset (US driving): rotate direction 90° CCW about Y = (-dz, dx)
     const [ox, oz] = len > 0.001
-      ? [dz / len * LANE_OFFSET, -dx / len * LANE_OFFSET]
+      ? [-dz / len * LANE_OFFSET, dx / len * LANE_OFFSET]
       : [0, 0];
-    if (i === 0) result.push(new THREE.Vector3(ax + ox, CAR_Y, az + oz));
-    result.push(new THREE.Vector3(bx + ox, CAR_Y, bz + oz));
+
+    // Segment start: always road centre
+    if (i === 0) result.push(new THREE.Vector3(ax, CAR_Y, az));
+
+    // Mid-segment: in the right lane
+    const midX = (ax + bx) / 2, midZ = (az + bz) / 2;
+    result.push(new THREE.Vector3(midX + ox, CAR_Y, midZ + oz));
+
+    // Segment end: always road centre (crossing or dwell point)
+    result.push(new THREE.Vector3(bx, CAR_Y, bz));
   }
   return result;
 }
 
-// Base 2-D road waypoints (road-centre, no lane offset yet):
-//   [0] horizontal road edge nearest source  (dwell A on return trip)
-//   [1] crossroads corner
-//   [2] vertical road edge nearest destination (dwell B on forward trip)
+// Base 2-D road waypoints (road centre, no lane offset):
+//   [0]  horizontal road edge nearest source  (stop on return)
+//   [1]  crossroads corner
+//   [2]  vertical road edge nearest destination (dwell stop)
 function getRoadWaypoints(fromWorld: [number, number], toWorld: [number, number]): [number, number][] {
   const [fx, fz] = fromWorld, [tx, tz] = toWorld;
-  const fromX = fx + 0.5, fromZ = fz + 0.5;
-  const toX   = tx + 0.5, toZ   = tz + 0.5;
-  const nearZ = nearest(Z_ROAD_CENTERS, (fromZ + toZ) / 2);
-  const nearX = nearest(X_ROAD_CENTERS, (fromX + toX) / 2);
-  return [[fromX, nearZ], [nearX, nearZ], [nearX, toZ]];
+  const nearZ = nearest(Z_ROAD_CENTERS, (fz + tz + 1) / 2);
+  const nearX = nearest(X_ROAD_CENTERS, (fx + tx + 1) / 2);
+  return [[fx + 0.5, nearZ], [nearX, nearZ], [nearX, tz + 0.5]];
 }
 
 function pathLength(path: THREE.Vector3[]): number {
@@ -129,44 +136,59 @@ function samplePath(path: THREE.Vector3[], dist: number): void {
 }
 
 // ── Per-vehicle animated mesh ─────────────────────────────────────────────────
+const PARK_ROT_FRAC = 0.4; // fraction of dwell time used for the backing-in rotation
+
 interface VehicleProps {
   path: THREE.Vector3[];
   reversedPath: THREE.Vector3[];
   totalLen: number;
+  tTravel: number;
+  tripDuration: number;
   phase: number;
+  parkAngle: number; // rotation angle when backed up to building (rear toward destination tile)
   scene: THREE.Group;
 }
 
-function Vehicle({ path, reversedPath, totalLen, phase, scene }: VehicleProps) {
-  const groupRef  = useRef<THREE.Group>(null!);
-  const cloned    = useMemo(() => scene.clone(true), [scene]);
-  const lastAngle = useRef(0);
+function Vehicle({ path, reversedPath, totalLen, tTravel, tripDuration, phase, parkAngle, scene }: VehicleProps) {
+  const groupRef      = useRef<THREE.Group>(null!);
+  const cloned        = useMemo(() => scene.clone(true), [scene]);
+  const dwellPos      = useRef(new THREE.Vector3());
+  const approachAngle = useRef(0); // heading just before arriving at destination
 
   useFrame(({ clock }) => {
     const group = groupRef.current;
     if (!group) return;
 
-    const raw    = clock.getElapsedTime() + phase * TRIP_DURATION;
-    const cycleT = ((raw % TRIP_DURATION) + TRIP_DURATION) % TRIP_DURATION;
+    const raw    = clock.getElapsedTime() + phase * tripDuration;
+    const cycleT = ((raw % tripDuration) + tripDuration) % tripDuration;
 
-    // 0..T_TRAVEL          → forward travel
-    // T_TRAVEL..T_TRAVEL+DWELL → dwell at destination road edge
-    // rest                 → return travel (no dwell at source)
-    const T1 = T_TRAVEL;
+    const T1 = tTravel;
     const T2 = T1 + DWELL_TIME;
 
     if (cycleT < T1) {
       samplePath(path, (cycleT / T1) * totalLen);
-      lastAngle.current = _outAngle;
+      dwellPos.current.copy(_outPos);
+      approachAngle.current = _outAngle;
+      group.position.copy(_outPos);
+      group.rotation.y = _outAngle;
     } else if (cycleT < T2) {
-      _outPos.copy(path[path.length - 1]);
+      group.position.copy(dwellPos.current);
+      // Smooth backing-in rotation: approach → park over first PARK_ROT_FRAC of dwell
+      const dwellFrac = (cycleT - T1) / DWELL_TIME;
+      if (dwellFrac < PARK_ROT_FRAC) {
+        const t = dwellFrac / PARK_ROT_FRAC;
+        const smooth = t * t * (3 - 2 * t); // smoothstep
+        // Shortest angular path to park angle
+        let delta = ((parkAngle - approachAngle.current) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+        group.rotation.y = approachAngle.current + delta * smooth;
+      } else {
+        group.rotation.y = parkAngle;
+      }
     } else {
-      samplePath(reversedPath, ((cycleT - T2) / T_TRAVEL) * totalLen);
-      lastAngle.current = _outAngle;
+      samplePath(reversedPath, ((cycleT - T2) / tTravel) * totalLen);
+      group.position.copy(_outPos);
+      group.rotation.y = _outAngle;
     }
-
-    group.position.copy(_outPos);
-    group.rotation.y = lastAngle.current;
   });
 
   return (
@@ -182,7 +204,10 @@ interface VehicleEntry {
   path: THREE.Vector3[];
   reversedPath: THREE.Vector3[];
   totalLen: number;
+  tTravel: number;
+  tripDuration: number;
   phase: number;
+  parkAngle: number;
   modelUrl: VehicleUrl;
 }
 
@@ -198,7 +223,10 @@ function VehicleGroupByModel({ modelUrl, all }: { modelUrl: VehicleUrl; all: Veh
           path={v.path}
           reversedPath={v.reversedPath}
           totalLen={v.totalLen}
+          tTravel={v.tTravel}
+          tripDuration={v.tripDuration}
           phase={v.phase}
+          parkAngle={v.parkAngle}
           scene={scene as THREE.Group}
         />
       ))}
@@ -213,13 +241,20 @@ export default function SupplyVehicles3D({ routes }: Props) {
   const all = useMemo<VehicleEntry[]>(() => {
     const out: VehicleEntry[] = [];
     routes.forEach((r, ri) => {
-      const wp      = getRoadWaypoints(tileToWorld(r.fromX, r.fromY), tileToWorld(r.toX, r.toY));
-      const fwd     = buildLanePath(wp);
-      const rev     = buildLanePath([...wp].reverse() as [number, number][]);
-      const total   = pathLength(fwd);
-      const url     = getModelUrl(r.resourceType, ri);
+      const toWorld  = tileToWorld(r.toX, r.toY);
+      const wp       = getRoadWaypoints(tileToWorld(r.fromX, r.fromY), toWorld);
+      const fwd      = buildLanePath(wp);
+      const rev      = buildLanePath([...wp].reverse() as [number, number][]);
+      const len      = pathLength(fwd);
+      const tT       = len / VEHICLE_SPEED;
+      const trip     = tT * 2 + DWELL_TIME;
+      const url      = getModelUrl(r.resourceType, ri);
+      // Rear of vehicle faces the destination tile: front faces away from building
+      const nearX    = wp[1][0]; // vertical road X (dwell point X)
+      const toXctr   = toWorld[0] + 0.5; // destination tile centre X
+      const parkAngle = Math.atan2(nearX - toXctr, 0);
       for (let i = 0; i < CARS_PER_LINK; i++) {
-        out.push({ id: `${r.id}-${i}`, path: fwd, reversedPath: rev, totalLen: total, phase: i / CARS_PER_LINK, modelUrl: url });
+        out.push({ id: `${r.id}-${i}`, path: fwd, reversedPath: rev, totalLen: len, tTravel: tT, tripDuration: trip, phase: i / CARS_PER_LINK, parkAngle, modelUrl: url });
       }
     });
     return out;
