@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Building2, Users, Layers } from 'lucide-react';
 import type { TileInfo } from '../types';
 import { BUILDING_ICONS } from '../types';
@@ -37,7 +37,6 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [panelOpen, setPanelOpen] = useState(true);
   const [groupMode, setGroupMode] = useState<GroupMode>('company');
-  const collapsedInit = useRef<GroupMode | null>(null);
 
   const groups = useMemo((): ListGroup[] => {
     if (groupMode === 'company') {
@@ -83,8 +82,8 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
   }, [tiles, myPlayerId, groupMode]);
 
   // Collapse all groups except player's own on first load (per mode)
-  if (collapsedInit.current !== groupMode && groups.length > 0) {
-    collapsedInit.current = groupMode;
+  useEffect(() => {
+    if (groups.length === 0) return;
     const initialCollapsed = new Set<string>();
     if (groupMode === 'company') {
       for (const g of groups) {
@@ -93,7 +92,7 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
     }
     // For building mode, start all expanded
     setCollapsed(initialCollapsed);
-  }
+  }, [groupMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (id: string) => {
     setCollapsed(prev => {

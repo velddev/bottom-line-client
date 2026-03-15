@@ -377,7 +377,7 @@ export default function TilesScreen() {
           <RoadNetwork3D />
           <TileDecorations />
           <MapBorder />
-          <FarmAnimals tiles={tiles} />
+          <FarmAnimals tiles={tiles} buildings={myBuildings} />
           {selectedTile && (
             <TileSelector3D gridX={selectedTile.grid_x} gridY={selectedTile.grid_y} />
           )}

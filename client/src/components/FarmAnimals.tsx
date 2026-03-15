@@ -1,10 +1,9 @@
-import { useRef, useEffect, useMemo, useState } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
-import { getBuilding, listRecipes } from '../api';
-import type { TileInfo } from '../types';
+import type { TileInfo, BuildingStatus } from '../types';
 import { tileToWorld } from './cityGrid';
 
 const COW_MODEL = '/models/animals/animal-cow.glb';
@@ -41,6 +40,7 @@ interface CowState {
 
 interface Props {
   tiles: Map<string, TileInfo>;
+  buildings: BuildingStatus[];
 }
 
 function mulberry32(seed: number) {
@@ -321,9 +321,8 @@ function CattleCows({ cattleTiles, cowScene, cowAnimations }: {
 
 /* ── Main component ───────────────────────────────────────────── */
 
-export default function FarmAnimals({ tiles }: Props) {
+export default function FarmAnimals({ tiles, buildings }: Props) {
   const { scene: cowScene, animations: cowAnimations } = useGLTF(COW_MODEL) as any;
-  const [cattleTiles, setCattleTiles] = useState<TileInfo[]>([]);
 
   // All field tiles (for grass)
   const fieldTiles = useMemo(
@@ -333,33 +332,15 @@ export default function FarmAnimals({ tiles }: Props) {
     [tiles]
   );
 
-  // Identify cattle farms
-  useEffect(() => {
-    if (fieldTiles.length === 0) { setCattleTiles([]); return; }
-
-    let cancelled = false;
-    (async () => {
-      const recipesResp = await listRecipes().catch(() => null);
-      const cattleRecipeIds = new Set(
-        (recipesResp?.recipes ?? [])
-          .filter((r) => r.output_type === 'Cattle')
-          .map((r) => r.recipe_id)
-      );
-
-      const details = await Promise.all(
-        fieldTiles.map((t) => getBuilding(t.building_id).catch(() => null))
-      );
-      const results: TileInfo[] = [];
-      for (let i = 0; i < details.length; i++) {
-        const b = details[i];
-        if (b?.active_recipe && cattleRecipeIds.has(b.active_recipe)) {
-          results.push(fieldTiles[i]);
-        }
-      }
-      if (!cancelled) setCattleTiles(results);
-    })();
-    return () => { cancelled = true; };
-  }, [fieldTiles]);
+  // Identify cattle farms from buildings data (output_type === 'cattle')
+  const cattleTiles = useMemo(() => {
+    const cattleBuildingIds = new Set(
+      buildings
+        .filter((b) => b.output_type?.toLowerCase() === 'cattle')
+        .map((b) => b.building_id)
+    );
+    return fieldTiles.filter((t) => cattleBuildingIds.has(t.building_id));
+  }, [fieldTiles, buildings]);
 
   const cattleTileIds = useMemo(
     () => new Set(cattleTiles.map((t) => t.tile_id)),
