@@ -186,7 +186,7 @@ function arcPoints(
   if (len === 0) return [[from.lat, from.lon]];
 
   // Control point: midpoint + perpendicular offset (always arch to the left of travel direction)
-  const arch   = Math.min(len * 0.4, 0.00045); // cap at ~50 m in lat/lon space
+  const arch   = Math.min(len * 0.2, 0.00025); // cap at ~28 m in lat/lon space
   const midLat = (from.lat + to.lat) / 2 + (-dLon / len) * arch;
   const midLon = (from.lon + to.lon) / 2 + ( dLat / len) * arch;
 
@@ -265,7 +265,7 @@ function SupplyLineLayer({ meta }: { meta: TileMeta }) {
     const DASH_TOTAL = 16; // 10 filled + 6 gap
     let offset = 0;
     const step = () => {
-      offset = ((offset - 0.35) % DASH_TOTAL + DASH_TOTAL) % DASH_TOTAL;
+      offset = ((offset + 0.35) % DASH_TOTAL); // positive = dashes march from supplier → consumer
       linesRef.current.forEach(line => {
         const el = line.getElement() as SVGPathElement | null;
         if (el) el.style.strokeDashoffset = String(offset);
