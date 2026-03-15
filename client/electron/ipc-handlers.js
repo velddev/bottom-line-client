@@ -42,12 +42,13 @@ export function registerIpcHandlers() {
 
   // Opens the Discord OAuth URL in the user's default browser.
   handle('api:openDiscordOAuth', async ({ clientId }) => {
-    const redirectUri = 'https://api.ventured.gg/v1/auth/callback?source=electron';
+    const redirectUri = 'https://api.ventured.gg/v1/auth/callback';
     const params = new URLSearchParams({
       client_id:     clientId,
       redirect_uri:  redirectUri,
       response_type: 'code',
       scope:         'identify',
+      state:         'electron',
     });
     await shell.openExternal(`https://discord.com/oauth2/authorize?${params}`);
     return { ok: true, redirectUri };
