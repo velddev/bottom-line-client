@@ -537,6 +537,8 @@ message GameEvent {
     TaxesCollectedEvent        taxes_collected         = 19;
     TileChangedEvent           tile_changed            = 20;
     ChatMessageSentEvent       chat_message            = 21;
+    BuildingConstructionStartedEvent building_construction_started = 22;
+    BuildingStatusChangedEvent building_status_changed = 23;
   }
 }
 
@@ -573,6 +575,27 @@ message BuildingConstructedEvent {
   string       building_id   = 1;
   string       player_id     = 2;
   BuildingType building_type = 3;
+  string       building_name = 4;
+  string       city_id       = 5;
+}
+
+message BuildingConstructionStartedEvent {
+  string       city_id                       = 1;
+  string       building_id                   = 2;
+  string       player_id                     = 3;
+  string       building_name                 = 4;
+  BuildingType building_type                 = 5;
+  int32        construction_ticks_remaining  = 6;
+}
+
+message BuildingStatusChangedEvent {
+  string         city_id       = 1;
+  string         building_id   = 2;
+  string         player_id     = 3;
+  string         building_name = 4;
+  BuildingType   building_type = 5;
+  BuildingStatus old_status    = 6;
+  BuildingStatus new_status    = 7;
 }
 
 message ElectionAnnouncedEvent {
