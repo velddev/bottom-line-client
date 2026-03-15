@@ -74,6 +74,15 @@ enum ElectionStatus {
   ELECTION_STATUS_CONCLUDED   = 4; // winner determined
 }
 
+// Identifies which government tax rate was changed in a GovernmentPolicyChangedEvent.
+enum TaxType {
+  TAX_TYPE_UNSPECIFIED = 0;
+  CONSUMER_TAX = 1; // sales tax deducted from every citizen store purchase
+  LAND_TAX     = 2; // per-building tax collected each tick
+  PROFIT_TAX   = 3; // tax on player net profit (reserved for future use)
+  EMPLOYEE_TAX = 4; // employee payroll tax (reserved for future use)
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────
 // agreement.proto
@@ -539,6 +548,7 @@ message GameEvent {
     ChatMessageSentEvent       chat_message            = 21;
     BuildingConstructionStartedEvent building_construction_started = 22;
     BuildingStatusChangedEvent building_status_changed = 23;
+    GovernmentPolicyChangedEvent government_policy_changed = 24;
   }
 }
 
@@ -654,6 +664,17 @@ message ChatMessageSentEvent {
   string to_player_name   = 5;
   string content          = 6;
   int64  sent_at_tick     = 7;
+}
+
+// Emitted when a tax rate is changed — either by the AI governor (changed_by_player_id empty)
+// or by a ruling player via EnactPolicy. One event is fired per changed rate.
+message GovernmentPolicyChangedEvent {
+  string  city_id              = 1;
+  string  changed_by_player_id = 2; // empty = AI governor
+  string  changed_by_name      = 3; // "AI Governor" or player handle
+  TaxType tax_type             = 4;
+  float   old_rate             = 5;
+  float   new_rate             = 6;
 }
 
 
