@@ -171,6 +171,7 @@ function TileChunk({
 
   return (
     <instancedMesh
+      name="TileGrid"
       ref={meshRef}
       args={[geometry, material, TILES_PER_CHUNK]}
       onPointerDown={handlePointerDown}

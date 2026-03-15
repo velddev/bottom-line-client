@@ -120,6 +120,7 @@ function DecoChunk({
     <>
       {parts.map((part, idx) => (
         <instancedMesh
+          name="Decoration"
           key={idx}
           ref={el => { meshRefs.current[idx] = el; }}
           args={[part.geometry, part.material, placements.length]}

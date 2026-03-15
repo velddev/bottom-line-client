@@ -37,7 +37,7 @@ function chunkRoads(placements: RoadPlacement[]): Map<string, RoadPlacement[]> {
   return chunks;
 }
 
-function RoadChunk({ placements, modelUrl }: { placements: RoadPlacement[]; modelUrl: string }) {
+function RoadChunk({ placements, modelUrl, type }: { placements: RoadPlacement[]; modelUrl: string; type: string }) {
   const { scene } = useGLTF(modelUrl);
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const meshData = useMemo(() => extractMesh(scene), [scene]);
@@ -66,6 +66,7 @@ function RoadChunk({ placements, modelUrl }: { placements: RoadPlacement[]; mode
 
   return (
     <instancedMesh
+      name={`Road-${type}`}
       ref={meshRef}
       args={[meshData.geometry, meshData.material, placements.length]}
       receiveShadow
@@ -93,10 +94,10 @@ export default function RoadNetwork3D() {
         return (
           <group key={key}>
             {sp && sp.length > 0 && (
-              <RoadChunk placements={sp} modelUrl={ROAD_MODELS.straight} />
+              <RoadChunk placements={sp} modelUrl={ROAD_MODELS.straight} type="straight" />
             )}
             {cp && cp.length > 0 && (
-              <RoadChunk placements={cp} modelUrl={ROAD_MODELS.crossroad} />
+              <RoadChunk placements={cp} modelUrl={ROAD_MODELS.crossroad} type="crossroad" />
             )}
           </group>
         );

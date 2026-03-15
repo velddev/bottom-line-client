@@ -65,6 +65,7 @@ export default function TileSelector3D({ gridX, gridY }: Props) {
 
   return (
     <mesh
+      name="TileSelector"
       ref={meshRef}
       geometry={geo}
       material={mat}

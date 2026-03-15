@@ -205,9 +205,9 @@ function FarmGrass({ fieldTiles, cattleTileIds }: { fieldTiles: TileInfo[]; catt
   if (cropTiles.length === 0 || !dirtGeo || !geo0 || !geo1) return null;
   return (
     <>
-      <instancedMesh ref={dirtRef} args={[dirtGeo, dirtMat as THREE.Material, dirtPlacements.length]} frustumCulled />
-      <instancedMesh ref={ref0} args={[geo0, mat0 as THREE.Material, placements0.length]} frustumCulled />
-      <instancedMesh ref={ref1} args={[geo1, mat1 as THREE.Material, placements1.length]} frustumCulled />
+      <instancedMesh name="FarmDirt" ref={dirtRef} args={[dirtGeo, dirtMat as THREE.Material, dirtPlacements.length]} frustumCulled />
+      <instancedMesh name="FarmGrass" ref={ref0} args={[geo0, mat0 as THREE.Material, placements0.length]} frustumCulled />
+      <instancedMesh name="FarmGrass" ref={ref1} args={[geo1, mat1 as THREE.Material, placements1.length]} frustumCulled />
     </>
   );
 }
@@ -334,7 +334,7 @@ function CattleCows({ cattleTiles, cowScene, cowAnimations }: {
     }
   });
 
-  return <group ref={groupRef} />;
+  return <group name="Cow" ref={groupRef} />;
 }
 
 /* ── Main component ───────────────────────────────────────────── */
