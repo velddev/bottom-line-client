@@ -59,7 +59,7 @@ export default function Modal({ title, onClose, onSubmit, submitLabel = 'Confirm
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs text-gray-400 mb-1 uppercase tracking-wider">{label}</label>
+      <label className="block text-xs text-gray-300 mb-1 uppercase tracking-wider">{label}</label>
       {children}
     </div>
   );

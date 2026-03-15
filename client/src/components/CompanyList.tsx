@@ -142,7 +142,7 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
       bodyClassName=""
     >
         {groups.length === 0 && (
-          <p className="text-gray-500 text-xs p-3">No buildings yet</p>
+          <p className="text-gray-400 text-xs p-3">No buildings yet</p>
         )}
 
         {groups.map(group => {
@@ -162,7 +162,7 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
                 <span className={`font-medium truncate ${group.highlight ? 'text-emerald-400' : 'text-gray-300'}`}>
                   {group.label}
                 </span>
-                <span className="text-gray-600 ml-auto shrink-0">{group.buildings.length}</span>
+                <span className="text-gray-400 ml-auto shrink-0">{group.buildings.length}</span>
               </button>
 
               {/* Building list */}

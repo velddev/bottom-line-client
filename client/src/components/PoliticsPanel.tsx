@@ -11,8 +11,7 @@ function TaxBar({ label, value }: { label: string; value: number }) {
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
-        <span className="text-gray-400">{label}</span>
-        <span className="text-amber-400 font-mono">{fmtPct(value)}</span>
+        <span className="text-gray-300">{label}</span>
       </div>
       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
         <div className="h-full bg-amber-500/60 rounded-full" style={{ width: `${Math.min(value * 100, 100)}%` }} />
@@ -25,7 +24,7 @@ function ApprovalBar({ label, value, color }: { label: string; value: number; co
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
-        <span className="text-gray-400">{label}</span>
+        <span className="text-gray-300">{label}</span>
         <span className={`${color} font-mono`}>{fmtPct(value)}</span>
       </div>
       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
@@ -78,7 +77,7 @@ export default function PoliticsPanel() {
     <div className="space-y-4">
       {/* Government card */}
       <Panel
-        variant="card"
+        compact
         title="🏛️ Government"
         headerActions={
           isRuler ? (
@@ -103,14 +102,14 @@ export default function PoliticsPanel() {
         {gov && (
           <>
             <div>
-              <p className="text-gray-500 text-xs mb-0.5">Current Ruler</p>
+              <p className="text-gray-300 text-xs mb-0.5">Current Ruler</p>
               <p className="text-white text-sm font-semibold">{gov.ruling_player_name || 'AI Government'}</p>
               {isRuler && <span className="text-indigo-400 text-xs">← You</span>}
-              <p className="text-gray-600 text-xs">Term: t{gov.term_start_tick} – t{gov.term_end_tick}</p>
+              <p className="text-gray-400 text-xs">Term: t{gov.term_start_tick} – t{gov.term_end_tick}</p>
             </div>
 
             <div className="space-y-2">
-              <p className="text-gray-500 text-xs uppercase tracking-wider">Tax Rates</p>
+              <p className="text-gray-300 text-xs uppercase tracking-wider">Tax Rates</p>
               <TaxBar label="Consumer Tax"  value={gov.consumer_tax_rate}  />
               <TaxBar label="Profit Tax"    value={gov.profit_tax_rate}    />
               <TaxBar label="Land Tax"      value={gov.land_tax_rate}      />
@@ -118,7 +117,7 @@ export default function PoliticsPanel() {
             </div>
 
             <div className="space-y-2">
-              <p className="text-gray-500 text-xs uppercase tracking-wider">Approval Ratings</p>
+              <p className="text-gray-300 text-xs uppercase tracking-wider">Approval Ratings</p>
               <ApprovalBar label="City"     value={gov.approval_city}     color="text-blue-400"    />
               <ApprovalBar label="People"   value={gov.approval_people}   color="text-emerald-400" />
               <ApprovalBar label="Business" value={gov.approval_business} color="text-amber-400"   />
@@ -129,7 +128,7 @@ export default function PoliticsPanel() {
 
       {/* Election card */}
       <Panel
-        variant="card"
+        compact
         title="🗳️ Election"
         headerActions={
           election && election.status === 'open' && !isCandidate ? (
@@ -153,7 +152,7 @@ export default function PoliticsPanel() {
                   election.status === 'concluded'  ? 'bg-gray-800 text-gray-400' :
                                                      'bg-amber-900/40 text-amber-400'
                 }`}>{election.status}</span>
-                <span className="text-gray-500 text-xs">t{election.voting_start} – t{election.voting_end}</span>
+                <span className="text-gray-400 text-xs">t{election.voting_start} – t{election.voting_end}</span>
               </div>
 
               {election.winner_player_id && (
@@ -168,13 +167,13 @@ export default function PoliticsPanel() {
 
               {(election.candidates?.length ?? 0) > 0 && (
                 <div className="space-y-2">
-                  <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Candidates</p>
+                  <p className="text-gray-300 text-xs uppercase tracking-wider mb-1">Candidates</p>
                   {election.candidates.map((c) => (
                     <div key={c.player_id} className="flex items-center justify-between text-xs">
                       <span className={`text-gray-300 ${c.player_id === auth?.player_id ? 'text-indigo-300 font-semibold' : ''}`}>
                         {c.player_name}
                       </span>
-                      <div className="flex items-center gap-2 text-gray-500">
+                      <div className="flex items-center gap-2 text-gray-400">
                         <span>👁 {fmtPct(c.perception)}</span>
                         <span>🗳 {c.votes}</span>
                       </div>
@@ -184,12 +183,12 @@ export default function PoliticsPanel() {
               )}
 
               {(election.candidates?.length ?? 0) === 0 && (
-                <p className="text-gray-600 text-xs">No candidates yet.</p>
+                <p className="text-gray-400 text-xs">No candidates yet.</p>
               )}
             </>
           )}
           {!election && !elecLoading && (
-            <p className="text-gray-600 text-xs">No election currently scheduled.</p>
+            <p className="text-gray-400 text-xs">No election currently scheduled.</p>
           )}
           {runMut.isError  && <p className="text-rose-400 text-xs mt-2">{(runMut.error as Error).message}</p>}
           {runMut.data     && <p className="text-emerald-400 text-xs mt-2">{runMut.data.message}</p>}

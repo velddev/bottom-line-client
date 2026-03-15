@@ -87,7 +87,7 @@ export default function AgreementsScreen() {
       {isLoading && <p className="text-gray-500 text-sm animate-pulse">Loading…</p>}
 
       {!isLoading && agreements.length === 0 && (
-        <div className="text-center py-12 text-gray-600 border border-dashed border-gray-800 rounded-lg">
+        <div className="text-center py-12 text-gray-400 border border-dashed border-gray-800 rounded-lg">
           <p className="text-4xl mb-3">🤝</p>
           <p className="text-sm">No agreements {tab === 'creator' ? 'created' : 'received'} yet.</p>
         </div>
@@ -97,7 +97,7 @@ export default function AgreementsScreen() {
         <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-gray-500 border-b border-gray-800">
+              <tr className="text-gray-400 border-b border-gray-800">
                 {['ID', 'Resource', 'Discount', 'Status', 'Flags', 'Expires', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 font-medium uppercase tracking-wider">{h}</th>
                 ))}
@@ -113,14 +113,14 @@ export default function AgreementsScreen() {
 
                 return (
                   <tr key={a.agreement_id} className="border-b border-gray-800/50 hover:bg-gray-800/20">
-                    <td className="px-3 py-2.5 text-gray-500 font-mono">{a.agreement_id.slice(0, 8)}…</td>
+                    <td className="px-3 py-2.5 text-gray-400 font-mono">{a.agreement_id.slice(0, 8)}…</td>
                     <td className="px-3 py-2.5 text-white capitalize">{a.resource_type}</td>
                     <td className="px-3 py-2.5 text-emerald-400 font-mono">{fmtPct(a.discount_rate)}</td>
                     <td className="px-3 py-2.5">
                       <span className={`px-1.5 py-0.5 rounded ${STATUS_COLORS[a.status] ?? 'text-gray-400'}`}>{a.status}</span>
                     </td>
-                    <td className="px-3 py-2.5 text-gray-500">{flags.join(', ') || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-500">{a.expires_at_tick ? `t${a.expires_at_tick}` : '∞'}</td>
+                    <td className="px-3 py-2.5 text-gray-400">{flags.join(', ') || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-400">{a.expires_at_tick ? `t${a.expires_at_tick}` : '∞'}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {tab === 'buyer' && a.status === 'pending' && (

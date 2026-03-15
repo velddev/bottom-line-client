@@ -61,7 +61,7 @@ export default function MarketScreen() {
       {isLoading && <p className="text-gray-500 text-sm animate-pulse">Loading market...</p>}
 
       {!isLoading && offerings.length === 0 && (
-        <div className="text-center py-16 text-gray-600 border border-dashed border-gray-800 rounded-lg">
+        <div className="text-center py-16 text-gray-400 border border-dashed border-gray-800 rounded-lg">
           <p className="text-4xl mb-3">📭</p>
           <p className="text-sm">No offerings in this city right now.</p>
         </div>
@@ -71,7 +71,7 @@ export default function MarketScreen() {
         <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-gray-500 border-b border-gray-800">
+              <tr className="text-gray-400 border-b border-gray-800">
                 {['Seller', 'Resource', 'Price/Unit', 'Quantity', 'Quality', 'Brand', ''].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 font-medium uppercase tracking-wider">{h}</th>
                 ))}

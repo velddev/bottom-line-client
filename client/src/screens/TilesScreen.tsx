@@ -97,8 +97,8 @@ function ConfigureModal({
       </Field>
       {selectedRecipe && (
         <div className="bg-gray-800 rounded p-3 text-xs space-y-1">
-          <p className="text-gray-400">Output: <span className="text-white">{selectedRecipe.output_min}–{selectedRecipe.output_max} {selectedRecipe.output_type}</span></p>
-          <p className="text-gray-400">Needs: {selectedRecipe.ingredients.map((i) => `${i.quantity}× ${i.resource_type}`).join(', ') || 'none'}</p>
+          <p className="text-gray-300">Output: <span className="text-white">{selectedRecipe.output_min}–{selectedRecipe.output_max} {selectedRecipe.output_type}</span></p>
+          <p className="text-gray-300">Needs: {selectedRecipe.ingredients.map((i) => `${i.quantity}× ${i.resource_type}`).join(', ') || 'none'}</p>
         </div>
       )}
       {mut.isError && <p className="text-rose-400 text-xs">{(mut.error as Error).message}</p>}
@@ -112,7 +112,7 @@ function InventoryModal({ buildingId, buildingName, onClose }: { buildingId: str
   return (
     <Modal title={`Inventory — ${buildingName}`} onClose={onClose}>
       {!data && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
-      {data && data.items.length === 0 && <p className="text-gray-500 text-xs">Empty</p>}
+      {data && data.items.length === 0 && <p className="text-gray-400 text-xs">Empty</p>}
       {data && data.items.length > 0 && (
         <table className="w-full text-xs">
           <thead><tr className="text-gray-500 border-b border-gray-700">
@@ -525,8 +525,8 @@ export default function TilesScreen() {
 
             {isMine && hasBuilding && !isGovBuilding && activeTab === 'info' && (
               <div className="space-y-2 text-xs">
-                <p className="text-gray-400">Type: <span className="text-white capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
-                <p className="text-gray-400 flex items-center gap-2">
+                <p className="text-gray-300">Type: <span className="text-white capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
+                <p className="text-gray-300 flex items-center gap-2">
                   Status: <StatusBadge status={selectedTile.building_status} />
                   {selectedTile.building_status === 'UnderConstruction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
                     <span className="text-gray-500">ready in <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} /></span>

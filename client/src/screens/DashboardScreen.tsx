@@ -15,9 +15,9 @@ const RESOURCE_ICONS: Record<string, string> = {
 function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-      <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-gray-300 text-xs uppercase tracking-wider mb-1">{label}</p>
       <p className={`text-xl font-bold font-mono ${accent ?? 'text-white'}`}>{value}</p>
-      {sub && <p className="text-gray-600 text-xs mt-1">{sub}</p>}
+      {sub && <p className="text-gray-400 text-xs mt-1">{sub}</p>}
     </div>
   );
 }
@@ -67,7 +67,7 @@ export default function DashboardScreen() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Welcome back, {profile.username}!</h1>
-        <p className="text-gray-500 text-sm mt-0.5">
+        <p className="text-gray-400 text-sm mt-0.5">
           {city ? `Playing in ${city.name} · ${city.player_count} other traders in town` : 'Loading city info…'}
         </p>
       </div>
@@ -103,23 +103,23 @@ export default function DashboardScreen() {
           <h2 className="text-sm font-semibold text-white mb-3">🏙️ {city.name} at a Glance</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
             <div>
-              <p className="text-gray-500 uppercase tracking-wider mb-0.5">Population</p>
+              <p className="text-gray-300 uppercase tracking-wider mb-0.5">Population</p>
               <p className="text-white font-semibold">{city.population.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-gray-500 uppercase tracking-wider mb-0.5">Traders</p>
+              <p className="text-gray-300 uppercase tracking-wider mb-0.5">Traders</p>
               <p className="text-white font-semibold">{city.player_count}</p>
             </div>
             <div>
-              <p className="text-gray-500 uppercase tracking-wider mb-0.5">Buildings</p>
+              <p className="text-gray-300 uppercase tracking-wider mb-0.5">Buildings</p>
               <p className="text-white font-semibold">{city.building_count}</p>
             </div>
             <div>
-              <p className="text-gray-500 uppercase tracking-wider mb-0.5">Economy</p>
+              <p className="text-gray-300 uppercase tracking-wider mb-0.5">Economy</p>
               <p className="text-emerald-400 font-semibold font-mono">{fmtMoney(city.gdp_per_tick)}</p>
             </div>
             <div>
-              <p className="text-gray-500 uppercase tracking-wider mb-0.5">Tick</p>
+              <p className="text-gray-300 uppercase tracking-wider mb-0.5">Tick</p>
               <p className="text-white font-semibold font-mono">#{city.current_tick}</p>
             </div>
           </div>
@@ -131,10 +131,10 @@ export default function DashboardScreen() {
         <div className="flex items-center gap-2 mb-3">
           <Package size={14} className="text-teal-400" />
           <h2 className="text-sm font-semibold text-white">Your Resources</h2>
-          <span className="text-gray-600 text-xs ml-1">(across all buildings)</span>
+          <span className="text-gray-400 text-xs ml-1">(across all buildings)</span>
         </div>
         {Object.keys(resourceTotals).length === 0 ? (
-          <p className="text-gray-600 text-xs">No resources in stock. Produce or buy from the market.</p>
+          <p className="text-gray-400 text-xs">No resources in stock. Produce or buy from the market.</p>
         ) : (
           <div className="flex flex-wrap gap-3">
             {Object.entries(resourceTotals).map(([type, qty]) => (
@@ -153,10 +153,10 @@ export default function DashboardScreen() {
         <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800">
           <Building2 size={14} className="text-indigo-400" />
           <h2 className="text-sm font-semibold text-white">Your Buildings</h2>
-          <span className="ml-auto text-xs text-gray-600">{buildings.length} total</span>
+          <span className="ml-auto text-xs text-gray-400">{buildings.length} total</span>
         </div>
         {buildings.length === 0 ? (
-          <div className="text-center py-10 text-gray-600">
+          <div className="text-center py-10 text-gray-400">
             <p className="text-3xl mb-2">🏗️</p>
             <p className="text-sm">No buildings yet — head to the City Map to purchase a tile and construct your first building.</p>
           </div>
@@ -164,7 +164,7 @@ export default function DashboardScreen() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-800">
+                <tr className="text-gray-400 border-b border-gray-800">
                   {['Name', 'Type', 'Status', 'Recipe / Capacity', 'Workers', 'Level'].map((h) => (
                     <th key={h} className="text-left px-4 py-2 font-medium uppercase tracking-wider">{h}</th>
                   ))}

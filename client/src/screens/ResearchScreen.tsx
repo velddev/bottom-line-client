@@ -42,7 +42,7 @@ export default function ResearchScreen() {
         </button>
       </div>
 
-      <p className="text-xs text-gray-500 bg-gray-900 border border-gray-800 rounded p-3">
+      <p className="text-xs text-gray-400 bg-gray-900 border border-gray-800 rounded p-3">
         Research improves the quality of your produced resources. Higher quality means better demand and higher prices.
         Quality is benchmarked against the city median — being above average gives you a demand bonus of up to 100%.
       </p>
@@ -50,7 +50,7 @@ export default function ResearchScreen() {
       {isLoading && <p className="text-gray-500 text-sm animate-pulse">Loading…</p>}
 
       {!isLoading && projects.length === 0 && (
-        <div className="text-center py-12 text-gray-600 border border-dashed border-gray-800 rounded-lg">
+        <div className="text-center py-12 text-gray-400 border border-dashed border-gray-800 rounded-lg">
           <p className="text-4xl mb-3">🔬</p>
           <p className="text-sm">No research projects started yet.</p>
         </div>
@@ -62,7 +62,7 @@ export default function ResearchScreen() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="text-white font-semibold capitalize text-sm">{p.resource_type}</h3>
-                <p className="text-gray-500 text-xs mt-0.5">Level {p.level} · {p.workers} workers · {fmtMoney(p.budget_per_tick)}/tick</p>
+                <p className="text-gray-400 text-xs mt-0.5">Level {p.level} · {p.workers} workers · {fmtMoney(p.budget_per_tick)}/tick</p>
               </div>
               <div className="flex items-center gap-2">
                 <span className={`text-xs px-2 py-0.5 rounded ${p.is_active ? 'text-emerald-400 bg-emerald-900/20' : 'text-gray-500 bg-gray-800'}`}>
@@ -80,7 +80,7 @@ export default function ResearchScreen() {
 
             {/* Progress bar */}
             <div className="space-y-1">
-              <div className="flex justify-between text-xs text-gray-500">
+              <div className="flex justify-between text-xs text-gray-400">
                 <span>Progress to Lv{p.level + 1}</span>
                 <span className="font-mono">{(p.progress * 100).toFixed(1)}%</span>
               </div>

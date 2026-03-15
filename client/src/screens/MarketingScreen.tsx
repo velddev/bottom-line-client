@@ -54,7 +54,7 @@ export default function MarketingScreen() {
         </button>
       </div>
 
-      <p className="text-xs text-gray-500 bg-gray-900 border border-gray-800 rounded p-3">
+      <p className="text-xs text-gray-400 bg-gray-900 border border-gray-800 rounded p-3">
         Branded items command higher prices via brand power. Brand weight is relative to all brands in the same category per city.
         Without competition, only the government default brand competes with you.
       </p>
@@ -62,7 +62,7 @@ export default function MarketingScreen() {
       {isLoading && <p className="text-gray-500 text-sm animate-pulse">Loading…</p>}
 
       {!isLoading && brands.length === 0 && (
-        <div className="text-center py-12 text-gray-600 border border-dashed border-gray-800 rounded-lg">
+        <div className="text-center py-12 text-gray-400 border border-dashed border-gray-800 rounded-lg">
           <p className="text-4xl mb-3">📣</p>
           <p className="text-sm">No brands created yet.</p>
         </div>
@@ -75,7 +75,7 @@ export default function MarketingScreen() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-white font-semibold text-sm">{b.name}</h3>
-                  <p className="text-gray-500 text-xs mt-0.5 capitalize">{b.resource}</p>
+                  <p className="text-gray-400 text-xs mt-0.5 capitalize">{b.resource}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -95,14 +95,14 @@ export default function MarketingScreen() {
 
               <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <p className="text-gray-500 mb-1">Brand Weight</p>
+                  <p className="text-gray-400 mb-1">Brand Weight</p>
                   <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                     <div className="h-full bg-pink-500 rounded-full" style={{ width: `${Math.min(b.brand_weight * 100, 100)}%` }} />
                   </div>
                   <p className="text-pink-400 font-mono mt-1">{b.brand_weight.toFixed(3)}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 mb-1">Market Share</p>
+                  <p className="text-gray-400 mb-1">Market Share</p>
                   <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                     <div className="h-full bg-purple-500 rounded-full" style={{ width: `${Math.min(b.market_share * 100, 100)}%` }} />
                   </div>

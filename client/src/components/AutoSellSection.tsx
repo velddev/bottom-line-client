@@ -86,10 +86,10 @@ export default function AutoSellSection({
 
   return (
     <div>
-      <p className="text-xs text-gray-500 mb-2">
+      <p className="text-xs text-gray-400 mb-2">
         Set a price and toggle On to auto-sell inventory each tick.
       </p>
-      {isLoading && <p className="text-gray-600 text-xs animate-pulse">Loading…</p>}
+      {isLoading && <p className="text-gray-400 text-xs animate-pulse">Loading…</p>}
       {!isLoading && (
         <div>
           {resources.map((r) => (

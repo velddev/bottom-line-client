@@ -48,9 +48,9 @@ function StatCard({ label, value, sub, color = 'text-white' }: {
 }) {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-1">
-      <p className="text-xs text-gray-400">{label}</p>
+      <p className="text-xs text-gray-300">{label}</p>
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
-      {sub && <p className="text-xs text-gray-500">{sub}</p>}
+      {sub && <p className="text-xs text-gray-400">{sub}</p>}
     </div>
   );
 }
@@ -96,7 +96,7 @@ export default function PerformanceScreen() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white">Company Performance</h1>
-      <p className="text-gray-500 text-sm">Last {LIMIT} ticks — refreshes every 15 s</p>
+      <p className="text-gray-400 text-sm">Last {LIMIT} ticks — refreshes every 15 s</p>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -124,7 +124,7 @@ export default function PerformanceScreen() {
       </div>
 
       {snapshots.length === 0 && (
-        <p className="text-gray-500 text-sm">No tick data yet — wait for the next game tick to see data.</p>
+        <p className="text-gray-400 text-sm">No tick data yet — wait for the next game tick to see data.</p>
       )}
 
       {/* Balance over time */}
@@ -197,7 +197,7 @@ export default function PerformanceScreen() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-gray-300 border-collapse">
               <thead>
-                <tr className="border-b border-gray-800 text-gray-500">
+                <tr className="border-b border-gray-800 text-gray-400">
                   <th className="text-left py-2 px-2">Tick</th>
                   <th className="text-right py-2 px-2">Store Rev</th>
                   <th className="text-right py-2 px-2">Supply Sales</th>
@@ -216,7 +216,7 @@ export default function PerformanceScreen() {
               <tbody>
                 {snapshots.map((s) => (
                   <tr key={s.tick} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                    <td className="py-1.5 px-2 text-gray-500">{s.tick}</td>
+                    <td className="py-1.5 px-2 text-gray-400">{s.tick}</td>
                     <td className="py-1.5 px-2 text-right text-sky-400">{fmtMoney(s.store_revenue_cents)}</td>
                     <td className="py-1.5 px-2 text-right text-sky-300">{fmtMoney(s.supply_line_sales_cents)}</td>
                     <td className="py-1.5 px-2 text-right text-sky-200 font-medium">{fmtMoney(s.total_revenue_cents)}</td>

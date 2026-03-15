@@ -1,35 +1,5 @@
 import React from 'react';
 
-// ── Variant styles ─────────────────────────────────────────────────────────────
-// 'panel'  — frosted-glass floating overlay (default)
-// 'card'   — solid inline sub-section card
-const STYLES = {
-  panel: {
-    root:             'bg-gray-900/95 backdrop-blur-sm border border-gray-700 shadow-2xl',
-    headerPad:        'px-4 py-3',
-    headerBorder:     'border-gray-700',
-    subheaderBorder:  'border-gray-700/50',
-    subheaderPad:     'px-4 py-2',
-    titleCls:         'text-sm',
-    footerBorder:     'border-gray-700',
-    footerPad:        'px-4 py-2',
-    defaultBodyCls:   'p-4 space-y-3',
-  },
-  card: {
-    root:             'bg-gray-900 border border-gray-800',
-    headerPad:        'px-3 py-2',
-    headerBorder:     'border-gray-800',
-    subheaderBorder:  'border-gray-800/50',
-    subheaderPad:     'px-3 py-2',
-    titleCls:         'text-xs',
-    footerBorder:     'border-gray-800',
-    footerPad:        'px-3 py-2',
-    defaultBodyCls:   'p-3 space-y-3',
-  },
-} as const;
-
-export type PanelVariant = keyof typeof STYLES;
-
 export interface PanelProps {
   /** Title text or node rendered in the header */
   title?: React.ReactNode;
@@ -43,12 +13,12 @@ export interface PanelProps {
   footer?: React.ReactNode;
   /** Body content (scrollable) */
   children: React.ReactNode;
-  /** Additional classes for the panel root — use for positioning/sizing */
+  /** Additional classes for the panel root — use for positioning, sizing, shadow, blur */
   className?: string;
-  /** Override the body container classes. Defaults to the variant default. */
+  /** Override the body container classes. Default: 'p-4 space-y-3' */
   bodyClassName?: string;
-  /** Visual variant. 'panel' = frosted glass overlay; 'card' = solid inline card */
-  variant?: PanelVariant;
+  /** When true, uses compact header padding (px-3 py-2) and xs title — for nested sub-cards */
+  compact?: boolean;
 }
 
 export default function Panel({
@@ -60,18 +30,22 @@ export default function Panel({
   children,
   className = '',
   bodyClassName,
-  variant = 'panel',
+  compact = false,
 }: PanelProps) {
-  const s = STYLES[variant];
   const hasHeader = title !== undefined || onClose !== undefined || headerActions !== undefined;
+  const headerPad   = compact ? 'px-3 py-2'   : 'px-4 py-3';
+  const titleSize   = compact ? 'text-xs'      : 'text-sm';
+  const subPad      = compact ? 'px-3 py-1.5'  : 'px-4 py-2';
+  const footerPad   = compact ? 'px-3 py-2'    : 'px-4 py-2';
+  const defaultBody = compact ? 'p-3 space-y-3' : 'p-4 space-y-3';
 
   return (
-    <div className={`rounded-lg flex flex-col overflow-hidden ${s.root} ${className}`}>
+    <div className={`bg-gray-900 border border-gray-700 rounded-lg flex flex-col overflow-hidden ${className}`}>
 
       {hasHeader && (
-        <div className={`${s.headerPad} border-b ${s.headerBorder} flex items-center gap-2 shrink-0`}>
+        <div className={`${headerPad} border-b border-gray-700 flex items-center gap-2 shrink-0`}>
           {title !== undefined && (
-            <h2 className={`text-white font-semibold ${s.titleCls} truncate flex-1 flex items-center gap-1.5`}>
+            <h2 className={`text-white font-semibold ${titleSize} truncate flex-1 flex items-center gap-1.5`}>
               {title}
             </h2>
           )}
@@ -81,7 +55,7 @@ export default function Panel({
           {onClose && (
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-300 text-lg leading-none shrink-0 transition-colors ml-auto"
+              className="text-gray-400 hover:text-white text-lg leading-none shrink-0 transition-colors ml-auto"
             >
               ×
             </button>
@@ -90,17 +64,17 @@ export default function Panel({
       )}
 
       {subheader !== undefined && (
-        <div className={`${s.subheaderPad} border-b ${s.subheaderBorder} shrink-0`}>
+        <div className={`${subPad} border-b border-gray-700/50 shrink-0`}>
           {subheader}
         </div>
       )}
 
-      <div className={`flex-1 overflow-y-auto min-h-0 ${bodyClassName ?? s.defaultBodyCls}`}>
+      <div className={`flex-1 overflow-y-auto min-h-0 ${bodyClassName ?? defaultBody}`}>
         {children}
       </div>
 
       {footer !== undefined && (
-        <div className={`border-t ${s.footerBorder} ${s.footerPad} shrink-0`}>
+        <div className={`border-t border-gray-700 ${footerPad} shrink-0`}>
           {footer}
         </div>
       )}

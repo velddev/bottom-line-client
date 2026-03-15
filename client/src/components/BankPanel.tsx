@@ -44,34 +44,34 @@ export default function BankPanel() {
   return (
     <div className="space-y-4">
       {/* Loan status */}
-      <Panel variant="card" title="🏦 Your Loan">
+      <Panel compact title="🏦 Your Loan">
         <div className="flex justify-between text-xs">
-          <span className="text-gray-400">Outstanding</span>
+          <span className="text-gray-300">Outstanding</span>
           <span className={`font-mono font-semibold ${(loan?.balance ?? 0) > 0 ? 'text-rose-400' : 'text-gray-400'}`}>
             {fmtMoney(loan?.balance ?? 0)}
           </span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-400">Interest rate</span>
+          <span className="text-gray-300">Interest rate</span>
           <span className="font-mono text-amber-400">{fmtPct(loan?.interest_rate ?? 0.005)} / tick</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-400">Cost per tick</span>
+          <span className="text-gray-300">Cost per tick</span>
           <span className="font-mono text-amber-400">{fmtMoney(loan?.interest_per_tick ?? 0)}</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-400">Your balance</span>
+          <span className="text-gray-300">Your balance</span>
           <span className="font-mono text-emerald-400">{fmtMoney(loan?.player_balance ?? 0)}</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-400">Max borrow</span>
+          <span className="text-gray-300">Max borrow</span>
           <span className="font-mono text-gray-300">{fmtMoney(loan?.max_borrow ?? 50000)}</span>
         </div>
       </Panel>
 
       {/* Borrow capital */}
       {(loan?.max_borrow ?? 0) > 0 && (
-        <Panel variant="card" title="💰 Borrow Capital" bodyClassName="p-3 space-y-2">
+        <Panel compact title="💰 Borrow Capital" bodyClassName="p-3 space-y-2">
           <div className="flex gap-2">
             <input
               type="number"
@@ -98,9 +98,9 @@ export default function BankPanel() {
 
       {/* Repay debt */}
       {(loan?.balance ?? 0) > 0 && (
-        <Panel variant="card" title="💳 Repay Debt">
+        <Panel compact title="💳 Repay Debt">
           <div className="space-y-1">
-            <div className="flex justify-between text-xs text-gray-400">
+            <div className="flex justify-between text-xs text-gray-300">
               <span>Repay</span>
               <span className="font-mono text-white">{fmtMoney(repaySlider)}</span>
             </div>
@@ -113,7 +113,7 @@ export default function BankPanel() {
               onChange={(e) => setRepaySlider(parseFloat(e.target.value))}
               className="w-full accent-indigo-500"
             />
-            <div className="flex justify-between text-xs text-gray-600">
+            <div className="flex justify-between text-xs text-gray-400">
               <span>{fmtMoney(0)}</span>
               <span>{fmtMoney(maxRepay)}</span>
             </div>

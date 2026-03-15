@@ -12,7 +12,7 @@ function ChatBubble({ msg, myId }: { msg: ChatMessage; myId: string }) {
   return (
     <div className={`flex flex-col max-w-[80%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}>
       {!isMe && (
-        <span className="text-[10px] text-gray-500 mb-0.5 px-1">{msg.from_player_name}</span>
+        <span className="text-[10px] text-gray-400 mb-0.5 px-1">{msg.from_player_name}</span>
       )}
       <div className={`rounded-2xl px-3 py-1.5 text-sm ${
         isMe ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-gray-800 text-gray-200 rounded-bl-sm'
@@ -126,7 +126,7 @@ export default function ChatScreen() {
         </button>
 
         <div className="mt-2">
-          <p className="text-xs text-gray-600 uppercase tracking-widest px-2 mb-1">Direct Messages</p>
+          <p className="text-xs text-gray-400 uppercase tracking-widest px-2 mb-1">Direct Messages</p>
           {(conversations?.conversations ?? []).length === 0 && (
             <p className="text-xs text-gray-700 px-2">No conversations yet.</p>
           )}
@@ -144,7 +144,7 @@ export default function ChatScreen() {
                 <MessageSquare size={12} />
                 <span className="truncate">{c.partner_player_name}</span>
               </div>
-              <p className="text-xs text-gray-600 truncate mt-0.5">{c.last_message}</p>
+              <p className="text-xs text-gray-400 truncate mt-0.5">{c.last_message}</p>
             </button>
           ))}
         </div>
@@ -159,14 +159,14 @@ export default function ChatScreen() {
             {tab === 'city' ? '🌆 City Chat' : `💬 DM: ${dmPartner?.name}`}
           </h2>
           {tab === 'city' && (
-            <p className="text-xs text-gray-600">Public — visible to all players in the city</p>
+            <p className="text-xs text-gray-400">Public — visible to all players in the city</p>
           )}
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
           {messages.length === 0 && (
-            <p className="text-gray-600 text-xs text-center mt-8">
+            <p className="text-gray-400 text-xs text-center mt-8">
               {tab === 'city' ? 'No messages yet. Say hello!' : `Start a conversation with ${dmPartner?.name ?? '...'}` }
             </p>
           )}
@@ -197,7 +197,7 @@ export default function ChatScreen() {
           </form>
         )}
         {tab === 'dm' && !dmPartner && (
-          <p className="text-gray-600 text-xs text-center py-3">Select a conversation from the sidebar.</p>
+          <p className="text-gray-400 text-xs text-center py-3">Select a conversation from the sidebar.</p>
         )}
       </div>
     </div>

@@ -6,7 +6,7 @@ import { api } from '../api';
 
 function describeEvent(e: GameEvent): { icon: string; text: string; cls: string } {
   if (e.tick_completed)
-    return { icon: '🕐', text: `Tick ${e.tick} complete`, cls: 'text-gray-500' };
+    return { icon: '🕐', text: `Tick ${e.tick} complete`, cls: 'text-gray-400' };
   if (e.resource_produced)
     return { icon: '🏭', text: `Produced ${e.resource_produced.quantity.toFixed(1)}× ${e.resource_produced.resource_type} (Q${e.resource_produced.quality.toFixed(2)})`, cls: 'text-slate-300' };
   if (e.trade_completed)
@@ -87,7 +87,7 @@ export default function EventFeed({ cityId, apiKey }: { cityId: string; apiKey: 
             return (
               <div key={e.event_id} className="flex items-center gap-2 text-xs">
                 <span className="shrink-0 w-4">{icon}</span>
-                <span className="text-gray-600 font-mono shrink-0">t{e.tick}</span>
+                <span className="text-gray-500 font-mono shrink-0">t{e.tick}</span>
                 <span className={cls}>{text}</span>
               </div>
             );

@@ -90,7 +90,7 @@ function TabBtn({
     <button
       onClick={onClick}
       className={`flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 shrink-0 transition-colors ${
-        active ? 'border-indigo-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'
+        active ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-300'
       }`}
     >
       {children}
@@ -306,7 +306,7 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
                 <div
                   key={t.playerId}
                   className={`flex items-center shrink-0 border-b-2 transition-colors ${
-                    isActive ? 'border-indigo-500 text-white' : 'border-transparent text-gray-500'
+                    isActive ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400'
                   }`}
                 >
                   <button
@@ -364,7 +364,7 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
             <>
               <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-1.5 min-h-0">
                 {activeMessages.length === 0 && (
-                  <p className="text-gray-600 text-xs text-center mt-6">
+                  <p className="text-gray-400 text-xs text-center mt-6">
                     {activeTab === 'city' ? 'No messages yet. Say hello!' : 'No messages yet with this player.'}
                   </p>
                 )}
