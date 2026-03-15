@@ -4,14 +4,28 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
+
 jobs:
-  trigger-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Trigger trade-mmo deploy
-        uses: peter-evans/repository-dispatch@v3
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
         with:
-          token: ${{ secrets.DEPLOY_TOKEN }}
-          repository: velddev/trade-mmo
-          event-type: deploy
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 30m
+          script: |
+            if [ ! -d "bottom-line-client" ]; then
+              git clone https://github.com/velddev/bottom-line-client.git
+            fi
+            cd bottom-line-client
+            git fetch origin main
+            git reset --hard origin/main
+            chmod +x deploy.sh
+            ./deploy.sh
