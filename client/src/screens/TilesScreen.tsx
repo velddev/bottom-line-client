@@ -256,6 +256,8 @@ export default function TilesScreen() {
             construction_ready_at_tick:   tc.constructionReadyAtTick ?? 0,
             population_capacity:          tc.populationCapacity ?? 0,
             is_government_port:           tc.isGovernmentPort ?? false,
+            active_recipe:                tc.activeRecipe ?? '',
+            output_type:                  tc.outputType ?? '',
           };
 
           // Skip update if tile data hasn't changed
@@ -268,6 +270,8 @@ export default function TilesScreen() {
             && existing.purchase_price === updated.purchase_price
             && existing.building_name === updated.building_name
             && existing.building_type === updated.building_type
+            && existing.active_recipe === updated.active_recipe
+            && existing.output_type === updated.output_type
           ) return;
 
           tileCache.current.set(key, updated);
@@ -498,7 +502,7 @@ export default function TilesScreen() {
           <RoadNetwork3D />
           <TileDecorations />
           <MapBorder />
-          <FarmAnimals tiles={tiles} buildings={myBuildings} />
+          <FarmAnimals tiles={tiles} />
           <SupplyVehicles3D routes={supplyRoutes} />
           {selectedTile && (
             <TileSelector3D gridX={selectedTile.grid_x} gridY={selectedTile.grid_y} />

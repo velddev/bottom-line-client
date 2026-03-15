@@ -1,4 +1,5 @@
 import { useMemo, useRef, useEffect } from 'react';
+import { useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { computeRoadPlacements, type RoadPlacement } from './cityGrid';
@@ -25,6 +26,7 @@ function RoadInstancedMesh({ placements, modelUrl }: { placements: RoadPlacement
   const { scene } = useGLTF(modelUrl);
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const meshData = useMemo(() => extractMesh(scene), [scene]);
+  const { invalidate } = useThree();
 
   useEffect(() => {
     if (!meshRef.current || placements.length === 0) return;
@@ -41,7 +43,9 @@ function RoadInstancedMesh({ placements, modelUrl }: { placements: RoadPlacement
     });
 
     meshRef.current.instanceMatrix.needsUpdate = true;
-  }, [placements]);
+    meshRef.current.computeBoundingSphere();
+    invalidate();
+  }, [placements, invalidate]);
 
   if (!meshData || placements.length === 0) return null;
 
@@ -50,7 +54,6 @@ function RoadInstancedMesh({ placements, modelUrl }: { placements: RoadPlacement
       ref={meshRef}
       args={[meshData.geometry, meshData.material, placements.length]}
       receiveShadow
-      frustumCulled={false}
     />
   );
 }
