@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow, shell } from 'electron';
-import { stubs, rpc, makeMeta } from './grpc-client.js';
+import { stubs, rpc, makeMeta, wrapStream } from './grpc-client.js';
 import { toProtoEnum, normalizeResponse } from './util.js';
 
 function sendToRenderer(channel, data) {
@@ -267,7 +267,10 @@ export function registerIpcHandlers() {
   ipcMain.handle('api:subscribeEvents', (event, { cityId, apiKey }) => {
     streamState.count++;
     if (!streamState.stream) {
-      const stream = stubs.events.Subscribe({ city_id: cityId }, makeMeta(apiKey));
+      const stream = wrapStream(
+        stubs.events.Subscribe({ city_id: cityId }, makeMeta(apiKey)),
+        'events',
+      );
       streamState.stream = stream;
       stream.on('data', (data) => sendToRenderer('api:event', normalizeResponse(data)));
       stream.on('error', () => { streamState.stream = null; streamState.count = 0; sendToRenderer('api:event-error', {}); });

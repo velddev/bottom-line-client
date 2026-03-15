@@ -42,23 +42,64 @@ export function makeMeta(apiKey) {
 
 const DEBUG = process.env.GRPC_DEBUG === '1' || process.env.NODE_ENV === 'development';
 
+const STATUS_NAMES = {
+  0: 'OK', 1: 'CANCELLED', 2: 'UNKNOWN', 3: 'INVALID_ARGUMENT',
+  4: 'DEADLINE_EXCEEDED', 5: 'NOT_FOUND', 6: 'ALREADY_EXISTS',
+  7: 'PERMISSION_DENIED', 8: 'RESOURCE_EXHAUSTED', 9: 'FAILED_PRECONDITION',
+  10: 'ABORTED', 11: 'OUT_OF_RANGE', 12: 'UNIMPLEMENTED', 13: 'INTERNAL',
+  14: 'UNAVAILABLE', 15: 'DATA_LOSS', 16: 'UNAUTHENTICATED',
+};
+
+function redact(obj) {
+  const copy = { ...obj };
+  if (copy.api_key) copy.api_key = '[redacted]';
+  return copy;
+}
+
+function ts() {
+  return new Date().toISOString().slice(11, 23);
+}
+
 export function rpc(stub, method, request, apiKey) {
   const start = Date.now();
   if (DEBUG) {
-    const display = { ...request };
-    if (display.api_key) display.api_key = '[redacted]';
-    console.log(`[gRPC] → ${method}`, display);
+    console.log(`[gRPC ${ts()}] → ${method}`, redact(request));
   }
   return new Promise((resolve, reject) => {
-    stub[method](request, makeMeta(apiKey), (err, res) => {
+    const call = stub[method](request, makeMeta(apiKey), (err, res) => {
       const ms = Date.now() - start;
       if (err) {
-        console.error(`[gRPC] ✗ ${method} (${ms}ms) code=${err.code} ${err.details}`);
+        const status = STATUS_NAMES[err.code] ?? err.code;
+        console.error(
+          `[gRPC ${ts()}] ✗ ${method} (${ms}ms) ${status}: ${err.details}`,
+          DEBUG ? { metadata: err.metadata?.getMap?.() } : '',
+        );
         reject(err);
       } else {
-        if (DEBUG) console.log(`[gRPC] ✓ ${method} (${ms}ms)`, res);
+        if (DEBUG) console.log(`[gRPC ${ts()}] ✓ ${method} (${ms}ms)`, res);
         resolve(res);
       }
     });
+
+    if (DEBUG && call?.on) {
+      call.on('metadata', (md) => {
+        console.log(`[gRPC ${ts()}]   ← ${method} headers`, md.getMap());
+      });
+    }
   });
+}
+
+// Stream lifecycle logging for event subscriptions (dev only)
+export function wrapStream(stream, label) {
+  if (!DEBUG || !stream) return stream;
+  console.log(`[gRPC ${ts()}] ⇄ stream:${label} opened`);
+  stream.on('metadata', (md) =>
+    console.log(`[gRPC ${ts()}] ⇄ stream:${label} headers`, md.getMap()));
+  stream.on('error', (err) => {
+    const status = STATUS_NAMES[err.code] ?? err.code;
+    console.error(`[gRPC ${ts()}] ⇄ stream:${label} error ${status}: ${err.details}`);
+  });
+  stream.on('end', () =>
+    console.log(`[gRPC ${ts()}] ⇄ stream:${label} ended`));
+  return stream;
 }
