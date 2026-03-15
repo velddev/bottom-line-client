@@ -205,7 +205,8 @@ function SupplyLineLayer({ meta }: { meta: TileMeta }) {
       const q = supplyQueries[i];
       if (!q.data) return;
       (q.data.links as SupplyLinkInfo[]).forEach(link => {
-        if (link.supplier_tile_x == null) return;
+        // Government/untiled buildings have no map position; skip them
+        if (!link.supplier_tile_x && !link.supplier_tile_y) return;
         result.push({ cx: b.tile_grid_x, cy: b.tile_grid_y, sx: link.supplier_tile_x, sy: link.supplier_tile_y, rt: link.resource_type });
       });
     });
