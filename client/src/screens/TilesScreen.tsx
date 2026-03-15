@@ -173,6 +173,33 @@ const SUPPLY_LINE_COLORS: Record<string, string> = {
 };
 
 // ── Animated supply-line overlay ───────────────────────────────────────────────
+
+/** Compute points along a quadratic bezier arc from `from` to `to`, arching leftward. */
+function arcPoints(
+  from: { lat: number; lon: number },
+  to:   { lat: number; lon: number },
+  steps = 12,
+): [number, number][] {
+  const dLat = to.lat - from.lat;
+  const dLon = to.lon - from.lon;
+  const len  = Math.sqrt(dLat * dLat + dLon * dLon);
+  if (len === 0) return [[from.lat, from.lon]];
+
+  // Control point: midpoint + perpendicular offset (always arch to the left of travel direction)
+  const arch   = Math.min(len * 0.4, 0.00045); // cap at ~50 m in lat/lon space
+  const midLat = (from.lat + to.lat) / 2 + (-dLon / len) * arch;
+  const midLon = (from.lon + to.lon) / 2 + ( dLat / len) * arch;
+
+  return Array.from({ length: steps + 1 }, (_, i) => {
+    const t = i / steps;
+    const u = 1 - t;
+    return [
+      u * u * from.lat + 2 * u * t * midLat + t * t * to.lat,
+      u * u * from.lon + 2 * u * t * midLon + t * t * to.lon,
+    ] as [number, number];
+  });
+}
+
 function SupplyLineLayer({ meta }: { meta: TileMeta }) {
   const map = useMap();
   const { auth } = useAuth();
@@ -224,7 +251,7 @@ function SupplyLineLayer({ meta }: { meta: TileMeta }) {
       const to   = gridToLatLon(sx + 0.5, sy + 0.5, meta);
       const color = SUPPLY_LINE_COLORS[rt?.toLowerCase()] ?? '#9ca3af';
       const line = L.polyline(
-        [[from.lat, from.lon], [to.lat, to.lon]],
+        arcPoints(from, to),
         { color, weight: 2.5, opacity: 0.9, dashArray: '10 6', dashOffset: '0', interactive: false },
       ).addTo(layer);
       linesRef.current.push(line);
