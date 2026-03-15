@@ -124,7 +124,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* ── Page content ────────────────────────────────────────────────────── */}
-      <main className={`flex-1 min-h-0 ${(isMapPage || isChatPage) ? 'overflow-hidden flex flex-col p-4' : 'overflow-y-auto p-6'}`}>
+      <main className={`flex-1 min-h-0 ${isMapPage ? 'overflow-hidden flex flex-col' : isChatPage ? 'overflow-hidden flex flex-col p-4' : 'overflow-y-auto p-6'}`}>
         {children}
       </main>
 
