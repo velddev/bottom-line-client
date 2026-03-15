@@ -130,7 +130,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* ── Live event feed ─────────────────────────────────────────────────── */}
-      {auth?.city_id && <EventFeed cityId={auth.city_id} apiKey={auth.api_key} />}
+      {auth?.city_id && !isChatPage && <EventFeed cityId={auth.city_id} apiKey={auth.api_key} />}
     </div>
   );
 }
