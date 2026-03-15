@@ -40,11 +40,25 @@ export function makeMeta(apiKey) {
   return meta;
 }
 
+const DEBUG = process.env.GRPC_DEBUG === '1' || process.env.NODE_ENV === 'development';
+
 export function rpc(stub, method, request, apiKey) {
+  const start = Date.now();
+  if (DEBUG) {
+    const display = { ...request };
+    if (display.api_key) display.api_key = '[redacted]';
+    console.log(`[gRPC] → ${method}`, display);
+  }
   return new Promise((resolve, reject) => {
     stub[method](request, makeMeta(apiKey), (err, res) => {
-      if (err) reject(err);
-      else resolve(res);
+      const ms = Date.now() - start;
+      if (err) {
+        console.error(`[gRPC] ✗ ${method} (${ms}ms) code=${err.code} ${err.details}`);
+        reject(err);
+      } else {
+        if (DEBUG) console.log(`[gRPC] ✓ ${method} (${ms}ms)`, res);
+        resolve(res);
+      }
     });
   });
 }
