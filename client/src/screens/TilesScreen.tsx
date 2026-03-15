@@ -26,6 +26,7 @@ import MapBorder from '../components/MapBorder';
 import FarmAnimals from '../components/FarmAnimals';
 import TileSelector3D from '../components/TileSelector3D';
 import CompanyList from '../components/CompanyList';
+import ChatOverlay from '../components/ChatOverlay';
 import { tileToWorld } from '../components/cityGrid';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
@@ -402,6 +403,19 @@ export default function TilesScreen() {
             onSelectTile={handleCompanyListSelect}
             selectedTileId={selectedTile?.tile_id}
           />
+        </div>
+      </div>
+
+      {/* Chat overlay — bottom-left */}
+      <div
+        className="absolute inset-0 z-[1001] pointer-events-none"
+        style={{
+          opacity: mapReady ? 1 : 0,
+          transition: 'opacity 0.5s ease-out',
+        }}
+      >
+        <div className="pointer-events-auto">
+          <ChatOverlay />
         </div>
       </div>
 
