@@ -79,12 +79,10 @@ service TradeAgreementService {
   rpc Create  (CreateAgreementRequest)  returns (CreateAgreementResponse) {
   }
   rpc Respond (RespondAgreementRequest) returns (RespondAgreementResponse) {
-    option (google.api.http) = { put: "/v1/agreements/{agreement_id}/respond" body: "*" };
   }
   rpc List    (ListAgreementsRequest)   returns (ListAgreementsResponse) {
   }
   rpc Cancel  (CancelAgreementRequest)  returns (CancelAgreementResponse) {
-    option (google.api.http) = { delete: "/v1/agreements/{agreement_id}" };
   }
 }
 
@@ -189,11 +187,9 @@ service BuildingService {
   }
   // Configure a building's recipe and worker count.
   rpc Configure              (ConfigureRequest)              returns (ConfigureResponse) {
-    option (google.api.http) = { put: "/v1/buildings/{building_id}/configure" body: "*" };
   }
   // Get full status of a single building.
   rpc GetStatus              (GetBuildingRequest)            returns (BuildingInfo) {
-    option (google.api.http) = { get: "/v1/buildings/{building_id}" };
   }
   // List all buildings owned by the authenticated player.
   rpc ListBuildings          (ListBuildingsRequest)          returns (ListBuildingsResponse) {
@@ -203,32 +199,25 @@ service BuildingService {
   }
   // Get all active supply links for a building (what it buys from and who).
   rpc GetSupplyLinks         (GetSupplyLinksRequest)         returns (GetSupplyLinksResponse) {
-    option (google.api.http) = { get: "/v1/buildings/{building_id}/supply-links" };
   }
   // Add a supply link: building will auto-buy resource_type from supplier_building_id each tick.
   rpc AddSupplyLink          (AddSupplyLinkRequest)          returns (AddSupplyLinkResponse) {
-    option (google.api.http) = { post: "/v1/buildings/{consumer_building_id}/supply-links" body: "*" };
   }
   // Remove a supply link by ID.
   rpc RemoveSupplyLink       (RemoveSupplyLinkRequest)       returns (RemoveSupplyLinkResponse) {
-    option (google.api.http) = { delete: "/v1/supply-links/{supply_link_id}" };
   }
   // List buildings in the city that sell a given resource type (for supply link creation).
   // Stores are excluded — they sell to citizens only.
   rpc ListPotentialSuppliers (ListPotentialSuppliersRequest) returns (ListPotentialSuppliersResponse) {
-    option (google.api.http) = { get: "/v1/cities/{city_id}/potential-suppliers" };
   }
   // Get auto-sell price configs for all resource types a building produces.
   rpc GetAutoSellConfigs     (GetAutoSellConfigsRequest)     returns (GetAutoSellConfigsResponse) {
-    option (google.api.http) = { get: "/v1/buildings/{building_id}/auto-sell" };
   }
   // Set the auto-sell price and enabled state for a resource type on a building.
   rpc SetAutoSellConfig      (SetAutoSellConfigRequest)      returns (SetAutoSellConfigResponse) {
-    option (google.api.http) = { put: "/v1/buildings/{building_id}/auto-sell" body: "*" };
   }
   // Get historical per-tick sales data for a store building.
   rpc GetBuildingSales       (GetBuildingSalesRequest)       returns (GetBuildingSalesResponse) {
-    option (google.api.http) = { get: "/v1/buildings/{building_id}/sales" };
   }
 }
 
@@ -383,10 +372,8 @@ service CityService {
   rpc ListCities        (ListCitiesRequest)       returns (ListCitiesResponse) {
   }
   rpc GetCityStats      (GetCityStatsRequest)     returns (CityStats) {
-    option (google.api.http) = { get: "/v1/cities/{city_id}" };
   }
   rpc ListCityBuildings (ListCityBuildingsRequest) returns (ListCityBuildingsResponse) {
-    option (google.api.http) = { get: "/v1/cities/{city_id}/buildings" };
   }
 }
 
@@ -555,10 +542,8 @@ service MarketService {
   rpc ListOfferings  (ListOfferingsRequest)  returns (ListOfferingsResponse) {
   }
   rpc CancelOffering (CancelOfferingRequest) returns (CancelOfferingResponse) {
-    option (google.api.http) = { delete: "/v1/market/offerings/{offering_id}" };
   }
   rpc Purchase       (PurchaseRequest)       returns (PurchaseResponse) {
-    option (google.api.http) = { post: "/v1/market/offerings/{offering_id}/purchase" body: "*" };
   }
   rpc GetMarketShare (GetMarketShareRequest) returns (GetMarketShareResponse) {
   }
@@ -637,13 +622,10 @@ service MarketingService {
   rpc CreateBrand    (CreateBrandRequest)    returns (CreateBrandResponse) {
   }
   rpc CreateCampaign (CreateCampaignRequest) returns (CreateCampaignResponse) {
-    option (google.api.http) = { post: "/v1/brands/{brand_id}/campaigns" body: "*" };
   }
   rpc PauseCampaign  (PauseCampaignRequest)  returns (PauseCampaignResponse) {
-    option (google.api.http) = { put: "/v1/brands/campaigns/{campaign_id}/pause" body: "*" };
   }
   rpc GetBrandValue  (GetBrandValueRequest)  returns (BrandValueResponse) {
-    option (google.api.http) = { get: "/v1/brands/{brand_id}" };
   }
   rpc ListBrands     (ListBrandsRequest)     returns (ListBrandsResponse) {
   }
@@ -762,16 +744,12 @@ message InventoryResponse {
 // ─────────────────────────────────────────────────────────────────────────
 service PoliticsService {
   rpc GetGovernment  (GetGovernmentRequest)  returns (GovernmentInfo) {
-    option (google.api.http) = { get: "/v1/cities/{city_id}/government" };
   }
   rpc GetElection    (GetElectionRequest)    returns (ElectionInfo) {
-    option (google.api.http) = { get: "/v1/cities/{city_id}/election" };
   }
   rpc RunForElection (RunForElectionRequest) returns (RunForElectionResponse) {
-    option (google.api.http) = { post: "/v1/elections/{election_id}/run" body: "*" };
   }
   rpc EnactPolicy    (EnactPolicyRequest)    returns (EnactPolicyResponse) {
-    option (google.api.http) = { put: "/v1/cities/{city_id}/policy" body: "*" };
   }
 }
 
@@ -843,12 +821,10 @@ service ResearchService {
   rpc StartResearch (StartResearchRequest) returns (StartResearchResponse) {
   }
   rpc GetProgress   (GetResearchRequest)   returns (ResearchProgress) {
-    option (google.api.http) = { get: "/v1/research/{resource_type}" };
   }
   rpc ListResearch  (ListResearchRequest)  returns (ListResearchResponse) {
   }
   rpc PauseResearch (PauseResearchRequest) returns (PauseResearchResponse) {
-    option (google.api.http) = { put: "/v1/research/{project_id}/pause" body: "*" };
   }
 }
 
@@ -899,10 +875,8 @@ service TileService {
   rpc ListTiles    (ListTilesRequest)    returns (ListTilesResponse) {
   }
   rpc GetTile      (GetTileRequest)      returns (TileInfo) {
-    option (google.api.http) = { get: "/v1/tiles/{tile_id}" };
   }
   rpc PurchaseTile (PurchaseTileRequest) returns (PurchaseTileResponse) {
-    option (google.api.http) = { post: "/v1/tiles/{tile_id}/purchase" body: "*" };
   }
 }
 
