@@ -379,6 +379,7 @@ export default function FarmAnimals({ tiles, buildings }: Props) {
 
       if (cancelled) return;
       const result = fieldTiles.filter(t => combined.get(t.building_id) === 'cattle');
+      // Only update state if the cattle tile set actually changed
       const key = result.map(t => t.tile_id).sort().join(',');
       if (key !== prevCattleKey.current) {
         prevCattleKey.current = key;
