@@ -244,12 +244,12 @@ export default function PerformanceScreen() {
 
           {/* ── Right: Charts ────────────────────────────────────────────── */}
           {chartData.length > 0 && (
-            <div className="w-72 shrink-0 space-y-4">
+            <div className="w-80 shrink-0 space-y-4">
 
               {/* Balance */}
               <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
                 <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-500 mb-3">Balance</p>
-                <ResponsiveContainer width="100%" height={130}>
+                <ResponsiveContainer width="100%" height={400}>
                   <AreaChart data={chartData} margin={{ top: 2, right: 4, bottom: 0, left: 0 }}>
                     <defs>
                       <linearGradient id="balGrad" x1="0" y1="0" x2="0" y2="1">
@@ -269,7 +269,7 @@ export default function PerformanceScreen() {
               {/* Revenue vs Expenses */}
               <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
                 <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-500 mb-3">Revenue vs Expenses</p>
-                <ResponsiveContainer width="100%" height={130}>
+                <ResponsiveContainer width="100%" height={400}>
                   <BarChart data={chartData} margin={{ top: 2, right: 4, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
                     <XAxis dataKey="tick" tick={{ fill: C.tick, fontSize: 9 }} />
@@ -284,7 +284,7 @@ export default function PerformanceScreen() {
               {/* Net Profit */}
               <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
                 <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-500 mb-3">Net Profit per Day</p>
-                <ResponsiveContainer width="100%" height={130}>
+                <ResponsiveContainer width="100%" height={400}>
                   <BarChart data={chartData} margin={{ top: 2, right: 4, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
                     <XAxis dataKey="tick" tick={{ fill: C.tick, fontSize: 9 }} />

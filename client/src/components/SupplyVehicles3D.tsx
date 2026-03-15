@@ -7,7 +7,7 @@ import type { SupplyRoute } from '../hooks/useAllPlayerSupplyLinks';
 
 const CARS_PER_LINK   = 2;
 const VEHICLE_SPEED   = 1;   // world-units per second (same for every vehicle)
-const DWELL_TIME      = 1.0; // seconds parked at destination road edge
+const DWELL_TIME      = 2.0; // seconds parked at destination road edge
 const LANE_OFFSET     = 0.25; // metres from road centre to lane centre
 
 const CAR_Y         = 0.05;
@@ -103,8 +103,8 @@ function buildLanePath(pts: [number, number][]): THREE.Vector3[] {
 //   [2]  vertical road edge nearest destination (dwell stop)
 function getRoadWaypoints(fromWorld: [number, number], toWorld: [number, number]): [number, number][] {
   const [fx, fz] = fromWorld, [tx, tz] = toWorld;
-  const nearZ = nearest(Z_ROAD_CENTERS, (fz + tz + 1) / 2);
-  const nearX = nearest(X_ROAD_CENTERS, (fx + tx + 1) / 2);
+  const nearZ = nearest(Z_ROAD_CENTERS, fz + 0.5); // Z road nearest source tile
+  const nearX = nearest(X_ROAD_CENTERS, tx + 0.5); // X road nearest destination tile
   return [[fx + 0.5, nearZ], [nearX, nearZ], [nearX, tz + 0.5]];
 }
 
@@ -136,7 +136,14 @@ function samplePath(path: THREE.Vector3[], dist: number): void {
 }
 
 // ── Per-vehicle animated mesh ─────────────────────────────────────────────────
-const PARK_ROT_FRAC = 0.4; // fraction of dwell time used for the backing-in rotation
+// Dwell sub-phase fractions (of DWELL_TIME):
+const DPARK_ROT_END  = 0.25; // 0.00–0.25 rotate to park angle
+const DPARK_BACK_END = 0.50; // 0.25–0.50 reverse toward building
+const DPARK_HOLD_END = 0.70; // 0.50–0.70 hold at parked spot
+                              // 0.70–1.00 drive forward back to road centre
+const PARK_REVERSE_DIST = 0.45; // units to back toward building from road centre
+
+const _parkVec = new THREE.Vector3(); // reusable temp for parking offset
 
 interface VehicleProps {
   path: THREE.Vector3[];
@@ -153,7 +160,19 @@ function Vehicle({ path, reversedPath, totalLen, tTravel, tripDuration, phase, p
   const groupRef      = useRef<THREE.Group>(null!);
   const cloned        = useMemo(() => scene.clone(true), [scene]);
   const dwellPos      = useRef(new THREE.Vector3());
-  const approachAngle = useRef(0); // heading just before arriving at destination
+  const approachAngle = useRef(0);
+
+  // Heading at the very start of the return trip (first segment direction)
+  const departureAngle = useMemo(() => {
+    if (reversedPath.length < 2) return 0;
+    const dx = reversedPath[1].x - reversedPath[0].x;
+    const dz = reversedPath[1].z - reversedPath[0].z;
+    return Math.atan2(dx, dz);
+  }, [reversedPath]);
+
+  // Direction the vehicle reverses toward: rear faces building, so back = -front
+  // parkAngle is ±π/2, so sin(parkAngle) = ±1, cos = 0 → reverse is purely in X
+  const reverseDirX = -Math.sin(parkAngle);
 
   useFrame(({ clock }) => {
     const group = groupRef.current;
@@ -172,17 +191,35 @@ function Vehicle({ path, reversedPath, totalLen, tTravel, tripDuration, phase, p
       group.position.copy(_outPos);
       group.rotation.y = _outAngle;
     } else if (cycleT < T2) {
-      group.position.copy(dwellPos.current);
-      // Smooth backing-in rotation: approach → park over first PARK_ROT_FRAC of dwell
       const dwellFrac = (cycleT - T1) / DWELL_TIME;
-      if (dwellFrac < PARK_ROT_FRAC) {
-        const t = dwellFrac / PARK_ROT_FRAC;
-        const smooth = t * t * (3 - 2 * t); // smoothstep
-        // Shortest angular path to park angle
-        let delta = ((parkAngle - approachAngle.current) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+
+      if (dwellFrac < DPARK_ROT_END) {
+        // Phase 1: rotate from approach angle to park angle
+        group.position.copy(dwellPos.current);
+        const t = dwellFrac / DPARK_ROT_END;
+        const smooth = t * t * (3 - 2 * t);
+        const delta = ((parkAngle - approachAngle.current) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
         group.rotation.y = approachAngle.current + delta * smooth;
-      } else {
+      } else if (dwellFrac < DPARK_BACK_END) {
+        // Phase 2: reverse toward building
+        const t = (dwellFrac - DPARK_ROT_END) / (DPARK_BACK_END - DPARK_ROT_END);
+        const smooth = t * t * (3 - 2 * t);
+        _parkVec.set(reverseDirX * PARK_REVERSE_DIST * smooth, 0, 0);
+        group.position.copy(dwellPos.current).add(_parkVec);
         group.rotation.y = parkAngle;
+      } else if (dwellFrac < DPARK_HOLD_END) {
+        // Phase 3: hold at parked spot
+        _parkVec.set(reverseDirX * PARK_REVERSE_DIST, 0, 0);
+        group.position.copy(dwellPos.current).add(_parkVec);
+        group.rotation.y = parkAngle;
+      } else {
+        // Phase 4: drive forward back to road centre + rotate to departure heading
+        const t = (dwellFrac - DPARK_HOLD_END) / (1.0 - DPARK_HOLD_END);
+        const smooth = t * t * (3 - 2 * t);
+        _parkVec.set(reverseDirX * PARK_REVERSE_DIST * (1 - smooth), 0, 0);
+        group.position.copy(dwellPos.current).add(_parkVec);
+        const delta = ((departureAngle - parkAngle) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+        group.rotation.y = parkAngle + delta * smooth;
       }
     } else {
       samplePath(reversedPath, ((cycleT - T2) / tTravel) * totalLen);
