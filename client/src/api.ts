@@ -86,7 +86,7 @@ export function useApi(): IApiService {
 
 // Re-use the HTTP base request for these two helpers
 function httpGet<T>(path: string): Promise<T> {
-  return fetch(`/api${path}`).then(async (res) => {
+  return fetch(`/v1${path}`).then(async (res) => {
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error ?? 'Request failed');
@@ -96,7 +96,7 @@ function httpGet<T>(path: string): Promise<T> {
 }
 
 export const getTileMarketScore = (cityId: string, tileId: string) =>
-  httpGet<TileMarketScore>(`/buildings/tile-market-score?city_id=${cityId}&tile_id=${tileId}`);
+  httpGet<TileMarketScore>(`/cities/${cityId}/tiles/${tileId}/market-score`);
 
 export const getDemandUtilization = (cityId: string, historyTicks = 10) =>
-  httpGet<{ data: DemandUtilizationPoint[] }>(`/market/demand-utilization?city_id=${cityId}&history_ticks=${historyTicks}`);
+  httpGet<{ data: DemandUtilizationPoint[] }>(`/cities/${cityId}/demand-utilization?history_ticks=${historyTicks}`);
