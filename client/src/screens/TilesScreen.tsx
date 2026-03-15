@@ -1,15 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer as LeafletTileLayer, useMap } from 'react-leaflet';
 import type { Map as LeafletMap, LatLngBounds } from 'leaflet';
 import L from 'leaflet';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
 import { Settings, Package } from 'lucide-react';
 import { useAuth } from '../auth';
 import {
   listTiles, purchaseTile, listCities,
   constructBuilding, configureBuilding, listRecipes, getInventory,
+  listBuildings, getSupplyLinks,
 } from '../api';
-import type { TileInfo, ListTilesResponse, RecipeInfo } from '../types';
+import type { TileInfo, ListTilesResponse, RecipeInfo, BuildingStatus, SupplyLinkInfo } from '../types';
 import { BUILDING_ICONS, BUILDING_TYPES, fmtMoney } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
@@ -159,7 +160,105 @@ function InventoryModal({ buildingId, buildingName, onClose }: { buildingId: str
 // ── Sell (auto-sell config) modal ─────────────────────────────────────────────
 // Removed: auto-sell config is now inline in the Supply section.
 
-// ── Map layer component ────────────────────────────────────────────────────────
+// Hex stroke colors keyed by resource type (for SVG polylines)
+const SUPPLY_LINE_COLORS: Record<string, string> = {
+  grain:       '#fbbf24', // amber-400
+  water:       '#38bdf8', // sky-400
+  animal_feed: '#a3e635', // lime-400
+  feed:        '#a3e635',
+  cattle:      '#fb923c', // orange-400
+  meat:        '#f87171', // red-400
+  leather:     '#d97706', // amber-600
+  food:        '#4ade80', // green-400
+};
+
+// ── Animated supply-line overlay ───────────────────────────────────────────────
+function SupplyLineLayer({ meta }: { meta: TileMeta }) {
+  const map = useMap();
+  const { auth } = useAuth();
+  const layerRef = useRef<L.LayerGroup | null>(null);
+  const animRef  = useRef<number>(0);
+  const linesRef = useRef<L.Polyline[]>([]);
+
+  const { data: buildingsData } = useQuery({
+    queryKey: ['buildings'],
+    queryFn: listBuildings,
+    staleTime: 60_000,
+    enabled: !!auth,
+  });
+
+  const buildings = (buildingsData?.buildings ?? []) as BuildingStatus[];
+
+  const supplyQueries = useQueries({
+    queries: buildings.map(b => ({
+      queryKey: ['supplyLinks', b.building_id],
+      queryFn: () => getSupplyLinks(b.building_id),
+      staleTime: 60_000,
+    })),
+  });
+
+  // Flatten all supply links with consumer tile coords
+  const allLinks = useMemo(() => {
+    const result: { cx: number; cy: number; sx: number; sy: number; rt: string }[] = [];
+    buildings.forEach((b, i) => {
+      if (!b.tile_id) return; // not placed on map yet
+      const q = supplyQueries[i];
+      if (!q.data) return;
+      (q.data.links as SupplyLinkInfo[]).forEach(link => {
+        if (link.supplier_tile_x == null) return;
+        result.push({ cx: b.tile_grid_x, cy: b.tile_grid_y, sx: link.supplier_tile_x, sy: link.supplier_tile_y, rt: link.resource_type });
+      });
+    });
+    return result;
+  }, [buildings, supplyQueries]); // eslint-disable-line
+
+  // Redraw polylines whenever the link set changes
+  useEffect(() => {
+    const layer = layerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    linesRef.current = [];
+    allLinks.forEach(({ cx, cy, sx, sy, rt }) => {
+      const from = gridToLatLon(cx + 0.5, cy + 0.5, meta);
+      const to   = gridToLatLon(sx + 0.5, sy + 0.5, meta);
+      const color = SUPPLY_LINE_COLORS[rt?.toLowerCase()] ?? '#9ca3af';
+      const line = L.polyline(
+        [[from.lat, from.lon], [to.lat, to.lon]],
+        { color, weight: 2.5, opacity: 0.9, dashArray: '10 6', dashOffset: '0', interactive: false },
+      ).addTo(layer);
+      linesRef.current.push(line);
+    });
+  }, [allLinks, meta]);
+
+  // Animate: dashes march from consumer → supplier
+  useEffect(() => {
+    cancelAnimationFrame(animRef.current);
+    if (!linesRef.current.length) return;
+    const DASH_TOTAL = 16; // 10 filled + 6 gap
+    let offset = 0;
+    const step = () => {
+      offset = ((offset - 0.35) % DASH_TOTAL + DASH_TOTAL) % DASH_TOTAL;
+      linesRef.current.forEach(line => {
+        const el = line.getElement() as SVGPathElement | null;
+        if (el) el.style.strokeDashoffset = String(offset);
+      });
+      animRef.current = requestAnimationFrame(step);
+    };
+    animRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animRef.current);
+  }, [allLinks]);
+
+  // Mount / unmount the layer group
+  useEffect(() => {
+    const layer = L.layerGroup().addTo(map);
+    layerRef.current = layer;
+    return () => { cancelAnimationFrame(animRef.current); layer.remove(); };
+  }, [map]);
+
+  return null;
+}
+
+
 function TileLayer_({
   cityId, meta, myPlayerId, selectedTile, onSelect, apiKey,
 }: {
@@ -456,6 +555,7 @@ export default function TilesScreen() {
             apiKey={auth?.api_key ?? ''}
           />
         )}
+        {cityId && <SupplyLineLayer meta={meta} />}
       </MapContainer>
 
 
