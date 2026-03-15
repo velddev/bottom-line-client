@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Vote, Settings } from 'lucide-react';
-import { getGovernment, getElection, runForElection, enactPolicy } from '../api';
+import { getGovernment, getElection, runForElection, enactPolicy, castVote } from '../api';
 import { useAuth } from '../auth';
 import { fmtPct, fmtMoney } from '../types';
 import Modal, { Field, Input } from '../components/Modal';
@@ -34,10 +34,35 @@ function ApprovalBar({ label, value, color }: { label: string; value: number; co
   );
 }
 
+function PollBar({ name, pollPct, playerVotes, citizenVotes, isMe, isLeader }:
+  { name: string; pollPct: number; playerVotes: number; citizenVotes: number; isMe: boolean; isLeader: boolean }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className={isMe ? 'text-indigo-300 font-semibold' : 'text-gray-300'}>
+          {isLeader && '🏆 '}{name}{isMe && ' (you)'}
+        </span>
+        <span className="text-white font-mono font-bold">{pollPct.toFixed(1)}%</span>
+      </div>
+      <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${isMe ? 'bg-indigo-500' : 'bg-blue-600/70'}`}
+          style={{ width: `${Math.min(pollPct, 100)}%` }}
+        />
+      </div>
+      <div className="flex gap-3 text-[10px] text-gray-600">
+        <span>👥 {citizenVotes.toLocaleString()} citizens</span>
+        <span>🗳️ {playerVotes} players</span>
+      </div>
+    </div>
+  );
+}
+
 export default function PoliticsScreen() {
   const { auth } = useAuth();
   const qc = useQueryClient();
   const [showPolicy, setShowPolicy] = useState(false);
+  const [votingFor, setVotingFor] = useState<string | null>(null);
   const [policyForm, setPolicyForm] = useState({
     consumer_tax_rate: '0', profit_tax_rate: '0', land_tax_rate: '0', employee_tax_rate: '0',
   });
@@ -45,17 +70,22 @@ export default function PoliticsScreen() {
   const { data: gov, isLoading: govLoading } = useQuery({
     queryKey: ['government'],
     queryFn: () => getGovernment(),
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   });
 
   const { data: election, isLoading: elecLoading } = useQuery({
     queryKey: ['election'],
     queryFn: () => getElection(),
-    refetchInterval: 60_000,
+    refetchInterval: 30_000, // refresh every 30s to pick up polling updates
   });
 
   const runMut = useMutation({
     mutationFn: () => runForElection(election!.election_id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['election'] }),
+  });
+
+  const voteMut = useMutation({
+    mutationFn: (candidate_id: string) => castVote(election!.election_id, candidate_id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['election'] }),
   });
 
@@ -70,8 +100,20 @@ export default function PoliticsScreen() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['government'] }); setShowPolicy(false); },
   });
 
-  const isRuler = gov?.ruling_player_id === auth?.player_id;
+  const isRuler     = gov?.ruling_player_id === auth?.player_id;
   const isCandidate = election?.candidates?.some((c) => c.player_id === auth?.player_id);
+  const inCampaign  = election?.status === 'campaigning';
+  const inVoting    = election?.status === 'voting';
+
+  // Sort candidates by poll_percent desc for display
+  const sortedCandidates = [...(election?.candidates ?? [])].sort((a, b) => b.poll_percent - a.poll_percent);
+  const leader = sortedCandidates[0];
+
+  const statusColor = (s: string) => ({
+    campaigning: 'bg-sky-900/40 text-sky-400',
+    voting:      'bg-emerald-900/40 text-emerald-400',
+    concluded:   'bg-gray-800 text-gray-400',
+  }[s] ?? 'bg-gray-800 text-gray-500');
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -133,66 +175,102 @@ export default function PoliticsScreen() {
         <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
             <h2 className="text-sm font-semibold text-white">🗳️ Election</h2>
-            {election && election.status === 'open' && !isCandidate && (
-              <button
-                onClick={() => runMut.mutate()}
-                disabled={runMut.isPending}
-                className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-2.5 py-1.5 rounded transition-colors"
-              >
-                <Vote size={12} /> Run
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {election && inCampaign && !isCandidate && (
+                <button
+                  onClick={() => runMut.mutate()}
+                  disabled={runMut.isPending}
+                  className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-2.5 py-1.5 rounded transition-colors"
+                >
+                  <Vote size={12} /> Run for Office
+                </button>
+              )}
+              {election && inVoting && !election.player_has_voted && (
+                <span className="text-xs text-emerald-400 animate-pulse">Voting open!</span>
+              )}
+              {election && election.player_has_voted && (
+                <span className="text-xs text-gray-500">✓ Voted</span>
+              )}
+            </div>
           </div>
           <div className="p-4">
             {elecLoading && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
             {election && (
               <>
                 <div className="flex items-center gap-2 mb-4">
-                  <span className={`px-2 py-0.5 rounded text-xs ${
-                    election.status === 'open'       ? 'bg-emerald-900/40 text-emerald-400' :
-                    election.status === 'concluded'  ? 'bg-gray-800 text-gray-400' :
-                                                       'bg-amber-900/40 text-amber-400'
-                  }`}>{election.status}</span>
-                  <span className="text-gray-500 text-xs">t{election.voting_start} – t{election.voting_end}</span>
+                  <span className={`px-2 py-0.5 rounded text-xs ${statusColor(election.status)}`}>
+                    {election.status}
+                  </span>
+                  <span className="text-gray-500 text-xs">
+                    {inVoting ? 'Voting ends' : 'Voting starts'} t{inVoting ? election.voting_end : election.voting_start}
+                  </span>
+                  {election.last_polled_tick > 0 && (
+                    <span className="text-gray-700 text-xs">· polled t{election.last_polled_tick}</span>
+                  )}
                 </div>
 
                 {election.winner_player_id && (
-                  <p className="text-xs text-gray-400 mb-3">
-                    Winner: <span className="text-white">{election.winner_player_id.slice(0, 8)}…</span>
+                  <p className="text-xs text-amber-400 mb-3">
+                    🏆 Winner: <span className="text-white font-semibold">
+                      {sortedCandidates.find(c => c.player_id === election.winner_player_id)?.player_name
+                        ?? election.winner_player_id.slice(0, 8) + '…'}
+                    </span>
                   </p>
                 )}
 
                 {isCandidate && (
-                  <p className="text-xs text-indigo-400 mb-3">✓ You are a candidate in this election</p>
+                  <p className="text-xs text-indigo-400 mb-3">✓ You are a candidate</p>
                 )}
 
-                {(election.candidates?.length ?? 0) > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-gray-500 text-xs uppercase tracking-wider mb-2">Candidates</p>
-                    {election.candidates.map((c) => (
-                      <div key={c.player_id} className="flex items-center justify-between text-xs">
-                        <span className={`text-gray-300 ${c.player_id === auth?.player_id ? 'text-indigo-300 font-semibold' : ''}`}>
-                          {c.player_name}
-                        </span>
-                        <div className="flex items-center gap-3 text-gray-500">
-                          <span>👁 {fmtPct(c.perception)}</span>
-                          <span>🗳 {c.votes}</span>
-                        </div>
+                {/* Polling / candidates */}
+                {sortedCandidates.length > 0 && (
+                  <div className="space-y-4">
+                    <p className="text-gray-500 text-xs uppercase tracking-wider">
+                      {inVoting ? '📊 Live Results' : '📊 Tracking Poll'}
+                    </p>
+                    {sortedCandidates.map((c) => (
+                      <div key={c.player_id} className="space-y-1">
+                        <PollBar
+                          name={c.player_name}
+                          pollPct={c.poll_percent}
+                          playerVotes={c.player_votes}
+                          citizenVotes={c.citizen_votes}
+                          isMe={c.player_id === auth?.player_id}
+                          isLeader={c.player_id === leader?.player_id}
+                        />
+                        {/* Vote button */}
+                        {inVoting && !election.player_has_voted && c.player_id !== auth?.player_id && (
+                          <button
+                            onClick={() => {
+                              setVotingFor(c.player_id);
+                              voteMut.mutate(c.player_id);
+                            }}
+                            disabled={voteMut.isPending}
+                            className="text-[11px] px-2 py-0.5 rounded bg-emerald-800/40 hover:bg-emerald-700/40 text-emerald-300 disabled:opacity-50 transition-colors"
+                          >
+                            {voteMut.isPending && votingFor === c.player_id ? 'Voting…' : 'Vote for ' + c.player_name}
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
 
-                {(election.candidates?.length ?? 0) === 0 && (
-                  <p className="text-gray-600 text-xs">No candidates yet.</p>
+                {sortedCandidates.length === 0 && (
+                  <p className="text-gray-600 text-xs">No candidates yet. Be the first to run!</p>
                 )}
               </>
             )}
             {!election && !elecLoading && (
-              <p className="text-gray-600 text-xs">No election currently scheduled.</p>
+              <p className="text-gray-600 text-xs">No election currently active.</p>
             )}
-            {runMut.isError && <p className="text-rose-400 text-xs mt-2">{(runMut.error as Error).message}</p>}
+            {(runMut.isError || voteMut.isError) && (
+              <p className="text-rose-400 text-xs mt-2">
+                {((runMut.error ?? voteMut.error) as Error).message}
+              </p>
+            )}
             {runMut.data && <p className="text-emerald-400 text-xs mt-2">{runMut.data.message}</p>}
+            {voteMut.data && <p className={`text-xs mt-2 ${voteMut.data.success ? 'text-emerald-400' : 'text-rose-400'}`}>{voteMut.data.message}</p>}
           </div>
         </div>
       </div>

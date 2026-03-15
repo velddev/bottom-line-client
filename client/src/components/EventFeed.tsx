@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Radio } from 'lucide-react';
 import type { GameEvent } from '../types';
 import { fmtMoney } from '../types';
+import { api } from '../api';
 
 function describeEvent(e: GameEvent): { icon: string; text: string; cls: string } {
   if (e.tick_completed)
@@ -38,19 +39,18 @@ export default function EventFeed({ cityId, apiKey }: { cityId: string; apiKey: 
 
   useEffect(() => {
     if (!cityId || !apiKey) return;
-    const params = new URLSearchParams({ city_id: cityId, api_key: apiKey });
-    const source = new EventSource(`/api/events/stream?${params}`);
 
-    source.onopen = () => setConnected(true);
-    source.onmessage = (e) => {
-      try {
-        const event = JSON.parse(e.data) as GameEvent;
+    const unsubscribe = api.subscribeToEvents(
+      cityId,
+      apiKey,
+      (event) => {
         setEvents((prev) => [event, ...prev].slice(0, 200));
-      } catch { /* ignore malformed */ }
-    };
-    source.onerror = () => { setConnected(false); source.close(); };
+      },
+      () => setConnected(true),
+      () => setConnected(false),
+    );
 
-    return () => { source.close(); setConnected(false); };
+    return () => { unsubscribe(); setConnected(false); };
   }, [cityId, apiKey]);
 
   return (

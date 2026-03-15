@@ -1,48 +1,37 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth';
+import { api } from '../api';
 
 const TICK_INTERVAL_MS = 60_000;
 
 /**
- * Opens a single SSE connection for the current session and invalidates
- * React Query caches whenever the server fires a tickCompleted event.
+ * Subscribes to the game event stream for the current session and invalidates
+ * React Query caches whenever the server fires a tick_completed event.
  * Returns nextTickAt (epoch ms) so callers can render a countdown.
  * Mount this once in Layout so all screens stay fresh.
  */
 export function useTickRefresh() {
   const { auth } = useAuth();
   const queryClient = useQueryClient();
-  // Seed with a rough estimate; corrected to exact timing on every real tick event.
   const [nextTickAt, setNextTickAt] = useState<number>(() => Date.now() + TICK_INTERVAL_MS);
 
   useEffect(() => {
     if (!auth?.api_key || !auth?.city_id) return;
 
-    const es = new EventSource(
-      `/api/events/stream?api_key=${encodeURIComponent(auth.api_key)}&city_id=${encodeURIComponent(auth.city_id)}`
-    );
+    const unsubscribe = api.subscribeToEvents(auth.city_id, auth.api_key, (evt) => {
+      if (evt.tick_completed) {
+        setNextTickAt(Date.now() + TICK_INTERVAL_MS);
+        queryClient.invalidateQueries({ queryKey: ['buildings'] });
+        queryClient.invalidateQueries({ queryKey: ['city'] });
+        queryClient.invalidateQueries({ queryKey: ['profile'] });
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
+        queryClient.invalidateQueries({ queryKey: ['research'] });
+        queryClient.invalidateQueries({ queryKey: ['market-share'] });
+      }
+    });
 
-    es.onmessage = (e) => {
-      try {
-        const evt = JSON.parse(e.data as string);
-        if (evt.tick_completed) {
-          setNextTickAt(Date.now() + TICK_INTERVAL_MS);
-          queryClient.invalidateQueries({ queryKey: ['buildings'] });
-          queryClient.invalidateQueries({ queryKey: ['city'] });
-          queryClient.invalidateQueries({ queryKey: ['profile'] });
-          queryClient.invalidateQueries({ queryKey: ['inventory'] });
-          queryClient.invalidateQueries({ queryKey: ['research'] });
-          queryClient.invalidateQueries({ queryKey: ['market-share'] });
-        }
-      } catch { /* ignore parse errors */ }
-    };
-
-    es.onerror = () => {
-      // EventSource auto-reconnects; nothing to do
-    };
-
-    return () => es.close();
+    return unsubscribe;
   }, [auth?.api_key, auth?.city_id, queryClient]);
 
   return { nextTickAt };

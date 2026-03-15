@@ -122,6 +122,8 @@ export interface ElectionInfo {
   voting_start: number;
   voting_end: number;
   winner_player_id: string;
+  last_polled_tick: number;
+  player_has_voted: boolean;
   candidates: CandidateInfo[];
 }
 
@@ -130,6 +132,9 @@ export interface CandidateInfo {
   player_name: string;
   perception: number;
   votes: number;
+  player_votes: number;
+  citizen_votes: number;
+  poll_percent: number;
 }
 
 // ─── City ─────────────────────────────────────────────────────────────────────

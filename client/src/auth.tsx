@@ -21,7 +21,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [auth, setAuth] = useState<Auth | null>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as Auth) : null;
+      if (!raw) return null;
+      const restored = JSON.parse(raw) as Auth;
+      // Re-hydrate the separate api_key entry so IPC calls have it available immediately.
+      localStorage.setItem('api_key', restored.api_key);
+      return restored;
     } catch {
       return null;
     }

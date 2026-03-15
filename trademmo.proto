@@ -828,6 +828,9 @@ service PoliticsService {
   }
   rpc EnactPolicy    (EnactPolicyRequest)    returns (EnactPolicyResponse) {
   }
+  // Cast a vote for a candidate during the voting phase.
+  rpc CastVote       (CastVoteRequest)       returns (CastVoteResponse) {
+  }
 }
 
 message GetGovernmentRequest {
@@ -853,10 +856,13 @@ message GetElectionRequest {
 }
 
 message CandidateInfo {
-  string player_id   = 1;
-  string player_name = 2;
-  float  perception  = 3;
-  int32  votes       = 4; // populated after voting ends
+  string player_id        = 1;
+  string player_name      = 2;
+  float  perception       = 3;
+  int32  votes            = 4; // total votes (player + simulated citizens)
+  int32  player_votes     = 5; // votes from real players
+  int32  citizen_votes    = 6; // simulated citizen votes
+  float  poll_percent     = 7; // current polling percentage (0–100)
 }
 
 message ElectionInfo {
@@ -865,7 +871,9 @@ message ElectionInfo {
   int64          voting_start     = 3;
   int64          voting_end       = 4;
   string         winner_player_id = 5;
-  repeated CandidateInfo candidates = 6;
+  int64          last_polled_tick = 6; // when polls were last recalculated
+  bool           player_has_voted = 7; // whether the calling player has voted
+  repeated CandidateInfo candidates = 8;
 }
 
 message RunForElectionRequest {
@@ -886,6 +894,16 @@ message EnactPolicyRequest {
 }
 
 message EnactPolicyResponse {
+  bool   success = 1;
+  string message = 2;
+}
+
+message CastVoteRequest {
+  string election_id  = 1;
+  string candidate_id = 2;
+}
+
+message CastVoteResponse {
   bool   success = 1;
   string message = 2;
 }

@@ -1,12 +1,10 @@
 import grpc from '@grpc/grpc-js';
 import protoLoader from '@grpc/proto-loader';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { join } from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const PROTO_PATH = join(__dirname, '../../trademmo.proto');
+// PROTO_PATH is injected by Electron when running in the app.
+// When running the server standalone, fall back to a path relative to cwd.
+const PROTO_PATH = process.env.PROTO_PATH ?? join(process.cwd(), '..', 'trademmo.proto');
 
 const packageDef = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,

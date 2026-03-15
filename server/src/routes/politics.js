@@ -26,4 +26,10 @@ router.post('/policy', handle(async (req) => {
     getApiKey(req));
 }));
 
+router.post('/vote', handle(async (req) => {
+  const { election_id = '', candidate_id = '' } = req.body;
+  return rpc(stubs.politics, 'CastVote', { election_id, candidate_id }, getApiKey(req));
+}));
+
 export default router;
+

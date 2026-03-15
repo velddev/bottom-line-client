@@ -10,6 +10,7 @@ import {
   constructBuilding, configureBuilding, listRecipes, getInventory,
   listBuildings, getSupplyLinks,
 } from '../api';
+import { api } from '../api';
 import type { TileInfo, ListTilesResponse, RecipeInfo, BuildingStatus, SupplyLinkInfo } from '../types';
 import { BUILDING_ICONS, BUILDING_TYPES, fmtMoney } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
@@ -321,39 +322,33 @@ function TileLayer_({
   const stateRef = useRef({ selectedTile, onSelect, meta, cityId, myPlayerId, buildings });
   useEffect(() => { stateRef.current = { selectedTile, onSelect, meta, cityId, myPlayerId, buildings }; });
 
-  // SSE subscription for live tile updates + 60s fallback full refresh
+  // Event subscription for live tile updates + 60s fallback full refresh
   useEffect(() => {
     if (!apiKey || !cityId) return;
 
-    const es = new EventSource(
-      `/api/events/stream?api_key=${encodeURIComponent(apiKey)}&city_id=${encodeURIComponent(cityId)}`
-    );
-
-    es.onmessage = (e) => {
-      try {
-        const evt = JSON.parse(e.data as string);
-        if (evt.tile_changed) {
-          const tc = evt.tile_changed;
-          const updated: TileInfo = {
-            tile_id:                  tc.tile_id        ?? '',
-            city_id:                  tc.city_id        ?? '',
-            grid_x:                   tc.grid_x         ?? 0,
-            grid_y:                   tc.grid_y         ?? 0,
-            owner_player_id:          tc.owner_player_id ?? '',
-            owner_name:               tc.owner_name     ?? '',
-            is_for_sale:              tc.is_for_sale    ?? false,
-            purchase_price:           tc.purchase_price ?? 0,
-            building_id:              tc.building_id    ?? '',
-            building_name:            tc.building_name  ?? '',
-            building_type:            tc.building_type  ?? '',
-            building_status:          tc.building_status ?? '',
-            is_reserved_for_citizens: false,
-          };
-          cacheRef.current.set(`${updated.grid_x}_${updated.grid_y}`, updated);
-          redrawRef.current?.();
-        }
-      } catch { /* ignore parse errors */ }
-    };
+    const unsubscribe = api.subscribeToEvents(cityId, apiKey, (evt) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tc = (evt as any).tile_changed;
+      if (tc) {
+        const updated: TileInfo = {
+          tile_id:                  tc.tile_id        ?? '',
+          city_id:                  tc.city_id        ?? '',
+          grid_x:                   tc.grid_x         ?? 0,
+          grid_y:                   tc.grid_y         ?? 0,
+          owner_player_id:          tc.owner_player_id ?? '',
+          owner_name:               tc.owner_name     ?? '',
+          is_for_sale:              tc.is_for_sale    ?? false,
+          purchase_price:           tc.purchase_price ?? 0,
+          building_id:              tc.building_id    ?? '',
+          building_name:            tc.building_name  ?? '',
+          building_type:            tc.building_type  ?? '',
+          building_status:          tc.building_status ?? '',
+          is_reserved_for_citizens: false,
+        };
+        cacheRef.current.set(`${updated.grid_x}_${updated.grid_y}`, updated);
+        redrawRef.current?.();
+      }
+    });
 
     // 60-second fallback: re-fetch all visible chunks
     const refresh = setInterval(() => {
@@ -361,7 +356,7 @@ function TileLayer_({
       fetchMissingRef.current?.();
     }, 60_000);
 
-    return () => { es.close(); clearInterval(refresh); };
+    return () => { unsubscribe(); clearInterval(refresh); };
   }, [apiKey, cityId]); // eslint-disable-line
 
   const redraw = useCallback(() => {
@@ -567,8 +562,6 @@ export default function TilesScreen() {
 
   const [configTarget, setConfigTarget] = useState<TileInfo | null>(null);
   const [invTarget, setInvTarget] = useState<TileInfo | null>(null);
-  const [activeTab, setActiveTab] = useState<'supply' | 'info'>('supply');
-  useEffect(() => { setActiveTab('supply'); }, [selectedTile?.tile_id]);
 
   const meta: TileMeta = {
     tile_origin_lat: 52.35670,
@@ -648,19 +641,6 @@ export default function TilesScreen() {
               )}
             </div>
 
-            {/* Tab bar (only for own non-landmark buildings) */}
-            {isMine && hasBuilding && !isGovBuilding && (
-              <div className="flex border-b border-gray-700">
-                {(['supply', 'info'] as const).map((tab) => (
-                  <button key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 text-xs py-2 capitalize transition-colors ${activeTab === tab ? 'text-white border-b-2 border-indigo-500 -mb-px' : 'text-gray-500 hover:text-gray-300'}`}>
-                    {tab === 'supply' ? '🛒 Supply' : 'ℹ️ Info'}
-                  </button>
-                ))}
-              </div>
-            )}
-
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {/* Purchase */}
@@ -708,25 +688,13 @@ export default function TilesScreen() {
                 )
               )}
 
-              {/* Building tabs */}
-              {isMine && hasBuilding && !isGovBuilding && activeTab === 'supply' && (
+              {/* Building supply section */}
+              {isMine && hasBuilding && !isGovBuilding && (
                 <SupplySection
                   buildingId={selectedTile.building_id}
                   buildingType={selectedTile.building_type?.toLowerCase() ?? ''}
                   cityId={cityId}
                 />
-              )}
-
-              {isMine && hasBuilding && !isGovBuilding && activeTab === 'info' && (
-                <div className="space-y-2 text-xs">
-                  <p className="text-gray-400">Type: <span className="text-white capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
-                  <p className="text-gray-400 flex items-center gap-2">
-                    Status: <StatusBadge status={selectedTile.building_status} />
-                    {selectedTile.building_status === 'under_construction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
-                      <span className="text-gray-500">ready in <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} /></span>
-                    )}
-                  </p>
-                </div>
               )}
 
               {/* Government landmark — politics panel */}

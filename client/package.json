@@ -8,19 +8,26 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "electron:dev": "concurrently -k -n vite,electron -c blue,green \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "tsc && vite build && electron-builder",
-    "electron:release": "tsc && vite build && electron-builder --publish always"
+    "bundle:server": "esbuild ../server/src/index.js --bundle --platform=node --format=cjs --outfile=electron/server.cjs",
+    "bundle:ipc": "esbuild electron/ipc-handlers.js --bundle --platform=node --format=cjs --outfile=electron/ipc-bundle.cjs --external:electron",
+    "electron:dev": "npm run bundle:ipc && concurrently -k -n vite,electron -c blue,green \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "npm run bundle:ipc && npm run bundle:server && tsc && vite build && electron-builder",
+    "electron:release": "npm run bundle:ipc && npm run bundle:server && tsc && vite build && electron-builder --publish always"
   },
   "build": {
     "appId": "com.trademmo.client",
     "productName": "TradeMMO",
+    "icon": "assets/icon.png",
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      { "from": "../trademmo.proto", "to": "." }
     ],
     "win": {
       "target": "portable"
@@ -56,6 +63,7 @@
     "concurrently": "^8.2.2",
     "electron": "^41.0.2",
     "electron-builder": "^26.8.1",
+    "esbuild": "^0.27.4",
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.6",
     "typescript": "^5.5.3",

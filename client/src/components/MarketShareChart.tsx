@@ -18,7 +18,7 @@ interface Props {
   historyTicks?: number;
 }
 
-export default function MarketShareChart({ cityId, historyTicks = 20 }: Props) {
+export default function MarketShareChart({ cityId, historyTicks = 60 }: Props) {
   const [resourceType, setResourceType] = useState('food');
 
   const { data, isLoading } = useQuery({

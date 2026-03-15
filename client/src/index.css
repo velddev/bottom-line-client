@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0f172a; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #475569; }
+::-webkit-scrollbar-track { background: #0d0d0d; }
+::-webkit-scrollbar-thumb { background: #2f2f2f; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #404040; }
 
 /* Dark map placeholder — replaces Leaflet's default light-gray tile background.
    Use :where() to stay at base specificity so nothing else is affected,
