@@ -1,0 +1,23 @@
+services:
+  # Node.js HTTP proxy: bridges the React app to the gRPC backend at play.veld.gg:443
+  web:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    expose:
+      - "3001"
+    restart: unless-stopped
+
+  # nginx: serves the React SPA and proxies /api/* to the Node.js proxy
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - web
+    restart: unless-stopped
