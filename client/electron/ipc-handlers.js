@@ -187,6 +187,16 @@ export function registerIpcHandlers() {
       city_id, consumer_tax_rate, profit_tax_rate, land_tax_rate, employee_tax_rate,
     }, apiKey)));
 
+  // ─── Chat ─────────────────────────────────────────────────────────────────
+  handle('api:sendChatMessage', async ({ content = '', to_player_id = '', apiKey }) =>
+    normalizeResponse(await rpc(stubs.chat, 'SendMessage', { content, to_player_id }, apiKey)));
+
+  handle('api:getChatMessages', async ({ city_id = '', to_player_id = '', limit = 50, before_id = '', apiKey }) =>
+    normalizeResponse(await rpc(stubs.chat, 'GetMessages', { city_id, to_player_id, limit, before_id }, apiKey)));
+
+  handle('api:listDmConversations', async ({ apiKey }) =>
+    normalizeResponse(await rpc(stubs.chat, 'ListDmConversations', {}, apiKey)));
+
   // ─── Bank ─────────────────────────────────────────────────────────────────
   handle('api:getLoan', async ({ city_id, apiKey }) =>
     normalizeResponse(await rpc(stubs.bank, 'GetLoan', { city_id }, apiKey)));

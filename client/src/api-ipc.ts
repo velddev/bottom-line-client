@@ -4,7 +4,7 @@ import type {
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
   SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
-  CompanyTickSnapshot, GameEvent,
+  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation,
 } from './types';
 import type { IApiService } from './api-interface';
 
@@ -207,6 +207,16 @@ export function createIpcApi(): IApiService {
 
     getBuildingSales: (buildingId, historyTicks = 20) =>
       invoke<GetBuildingSalesResponse>('api:getBuildingSales', { building_id: buildingId, history_ticks: historyTicks, apiKey: apiKey() }),
+
+    // ─── Chat ────────────────────────────────────────────────────────────────
+    sendChatMessage: (content, to_player_id = '') =>
+      invoke<{ success: boolean; message: string }>('api:sendChatMessage', { content, to_player_id, apiKey: apiKey() }),
+
+    getChatMessages: (city_id, to_player_id = '', limit = 50, before_id = '') =>
+      invoke<{ messages: ChatMessage[] }>('api:getChatMessages', { city_id, to_player_id, limit, before_id, apiKey: apiKey() }),
+
+    listDmConversations: () =>
+      invoke<{ conversations: DmConversation[] }>('api:listDmConversations', { apiKey: apiKey() }),
 
     // ─── Events ─────────────────────────────────────────────────────────────
     subscribeToEvents: (cityId, apiKey, onEvent, onConnect, onDisconnect) => {

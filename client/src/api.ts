@@ -73,6 +73,9 @@ export const listPotentialSuppliers: IApiService['listPotentialSuppliers'] = (..
 export const getAutoSellConfigs: IApiService['getAutoSellConfigs'] = (...args) => api.getAutoSellConfigs(...args);
 export const setAutoSellConfig: IApiService['setAutoSellConfig'] = (...args) => api.setAutoSellConfig(...args);
 export const getBuildingSales: IApiService['getBuildingSales'] = (...args) => api.getBuildingSales(...args);
+export const sendChatMessage: IApiService['sendChatMessage'] = (...args) => api.sendChatMessage(...args);
+export const getChatMessages: IApiService['getChatMessages'] = (...args) => api.getChatMessages(...args);
+export const listDmConversations: IApiService['listDmConversations'] = () => api.listDmConversations();
 export const subscribeToEvents: IApiService['subscribeToEvents'] = (...args) => api.subscribeToEvents(...args);
 
 // ─── HTTP-only helpers (browser dev / no IPC equivalent needed) ──────────────

@@ -28,6 +28,17 @@ function describeEvent(e: GameEvent): { icon: string; text: string; cls: string 
     return { icon: '📣', text: `Brand weight: ${e.brand_value_changed.old_weight.toFixed(3)} → ${e.brand_value_changed.new_weight.toFixed(3)}`, cls: 'text-pink-400' };
   if (e.taxes_collected)
     return { icon: '💸', text: `Taxes collected: ${fmtMoney(e.taxes_collected.total_collected)}`, cls: 'text-orange-400' };
+  if (e.chat_message) {
+    const c = e.chat_message;
+    const isDm = !!c.to_player_id;
+    return {
+      icon: isDm ? '💬' : '🗣️',
+      text: isDm
+        ? `[DM] ${c.from_player_name} → ${c.to_player_name}: ${c.content}`
+        : `${c.from_player_name}: ${c.content}`,
+      cls: isDm ? 'text-indigo-300' : 'text-gray-300',
+    };
+  }
   return { icon: '•', text: 'Unknown event', cls: 'text-gray-600' };
 }
 

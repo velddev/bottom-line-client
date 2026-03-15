@@ -4,7 +4,7 @@ import type {
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
   SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
-  CompanyTickSnapshot, GameEvent,
+  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation,
 } from './types';
 
 export interface IApiService {
@@ -58,6 +58,10 @@ export interface IApiService {
   getAutoSellConfigs(buildingId: string): Promise<{ configs: AutoSellConfigInfo[] }>;
   setAutoSellConfig(buildingId: string, resource_type: string, price_per_unit: number, is_enabled: boolean): Promise<{ success: boolean }>;
   getBuildingSales(buildingId: string, historyTicks?: number): Promise<GetBuildingSalesResponse>;
+  // ─── Chat ─────────────────────────────────────────────────────────────────
+  sendChatMessage(content: string, to_player_id?: string): Promise<{ success: boolean; message: string }>;
+  getChatMessages(city_id: string, to_player_id?: string, limit?: number, before_id?: string): Promise<{ messages: ChatMessage[] }>;
+  listDmConversations(): Promise<{ conversations: DmConversation[] }>;
   subscribeToEvents(
     cityId: string,
     apiKey: string,

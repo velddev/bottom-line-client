@@ -4,7 +4,7 @@ import type {
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
   SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
-  CompanyTickSnapshot, GameEvent,
+  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation,
 } from './types';
 import type { IApiService } from './api-interface';
 
@@ -188,6 +188,18 @@ export function createHttpApi(): IApiService {
 
     getBuildingSales: (buildingId, historyTicks = 20) =>
       get<GetBuildingSalesResponse>(`/buildings/${buildingId}/sales?history_ticks=${historyTicks}`),
+
+    // ─── Chat ────────────────────────────────────────────────────────────────
+    sendChatMessage: (content, to_player_id = '') =>
+      post<{ success: boolean; message: string }>('/chat/send', { content, to_player_id }),
+
+    getChatMessages: (city_id, to_player_id = '', limit = 50, before_id = '') => {
+      const p = new URLSearchParams({ city_id, to_player_id, limit: String(limit), before_id });
+      return get<{ messages: ChatMessage[] }>(`/chat/messages?${p}`);
+    },
+
+    listDmConversations: () =>
+      get<{ conversations: DmConversation[] }>(`/chat/conversations`),
 
     // ─── Events ─────────────────────────────────────────────────────────────
     subscribeToEvents: (cityId, apiKey, onEvent, onConnect, onDisconnect) => {

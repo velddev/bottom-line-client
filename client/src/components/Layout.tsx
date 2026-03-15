@@ -15,6 +15,7 @@ const NAV = [
   { to: '/research',     label: 'Research'     },
   { to: '/marketing',    label: 'Marketing'    },
   { to: '/map',          label: 'City Map'     },
+  { to: '/chat',         label: 'Chat'         },
 ];
 
 function TickCountdown({ nextTickAt }: { nextTickAt: number }) {
@@ -47,7 +48,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { auth, logout } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
-  const isMapPage = location.pathname === '/map';
+  const isMapPage  = location.pathname === '/map';
+  const isChatPage = location.pathname === '/chat';
 
   const { nextTickAt } = useTickRefresh();
 
@@ -123,7 +125,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* ── Page content ────────────────────────────────────────────────────── */}
-      <main className={`flex-1 min-h-0 ${isMapPage ? 'overflow-hidden flex flex-col' : 'overflow-y-auto p-6'}`}>
+      <main className={`flex-1 min-h-0 ${(isMapPage || isChatPage) ? 'overflow-hidden flex flex-col p-4' : 'overflow-y-auto p-6'}`}>
         {children}
       </main>
 

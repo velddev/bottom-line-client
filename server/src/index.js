@@ -11,6 +11,7 @@ import marketingRoutes from './routes/marketing.js';
 import politicsRoutes  from './routes/politics.js';
 import bankRoutes      from './routes/bank.js';
 import eventsRoutes    from './routes/events.js';
+import chatRoutes      from './routes/chat.js';
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
@@ -27,6 +28,7 @@ app.use('/api/marketing',  marketingRoutes);
 app.use('/api/politics',   politicsRoutes);
 app.use('/api/bank',      bankRoutes);
 app.use('/api/events',     eventsRoutes);
+app.use('/api/chat',       chatRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {

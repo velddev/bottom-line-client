@@ -30,6 +30,7 @@ export const stubs = {
   politics:  new proto.PoliticsService(TARGET, creds),
   bank:      new proto.BankService(TARGET, creds),
   events:    new proto.GameEventService(TARGET, creds),
+  chat:      new proto.ChatService(TARGET, creds),
 };
 
 export function makeMeta(apiKey) {

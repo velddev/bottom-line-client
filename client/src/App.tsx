@@ -8,6 +8,7 @@ import ResearchScreen from './screens/ResearchScreen';
 import MarketingScreen from './screens/MarketingScreen';
 import TilesScreen from './screens/TilesScreen';
 import PerformanceScreen from './screens/PerformanceScreen';
+import ChatScreen from './screens/ChatScreen';
 
 function AppRoutes() {
   const { auth } = useAuth();
@@ -25,6 +26,7 @@ function AppRoutes() {
           <Route path="/research"     element={<ResearchScreen />} />
           <Route path="/marketing"    element={<MarketingScreen />} />
           <Route path="/map"          element={<TilesScreen />} />
+          <Route path="/chat"         element={<ChatScreen />} />
           <Route path="*"             element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Layout>

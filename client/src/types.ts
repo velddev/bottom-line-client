@@ -162,6 +162,38 @@ export interface CityBuildingInfo {
   is_government: boolean;
 }
 
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  message_id: string;
+  city_id: string;
+  from_player_id: string;
+  from_player_name: string;
+  to_player_id: string;    // empty = public city chat
+  to_player_name: string;
+  content: string;
+  sent_at_tick: number;
+  created_at: { seconds: number; nanos: number };
+}
+
+/** Subset of ChatMessage carried inside the SSE event stream */
+export interface ChatMessageEvent {
+  message_id: string;
+  from_player_id: string;
+  from_player_name: string;
+  to_player_id: string;
+  to_player_name: string;
+  content: string;
+  sent_at_tick: number;
+}
+
+export interface DmConversation {
+  partner_player_id: string;
+  partner_player_name: string;
+  last_message: string;
+  last_sent_at_tick: number;
+}
+
 export interface GameEvent {
   event_id: string;
   tick: number;
@@ -176,6 +208,8 @@ export interface GameEvent {
   agreement_changed?: { agreement_id: string; creator_player_id: string; buyer_player_id: string; new_status: string };
   brand_value_changed?: { brand_id: string; player_id: string; resource_category: string; old_weight: number; new_weight: number };
   taxes_collected?: { city_id: string; total_collected: number };
+  tile_changed?: { city_id: string; tile_id: string; grid_x: number; grid_y: number; owner_player_id: string; owner_name: string; is_for_sale: boolean; purchase_price: number; building_id: string; building_name: string; building_type: string; building_status: string };
+  chat_message?: ChatMessageEvent;
 }
 
 // ─── Tiles ────────────────────────────────────────────────────────────────────
