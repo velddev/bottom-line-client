@@ -103,7 +103,6 @@ function IngredientSupplyRow({
 }) {
   const qc = useQueryClient();
   const [showPicker, setShowPicker] = useState(false);
-  const [expanded, setExpanded] = useState(true);
 
   const removeMut = useMutation({
     mutationFn: (linkId: string) => removeSupplyLink(linkId),
@@ -124,21 +123,14 @@ function IngredientSupplyRow({
       )}
       <div className="mb-3">
         {/* Ingredient header */}
-        <button
-          onClick={() => setExpanded(e => !e)}
-          className="w-full flex items-center justify-between text-xs font-semibold text-gray-300 mb-1.5 hover:text-white transition-colors"
-        >
+        <div className="w-full flex items-center justify-between text-xs font-semibold text-gray-300 mb-1.5">
           <span className="capitalize">
             {ingredient.resource_type}
             <span className="text-gray-500 font-normal ml-1">× {ingredient.quantity} per run</span>
           </span>
-          <span className="text-gray-600">
-            {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          </span>
-        </button>
+        </div>
 
-        {expanded && (
-          <div className="pl-2 space-y-1">
+        <div className="pl-2 space-y-1">
             {myLinks.length === 0 && (
               <p className="text-gray-600 text-xs italic">No suppliers — auto-buy disabled</p>
             )}
@@ -175,7 +167,6 @@ function IngredientSupplyRow({
               <span>Add supplier</span>
             </button>
           </div>
-        )}
       </div>
     </>
   );
