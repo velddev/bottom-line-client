@@ -5,17 +5,15 @@ import * as THREE from 'three';
 import { tileToWorld, BLOCK_SIZE, ROAD_WIDTH, GAME_GRID } from './cityGrid';
 import type { SupplyRoute } from '../hooks/useAllPlayerSupplyLinks';
 
-// Two vehicles per supply link, evenly spaced so they never meet.
 const CARS_PER_LINK = 2;
-// Full round-trip duration in seconds (A→B→A including dwells).
-const TRIP_DURATION = 1 / 0.14; // ≈ 7.14 s
-// How long vehicles pause at each road-edge stop (source + destination).
-const DWELL_TIME = 1.0; // seconds
-// Time available for travel in one direction.
-const T_TRAVEL = (TRIP_DURATION - DWELL_TIME * 2) / 2; // ≈ 2.57 s
+// Full round-trip: 3 s each way + 1 s dwell at destination = 7 s total.
+const TRIP_DURATION = 7;
+const DWELL_TIME    = 1.0;
+const T_TRAVEL      = (TRIP_DURATION - DWELL_TIME) / 2; // 3 s per one-way trip
 
-const CAR_Y = 0.05;
-const VEHICLE_SCALE = 0.25;
+const CAR_Y        = 0.05;
+const VEHICLE_SCALE = 0.20;
+const LANE_OFFSET   = 0.25; // half-lane width offset from road centre
 
 // ── Vehicle model URLs ────────────────────────────────────────────────────────
 const VEHICLE_URLS = {
@@ -46,7 +44,7 @@ function getModelUrl(resourceType: string, routeIndex: number): VehicleUrl {
   return civilians[routeIndex % civilians.length];
 }
 
-// ── Road center positions (world coords) ─────────────────────────────────────
+// ── Road centre positions (world coords) ──────────────────────────────────────
 const BLOCKS_PER_AXIS = GAME_GRID / BLOCK_SIZE;
 const X_ROAD_CENTERS: number[] = [];
 for (let b = 0; b < BLOCKS_PER_AXIS - 1; b++) {
@@ -69,24 +67,38 @@ function nearest(centers: number[], value: number): number {
   return best;
 }
 
-// ── Road-only path (3 waypoints, all on road tiles) ──────────────────────────
-// path[0] = horizontal road edge nearest source tile  (dwell point A)
-// path[1] = crossroads corner
-// path[2] = vertical road edge nearest destination    (dwell point B)
-function computeRoadPath(fromWorld: [number, number], toWorld: [number, number]): THREE.Vector3[] {
-  const [fx, fz] = fromWorld;
-  const [tx, tz] = toWorld;
+// ── Right-side lane path builder ──────────────────────────────────────────────
+// Takes 2-D waypoints (xz pairs) and returns 3-D Vector3 positions offset to
+// the right-hand lane of each segment.  At corners the offset changes, which
+// produces a natural-looking tight turn.
+function buildLanePath(pts: [number, number][]): THREE.Vector3[] {
+  const result: THREE.Vector3[] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i];
+    const [bx, bz] = pts[i + 1];
+    const dx = bx - ax, dz = bz - az;
+    const len = Math.sqrt(dx * dx + dz * dz);
+    // Right-side offset: rotate direction 90° CW about Y → (dz, -dx) / len * OFFSET
+    const [ox, oz] = len > 0.001
+      ? [dz / len * LANE_OFFSET, -dx / len * LANE_OFFSET]
+      : [0, 0];
+    if (i === 0) result.push(new THREE.Vector3(ax + ox, CAR_Y, az + oz));
+    result.push(new THREE.Vector3(bx + ox, CAR_Y, bz + oz));
+  }
+  return result;
+}
+
+// Base 2-D road waypoints (road-centre, no lane offset yet):
+//   [0] horizontal road edge nearest source  (dwell A on return trip)
+//   [1] crossroads corner
+//   [2] vertical road edge nearest destination (dwell B on forward trip)
+function getRoadWaypoints(fromWorld: [number, number], toWorld: [number, number]): [number, number][] {
+  const [fx, fz] = fromWorld, [tx, tz] = toWorld;
   const fromX = fx + 0.5, fromZ = fz + 0.5;
   const toX   = tx + 0.5, toZ   = tz + 0.5;
-
   const nearZ = nearest(Z_ROAD_CENTERS, (fromZ + toZ) / 2);
   const nearX = nearest(X_ROAD_CENTERS, (fromX + toX) / 2);
-
-  return [
-    new THREE.Vector3(fromX, CAR_Y, nearZ),  // road edge near source  (stop A)
-    new THREE.Vector3(nearX, CAR_Y, nearZ),  // crossroads corner
-    new THREE.Vector3(nearX, CAR_Y, toZ),    // road edge near dest    (stop B)
-  ];
+  return [[fromX, nearZ], [nearX, nearZ], [nearX, toZ]];
 }
 
 function pathLength(path: THREE.Vector3[]): number {
@@ -95,7 +107,7 @@ function pathLength(path: THREE.Vector3[]): number {
   return len;
 }
 
-// Module-level temporaries — safe because useFrame runs single-threaded.
+// Module-level temporaries (safe: useFrame is single-threaded).
 const _seg    = new THREE.Vector3();
 const _outPos = new THREE.Vector3();
 let   _outAngle = 0;
@@ -126,36 +138,31 @@ interface VehicleProps {
 }
 
 function Vehicle({ path, reversedPath, totalLen, phase, scene }: VehicleProps) {
-  const groupRef   = useRef<THREE.Group>(null!);
-  const cloned     = useMemo(() => scene.clone(true), [scene]);
-  const lastAngle  = useRef(0);
+  const groupRef  = useRef<THREE.Group>(null!);
+  const cloned    = useMemo(() => scene.clone(true), [scene]);
+  const lastAngle = useRef(0);
 
   useFrame(({ clock }) => {
     const group = groupRef.current;
     if (!group) return;
 
-    const raw      = clock.getElapsedTime() + phase * TRIP_DURATION;
-    const cycleT   = ((raw % TRIP_DURATION) + TRIP_DURATION) % TRIP_DURATION;
+    const raw    = clock.getElapsedTime() + phase * TRIP_DURATION;
+    const cycleT = ((raw % TRIP_DURATION) + TRIP_DURATION) % TRIP_DURATION;
 
-    const T1 = T_TRAVEL;               // end of forward travel
-    const T2 = T1 + DWELL_TIME;        // end of dwell at destination
-    const T3 = T2 + T_TRAVEL;          // end of return travel
-    // T3..TRIP_DURATION = dwell at source
+    // 0..T_TRAVEL          → forward travel
+    // T_TRAVEL..T_TRAVEL+DWELL → dwell at destination road edge
+    // rest                 → return travel (no dwell at source)
+    const T1 = T_TRAVEL;
+    const T2 = T1 + DWELL_TIME;
 
     if (cycleT < T1) {
-      // Forward travel
       samplePath(path, (cycleT / T1) * totalLen);
       lastAngle.current = _outAngle;
     } else if (cycleT < T2) {
-      // Dwell at destination road edge — hold last position & heading
       _outPos.copy(path[path.length - 1]);
-    } else if (cycleT < T3) {
-      // Return travel
+    } else {
       samplePath(reversedPath, ((cycleT - T2) / T_TRAVEL) * totalLen);
       lastAngle.current = _outAngle;
-    } else {
-      // Dwell at source road edge — hold last position & heading
-      _outPos.copy(path[0]);
     }
 
     group.position.copy(_outPos);
@@ -169,7 +176,7 @@ function Vehicle({ path, reversedPath, totalLen, phase, scene }: VehicleProps) {
   );
 }
 
-// ── One component per model URL (fixed number = fixed hooks) ─────────────────
+// ── One component per model URL (fixed count = fixed hooks) ───────────────────
 interface VehicleEntry {
   id: string;
   path: THREE.Vector3[];
@@ -200,26 +207,19 @@ function VehicleGroupByModel({ modelUrl, all }: { modelUrl: VehicleUrl; all: Veh
 }
 
 // ── Public component ──────────────────────────────────────────────────────────
-interface Props {
-  routes: SupplyRoute[];
-}
+interface Props { routes: SupplyRoute[] }
 
 export default function SupplyVehicles3D({ routes }: Props) {
   const all = useMemo<VehicleEntry[]>(() => {
     const out: VehicleEntry[] = [];
     routes.forEach((r, ri) => {
-      const fromWorld = tileToWorld(r.fromX, r.fromY);
-      const toWorld   = tileToWorld(r.toX,   r.toY);
-      const path      = computeRoadPath(fromWorld, toWorld);
-      const rev       = [...path].reverse();
-      const total     = pathLength(path);
-      const url       = getModelUrl(r.resourceType, ri);
+      const wp      = getRoadWaypoints(tileToWorld(r.fromX, r.fromY), tileToWorld(r.toX, r.toY));
+      const fwd     = buildLanePath(wp);
+      const rev     = buildLanePath([...wp].reverse() as [number, number][]);
+      const total   = pathLength(fwd);
+      const url     = getModelUrl(r.resourceType, ri);
       for (let i = 0; i < CARS_PER_LINK; i++) {
-        out.push({
-          id: `${r.id}-${i}`,
-          path, reversedPath: rev, totalLen: total,
-          phase: i / CARS_PER_LINK, modelUrl: url,
-        });
+        out.push({ id: `${r.id}-${i}`, path: fwd, reversedPath: rev, totalLen: total, phase: i / CARS_PER_LINK, modelUrl: url });
       }
     });
     return out;

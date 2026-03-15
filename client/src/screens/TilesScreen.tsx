@@ -18,6 +18,7 @@ import EtaCountdown from '../components/EtaCountdown';
 import { useTickRefresh } from '../hooks/useTickRefresh';
 import CityScene3D from '../components/CityScene3D';
 import TileGrid3D from '../components/TileGrid3D';
+import Badge from '../components/ui/Badge';
 import BuildingMeshes from '../components/BuildingMeshes';
 import TileTooltip3D from '../components/TileTooltip3D';
 import RoadNetwork3D from '../components/RoadNetwork3D';
@@ -45,13 +46,14 @@ function StatusBadge({ status }: { status: string }) {
     UnderConstruction: 'Building…', Paused: 'Paused',
     MissingResources: '⚠️ Missing',
   };
-  const cls =
-    status === 'Producing'         ? 'bg-emerald-900/40 text-emerald-400' :
-    status === 'UnderConstruction' ? 'bg-amber-900/40 text-amber-400' :
-    status === 'Paused'            ? 'bg-yellow-900/40 text-yellow-400' :
-    status === 'MissingResources'  ? 'bg-rose-900/40 text-rose-400' :
-                                     'bg-gray-100 text-gray-600';
-  return <span className={`px-2 py-0.5 rounded text-xs ${cls}`}>{LABELS[status] ?? status}</span>;
+  const VARIANT_MAP: Record<string, 'success' | 'warning' | 'paused' | 'danger' | 'default'> = {
+    Producing: 'success',
+    UnderConstruction: 'warning',
+    Paused: 'paused',
+    MissingResources: 'danger',
+    Idle: 'default',
+  };
+  return <Badge variant={VARIANT_MAP[status] ?? 'default'}>{LABELS[status] ?? status}</Badge>;
 }
 
 // ── Configure modal ────────────────────────────────────────────────────────────

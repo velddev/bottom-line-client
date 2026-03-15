@@ -32,13 +32,13 @@ interface EventEntry {
 }
 
 const CATEGORY_BADGE: Record<Category, { label: string; cls: string }> = {
-  economy:    { label: 'Economy',    cls: 'bg-emerald-900/60 text-emerald-400' },
-  production: { label: 'Production', cls: 'bg-slate-100 text-slate-700' },
-  market:     { label: 'Market',     cls: 'bg-amber-900/50 text-amber-400' },
-  politics:   { label: 'Politics',   cls: 'bg-purple-900/50 text-purple-400' },
-  world:      { label: 'World',      cls: 'bg-indigo-900/50 text-indigo-400' },
-  social:     { label: 'Social',     cls: 'bg-gray-100 text-gray-700' },
-  system:     { label: 'System',     cls: 'bg-gray-200 text-gray-600' },
+  economy:    { label: 'Economy',    cls: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-400' },
+  production: { label: 'Production', cls: 'bg-gray-200 text-gray-600 dark:bg-gray-200 dark:text-gray-600' },
+  market:     { label: 'Market',     cls: 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400' },
+  politics:   { label: 'Politics',   cls: 'bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-400' },
+  world:      { label: 'World',      cls: 'bg-sky-100 text-sky-600 dark:bg-indigo-900/50 dark:text-indigo-400' },
+  social:     { label: 'Social',     cls: 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400' },
+  system:     { label: 'System',     cls: 'bg-gray-200 text-gray-500 dark:bg-gray-200 dark:text-gray-600' },
 };
 
 function describe(e: GameEvent): EventEntry {

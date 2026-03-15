@@ -16,11 +16,15 @@ interface ModelMapping {
 
 // Map game building types → Kenney GLB models
 const MODEL_MAP: Record<string, ModelMapping> = {
-  factory:   { path: '/models/buildings/industrial/building-a.glb', scale: 0.5, yOffset: 0 },
-  store:     { path: '/models/buildings/commercial/building-a.glb', scale: 0.5, yOffset: 0 },
-  warehouse: { path: '/models/buildings/industrial/building-d.glb', scale: 0.5, yOffset: 0 },
-  landmark:  { path: '/models/buildings/commercial/building-skyscraper-a.glb', scale: 0.5, yOffset: 0 },
-  bank:      { path: '/models/buildings/commercial/building-d.glb', scale: 0.5, yOffset: 0 },
+  factory:             { path: '/models/buildings/industrial/building-a.glb',             scale: 0.5, yOffset: 0 },
+  store:               { path: '/models/buildings/commercial/building-a.glb',             scale: 0.5, yOffset: 0 },
+  warehouse:           { path: '/models/buildings/industrial/building-d.glb',             scale: 0.5, yOffset: 0 },
+  landmark:            { path: '/models/buildings/commercial/building-skyscraper-a.glb',  scale: 0.5, yOffset: 0 },
+  bank:                { path: '/models/buildings/commercial/building-d.glb',             scale: 0.5, yOffset: 0 },
+  // Residential tiers — government-built citizen housing
+  residentiallow:      { path: '/models/buildings/suburban/building-type-a.glb',          scale: 0.5, yOffset: 0 },
+  residentialmedium:   { path: '/models/buildings/commercial/building-c.glb',             scale: 0.5, yOffset: 0 },
+  residentialhigh:     { path: '/models/buildings/commercial/building-skyscraper-b.glb',  scale: 0.5, yOffset: 0 },
 };
 
 // Preload all models
