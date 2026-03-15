@@ -34,10 +34,49 @@ const del  = <T>(path: string)                                  => req<T>('DELET
 export function createHttpApi(): IApiService {
   return {
     // ─── Auth ───────────────────────────────────────────────────────────────
-    // HTTP/web OAuth is not supported in the web client; these stubs satisfy the interface.
-    getOAuthClientId: () => Promise.reject(new Error('OAuth not supported in web client')),
-    exchangeOAuthCode: () => Promise.reject(new Error('OAuth not supported in web client')),
-    openDiscordOAuth: () => Promise.reject(new Error('OAuth not supported in web client')),
+    getAuthMethods: () =>
+      get<{ methods: { provider: string; client_id: string }[] }>('/auth/methods'),
+    getOAuthClientId: (provider = 'DISCORD') =>
+      get<{ client_id: string }>('/auth/client-id', { provider }),
+    exchangeOAuthCode: (provider, code, redirectUri, displayName = '') =>
+      post<{ player_id: string; api_key: string }>('/auth/exchange', {
+        provider, code, redirect_uri: redirectUri, display_name: displayName,
+      }),
+    // Open a popup window for Discord OAuth and wait for the code via postMessage.
+    openDiscordOAuth: (clientId) =>
+      new Promise((resolve, reject) => {
+        const redirectUri = `${window.location.origin}/api/auth/callback`;
+        const params = new URLSearchParams({
+          client_id:     clientId,
+          redirect_uri:  redirectUri,
+          response_type: 'code',
+          scope:         'identify',
+        });
+        const popup = window.open(
+          `https://discord.com/oauth2/authorize?${params}`,
+          'discord-oauth',
+          'width=500,height=700,popup=1',
+        );
+        if (!popup) { reject(new Error('Popup blocked — please allow popups for this site')); return; }
+
+        const onMessage = (ev: MessageEvent<{ type: string; code: string }>) => {
+          if (ev.origin !== window.location.origin) return;
+          if (ev.data?.type !== 'discord-oauth-code') return;
+          window.removeEventListener('message', onMessage);
+          clearInterval(closedCheck);
+          resolve({ ok: true, code: ev.data.code, redirectUri });
+        };
+
+        const closedCheck = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(closedCheck);
+            window.removeEventListener('message', onMessage);
+            reject(new Error('Login cancelled'));
+          }
+        }, 500);
+
+        window.addEventListener('message', onMessage);
+      }),
 
     // ─── Player ─────────────────────────────────────────────────────────────
     registerPlayer: (username) =>

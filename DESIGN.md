@@ -1,6 +1,6 @@
-# Bottom Line — Ledger Design System
+# Ventured — Ledger Design System
 
-A **dark-first, financial terminal** aesthetic for the Bottom Line client.
+A **dark-first, financial terminal** aesthetic for the Ventured client.
 Warm zinc neutrals · gold accent · data-dense · WCAG AA accessible.
 
 ---

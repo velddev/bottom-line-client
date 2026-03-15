@@ -1,4 +1,4 @@
-# Contributing to Bottom Line
+# Contributing to Ventured
 
 ## Commit Convention
 

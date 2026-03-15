@@ -23,6 +23,10 @@ function handle(channel, fn) {
 
 export function registerIpcHandlers() {
   // ─── Auth (OAuth) ─────────────────────────────────────────────────────────
+  // Returns all configured auth methods (provider + client_id).
+  handle('api:getAuthMethods', async () =>
+    normalizeResponse(await rpc(stubs.auth, 'GetAuthMethods', {}, '')));
+
   // Returns the Discord client_id so the renderer can build the auth URL.
   handle('api:getOAuthClientId', async ({ provider = 'DISCORD' }) =>
     normalizeResponse(await rpc(stubs.auth, 'GetOAuthClientId', { provider }, '')));
@@ -40,12 +44,12 @@ export function registerIpcHandlers() {
   handle('api:openDiscordOAuth', async ({ clientId }) => {
     const params = new URLSearchParams({
       client_id:     clientId,
-      redirect_uri:  'bottomline://auth',
+      redirect_uri:  'ventured://auth',
       response_type: 'code',
       scope:         'identify',
     });
     await shell.openExternal(`https://discord.com/oauth2/authorize?${params}`);
-    return { ok: true };
+    return { ok: true, redirectUri: 'ventured://auth' };
   });
 
   // ─── Player ───────────────────────────────────────────────────────────────

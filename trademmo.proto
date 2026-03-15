@@ -174,6 +174,11 @@ enum OAuthProvider {
 }
 
 service AuthService {
+  // Returns all configured OAuth providers with their client_ids.
+  // Client uses this to render login buttons and to get the correct client_id per provider.
+  // No authentication required.
+  rpc GetAuthMethods (GetAuthMethodsRequest) returns (GetAuthMethodsResponse) {}
+
   // Returns the OAuth2 client_id for the requested provider so the client can build the auth URL.
   // No authentication required.
   rpc GetOAuthClientId (GetOAuthClientIdRequest) returns (GetOAuthClientIdResponse) {}
@@ -185,6 +190,17 @@ service AuthService {
   //   4. Server exchanges code with the provider, creates/finds player, returns API key
   // No authentication required.
   rpc ExchangeOAuthCode (ExchangeOAuthCodeRequest) returns (ExchangeOAuthCodeResponse) {}
+}
+
+message GetAuthMethodsRequest {}
+
+message AuthMethod {
+  OAuthProvider provider  = 1;
+  string        client_id = 2;
+}
+
+message GetAuthMethodsResponse {
+  repeated AuthMethod methods = 1;
 }
 
 message GetOAuthClientIdRequest {

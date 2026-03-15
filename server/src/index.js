@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import authRoutes      from './routes/auth.js';
 import cityRoutes      from './routes/cities.js';
 import tileRoutes      from './routes/tiles.js';
 import playerRoutes    from './routes/player.js';
@@ -17,7 +18,8 @@ const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
-app.use('/api/cities',     cityRoutes);
+app.use('/api/auth',     authRoutes);
+app.use('/api/cities',  cityRoutes);
 app.use('/api/tiles',      tileRoutes);
 app.use('/api/player',     playerRoutes);
 app.use('/api/buildings',  buildingRoutes);

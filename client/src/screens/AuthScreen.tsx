@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { getProfile, useApi } from '../api';
 import { useAuth } from '../auth';
+import { isDiscordActivity, getDiscordActivityCode } from '../discord-activity';
 
 type Step =
   | { kind: 'idle' }
-  | { kind: 'pick-username' }       // show username input before opening Discord
   | { kind: 'waiting-for-code' }    // Discord browser opened, waiting for deep-link code
+  | { kind: 'pick-username' }       // code received — now choose a handle
   | { kind: 'exchanging' }          // exchanging code with server
   | { kind: 'manual' };             // manual credential entry (returning players)
 
@@ -23,20 +24,32 @@ export default function AuthScreen() {
   const [manualCityId, setManualCityId]       = useState('');
   const [manualUsername, setManualUsername]   = useState('');
 
-  // Capture pending username for use inside the deep-link callback
-  const pendingUsername = useRef('');
-
-  // Listen for the bottomline://auth deep-link code from Electron main process
+  // ── Discord Activity auto-login ───────────────────────────────────────────
+  // When running inside Discord's Activity iframe, skip the login UI and
+  // authenticate directly via the Embedded App SDK.
   useEffect(() => {
-    if (!window.electronAPI?.onDiscordAuth) return;
-    const stop = window.electronAPI.onDiscordAuth(async ({ code }) => {
-      setStep({ kind: 'exchanging' });
-      setError(null);
+    if (!isDiscordActivity()) return;
+
+    let cancelled = false;
+    setStep({ kind: 'exchanging' });
+
+    (async () => {
       try {
-        const result = await api.exchangeOAuthCode(
-          'DISCORD', code, 'bottomline://auth', pendingUsername.current);
+        const { methods } = await api.getAuthMethods();
+        const discord = methods.find((m) => m.provider === 'discord');
+        if (!discord) throw new Error('Discord login is not configured on this server.');
+
+        const code = await getDiscordActivityCode(discord.client_id);
+        if (cancelled) return;
+
+        // The redirect URI must be registered in the Discord Developer Portal
+        // for this application: https://discord.com/games/<application_id>
+        const redirectUri = `https://discord.com/games/${discord.client_id}`;
+        const result = await api.exchangeOAuthCode('DISCORD', code, redirectUri);
         localStorage.setItem('api_key', result.api_key);
         const profile = await getProfile();
+        if (cancelled) return;
+
         login({
           player_id: result.player_id,
           api_key:   result.api_key,
@@ -44,19 +57,85 @@ export default function AuthScreen() {
           username:  profile.username,
         });
       } catch (err) {
-        setError((err as Error).message);
-        setStep({ kind: 'idle' });
+        if (!cancelled) {
+          setError((err as Error).message);
+          setStep({ kind: 'idle' });
+        }
       }
+    })();
+
+    return () => { cancelled = true; };
+  }, [api, login]);
+
+  // Capture pending code + redirect URI for use after the OAuth callback
+  const pendingCode        = useRef('');
+  const pendingRedirectUri = useRef('');
+
+  // Listen for the ventured://auth deep-link code from Electron main process
+  useEffect(() => {
+    if (!window.electronAPI?.onDiscordAuth) return;
+    const stop = window.electronAPI.onDiscordAuth(({ code }) => {
+      pendingCode.current        = code;
+      pendingRedirectUri.current = 'ventured://auth';
+      setUsername('');
+      setError(null);
+      setStep({ kind: 'pick-username' });
     });
     return stop;
-  }, [api, login]);
+  }, []);
+
+  // Called once the user submits their chosen handle (after Discord OAuth)
+  const handleFinishLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStep({ kind: 'exchanging' });
+    setError(null);
+    try {
+      const result = await api.exchangeOAuthCode(
+        'DISCORD', pendingCode.current, pendingRedirectUri.current, username.trim());
+      localStorage.setItem('api_key', result.api_key);
+      const profile = await getProfile();
+      login({
+        player_id: result.player_id,
+        api_key:   result.api_key,
+        city_id:   profile.city_id,
+        username:  profile.username,
+      });
+    } catch (err) {
+      setError((err as Error).message);
+      setStep({ kind: 'pick-username' });
+    }
+  };
 
   // ── Step: idle — show main login button ──────────────────────────────────
   if (step.kind === 'idle') {
+    const handleDiscordLogin = async () => {
+      setError(null);
+      try {
+        const { methods } = await api.getAuthMethods();
+        const discord = methods.find((m) => m.provider === 'discord');
+        if (!discord) { setError('Discord login is not configured on this server.'); return; }
+
+        const result = await api.openDiscordOAuth(discord.client_id);
+        if (result.code) {
+          // Web popup path: code returned directly alongside the redirect URI used
+          pendingCode.current        = result.code;
+          pendingRedirectUri.current = result.redirectUri;
+          setUsername('');
+          setError(null);
+          setStep({ kind: 'pick-username' });
+        } else {
+          // Electron deep-link path: code arrives later via IPC
+          setStep({ kind: 'waiting-for-code' });
+        }
+      } catch (err) {
+        setError((err as Error).message);
+      }
+    };
+
     return (
       <LoginShell error={error}>
         <button
-          onClick={() => setStep({ kind: 'pick-username' })}
+          onClick={handleDiscordLogin}
           className="w-full flex items-center justify-center gap-3 bg-[#5865F2] hover:bg-[#4752C4] text-white py-3 rounded-xl text-sm font-semibold transition-colors"
         >
           <DiscordIcon />
@@ -79,25 +158,11 @@ export default function AuthScreen() {
     );
   }
 
-  // ── Step: pick-username ───────────────────────────────────────────────────
+  // ── Step: pick-username — Discord approved, now choose a handle ───────────
   if (step.kind === 'pick-username') {
-    const handleContinue = async (e: React.FormEvent) => {
-      e.preventDefault();
-      pendingUsername.current = username.trim();
-      setError(null);
-
-      try {
-        const { client_id } = await api.getOAuthClientId('DISCORD');
-        await api.openDiscordOAuth(client_id);
-        setStep({ kind: 'waiting-for-code' });
-      } catch (err) {
-        setError((err as Error).message);
-      }
-    };
-
     return (
       <LoginShell error={error}>
-        <form onSubmit={handleContinue} className="space-y-4">
+        <form onSubmit={handleFinishLogin} className="space-y-4">
           <div>
             <label className="block text-xs text-gray-600 mb-1 uppercase tracking-wider">
               Choose a username
@@ -116,10 +181,9 @@ export default function AuthScreen() {
 
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-3 bg-[#5865F2] hover:bg-[#4752C4] text-white py-3 rounded-xl text-sm font-semibold transition-colors"
+            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-sm font-semibold transition-colors"
           >
-            <DiscordIcon />
-            Open Discord →
+            Enter Game →
           </button>
 
           <button
@@ -237,10 +301,7 @@ function LoginShell({ children, error }: { children: React.ReactNode; error?: st
         <div className="text-center mb-10">
           <div className="mb-2 flex items-baseline justify-center gap-2">
             <span className="text-5xl font-extrabold tracking-widest text-indigo-400">
-              BOTTOM
-            </span>
-            <span className="text-5xl font-extrabold tracking-widest text-gray-600">
-              LINE
+              VENTURED
             </span>
           </div>
           <p className="text-gray-500 text-[10px] tracking-[0.4em] uppercase">Open World Economy</p>

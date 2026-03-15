@@ -6,14 +6,14 @@ const url = require('url');
 
 const isDev = !app.isPackaged;
 
-// Register bottomline:// as a protocol handler for Discord OAuth deep links.
+// Register ventured:// as a protocol handler for Discord OAuth deep links.
 // On Windows/Linux this must be called before app.whenReady().
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('bottomline', process.execPath, [path.resolve(process.argv[1])]);
+    app.setAsDefaultProtocolClient('ventured', process.execPath, [path.resolve(process.argv[1])]);
   }
 } else {
-  app.setAsDefaultProtocolClient('bottomline');
+  app.setAsDefaultProtocolClient('ventured');
 }
 
 function getMainWindow() {
@@ -48,7 +48,7 @@ if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', (_, argv) => {
-    const deepUrl = argv.find((arg) => arg.startsWith('bottomline://'));
+    const deepUrl = argv.find((arg) => arg.startsWith('ventured://'));
     if (deepUrl) handleDeepLink(deepUrl);
 
     // Bring the existing window to focus

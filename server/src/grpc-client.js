@@ -16,7 +16,7 @@ const packageDef = protoLoader.loadSync(PROTO_PATH, {
 
 const proto = grpc.loadPackageDefinition(packageDef).trademmo;
 const creds = grpc.credentials.createSsl();
-const TARGET = 'play.veld.gg:443';
+const TARGET = 'api.ventured.gg:443';
 
 export const stubs = {
   auth:      new proto.AuthService(TARGET, creds),

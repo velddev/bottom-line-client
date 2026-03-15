@@ -30,6 +30,8 @@ function apiKey(): string {
 export function createIpcApi(): IApiService {
   return {
     // ─── Auth ───────────────────────────────────────────────────────────────
+    getAuthMethods: () =>
+      invoke<{ methods: { provider: string; client_id: string }[] }>('api:getAuthMethods'),
     getOAuthClientId: (provider) =>
       invoke<{ client_id: string }>('api:getOAuthClientId', { provider }),
 
@@ -38,7 +40,7 @@ export function createIpcApi(): IApiService {
         'api:exchangeOAuthCode', { provider, code, redirectUri, displayName }),
 
     openDiscordOAuth: (clientId) =>
-      invoke<{ ok: boolean }>('api:openDiscordOAuth', { clientId }),
+      invoke<{ ok: boolean; redirectUri: string }>('api:openDiscordOAuth', { clientId }),
 
     // ─── Player ─────────────────────────────────────────────────────────────
     registerPlayer: (username) =>

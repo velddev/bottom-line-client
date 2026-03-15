@@ -9,9 +9,10 @@ import type {
 
 export interface IApiService {
   // ─── Auth ────────────────────────────────────────────────────────────────
+  getAuthMethods(): Promise<{ methods: { provider: string; client_id: string }[] }>;
   getOAuthClientId(provider: string): Promise<{ client_id: string }>;
   exchangeOAuthCode(provider: string, code: string, redirectUri: string, displayName?: string): Promise<{ player_id: string; api_key: string }>;
-  openDiscordOAuth(clientId: string): Promise<{ ok: boolean }>;
+  openDiscordOAuth(clientId: string): Promise<{ ok: boolean; code?: string; redirectUri: string }>;
   // ─── Player ──────────────────────────────────────────────────────────────
   registerPlayer(username: string): Promise<{ player_id: string; api_key: string }>;
   getProfile(): Promise<PlayerProfile>;

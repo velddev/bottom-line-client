@@ -20,7 +20,7 @@
   },
   "build": {
     "appId": "com.trademmo.client",
-    "productName": "TradeMMO",
+    "productName": "Ventured",
     "icon": "assets/icon.png",
     "directories": {
       "output": "release"
@@ -53,6 +53,7 @@
     }
   },
   "dependencies": {
+    "@discord/embedded-app-sdk": "^2.4.0",
     "@grpc/grpc-js": "^1.14.3",
     "@grpc/proto-loader": "^0.8.0",
     "@react-three/drei": "^9.122.0",

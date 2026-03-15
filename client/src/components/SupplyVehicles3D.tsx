@@ -66,20 +66,19 @@ function nearest(centers: number[], value: number): number {
 }
 
 // ── Lane path builder ─────────────────────────────────────────────────────────
-// Applies a right-hand lane offset to intermediate waypoints only.
-// First and last waypoints use the road centre so that the dwell positions
-// are identical for forward/reversed paths (no teleport at transitions).
-// Path shape per segment: center → mid-lane → center
-// This keeps straight road segments in the correct lane while vehicles
-// navigate through crossings at the road centre (natural-looking turns).
-function buildLanePath(pts: [number, number][]): THREE.Vector3[] {
+// Shape per segment: start-centre → mid-lane → end.
+// Intermediate waypoints (crossings) always use road centre for clean turns.
+// The last waypoint optionally stays in lane (set stayInLaneAtEnd=true for the
+// forward path so the vehicle arrives in lane without drifting toward the building).
+function buildLanePath(pts: [number, number][], stayInLaneAtEnd = false): THREE.Vector3[] {
   const result: THREE.Vector3[] = [];
-  for (let i = 0; i < pts.length - 1; i++) {
+  const last = pts.length - 2; // index of last segment
+  for (let i = 0; i <= last; i++) {
     const [ax, az] = pts[i];
     const [bx, bz] = pts[i + 1];
     const dx = bx - ax, dz = bz - az;
     const len = Math.sqrt(dx * dx + dz * dz);
-    // Right-hand lane offset (US driving): rotate direction 90° CCW about Y = (-dz, dx)
+    // Right-hand lane offset: rotate direction 90° CCW about Y → (-dz, dx)
     const [ox, oz] = len > 0.001
       ? [-dz / len * LANE_OFFSET, dx / len * LANE_OFFSET]
       : [0, 0];
@@ -91,8 +90,12 @@ function buildLanePath(pts: [number, number][]): THREE.Vector3[] {
     const midX = (ax + bx) / 2, midZ = (az + bz) / 2;
     result.push(new THREE.Vector3(midX + ox, CAR_Y, midZ + oz));
 
-    // Segment end: always road centre (crossing or dwell point)
-    result.push(new THREE.Vector3(bx, CAR_Y, bz));
+    // Segment end: road centre at crossings; stay in lane at the dwell point
+    if (i === last && stayInLaneAtEnd) {
+      result.push(new THREE.Vector3(bx + ox, CAR_Y, bz + oz));
+    } else {
+      result.push(new THREE.Vector3(bx, CAR_Y, bz));
+    }
   }
   return result;
 }
@@ -162,12 +165,18 @@ function Vehicle({ path, reversedPath, totalLen, tTravel, tripDuration, phase, p
   const dwellPos      = useRef(new THREE.Vector3());
   const approachAngle = useRef(0);
 
-  // Heading at the very start of the return trip (first segment direction)
+  // The first point of the reversed path is road centre at the dwell location —
+  // Phase 4 ends here so the return trip begins with no teleport.
+  const returnStart = useMemo(() => reversedPath[0].clone(), [reversedPath]);
+
+  // Departure heading: direction from dwell road-centre (index 0) to the
+  // crossing road-centre (index 2), ignoring the lane-offset midpoint (index 1).
   const departureAngle = useMemo(() => {
-    if (reversedPath.length < 2) return 0;
-    const dx = reversedPath[1].x - reversedPath[0].x;
-    const dz = reversedPath[1].z - reversedPath[0].z;
-    return Math.atan2(dx, dz);
+    if (reversedPath.length < 3) {
+      if (reversedPath.length < 2) return 0;
+      return Math.atan2(reversedPath[1].x - reversedPath[0].x, reversedPath[1].z - reversedPath[0].z);
+    }
+    return Math.atan2(reversedPath[2].x - reversedPath[0].x, reversedPath[2].z - reversedPath[0].z);
   }, [reversedPath]);
 
   // Direction the vehicle reverses toward: rear faces building, so back = -front
@@ -213,11 +222,17 @@ function Vehicle({ path, reversedPath, totalLen, tTravel, tripDuration, phase, p
         group.position.copy(dwellPos.current).add(_parkVec);
         group.rotation.y = parkAngle;
       } else {
-        // Phase 4: drive forward back to road centre + rotate to departure heading
+        // Phase 4: pull forward from parked spot → return-trip start (road centre),
+        // rotating to departure heading. Ends exactly at reversedPath[0] → no teleport.
         const t = (dwellFrac - DPARK_HOLD_END) / (1.0 - DPARK_HOLD_END);
         const smooth = t * t * (3 - 2 * t);
-        _parkVec.set(reverseDirX * PARK_REVERSE_DIST * (1 - smooth), 0, 0);
-        group.position.copy(dwellPos.current).add(_parkVec);
+        const px = dwellPos.current.x + reverseDirX * PARK_REVERSE_DIST;
+        const pz = dwellPos.current.z;
+        group.position.set(
+          px + (returnStart.x - px) * smooth,
+          CAR_Y,
+          pz + (returnStart.z - pz) * smooth,
+        );
         const delta = ((departureAngle - parkAngle) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
         group.rotation.y = parkAngle + delta * smooth;
       }
@@ -280,7 +295,7 @@ export default function SupplyVehicles3D({ routes }: Props) {
     routes.forEach((r, ri) => {
       const toWorld  = tileToWorld(r.toX, r.toY);
       const wp       = getRoadWaypoints(tileToWorld(r.fromX, r.fromY), toWorld);
-      const fwd      = buildLanePath(wp);
+      const fwd      = buildLanePath(wp, true);   // arrives in lane at dwell point
       const rev      = buildLanePath([...wp].reverse() as [number, number][]);
       const len      = pathLength(fwd);
       const tT       = len / VEHICLE_SPEED;
