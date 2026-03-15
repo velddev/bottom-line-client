@@ -66,6 +66,7 @@ export const listCityBuildings: IApiService['listCityBuildings'] = (...args) => 
 export const listTiles: IApiService['listTiles'] = (...args) => api.listTiles(...args);
 export const getTile: IApiService['getTile'] = (...args) => api.getTile(...args);
 export const purchaseTile: IApiService['purchaseTile'] = (...args) => api.purchaseTile(...args);
+export const getRoadNetwork: IApiService['getRoadNetwork'] = () => api.getRoadNetwork();
 export const getSupplyLinks: IApiService['getSupplyLinks'] = (...args) => api.getSupplyLinks(...args);
 export const addSupplyLink: IApiService['addSupplyLink'] = (...args) => api.addSupplyLink(...args);
 export const removeSupplyLink: IApiService['removeSupplyLink'] = (...args) => api.removeSupplyLink(...args);
