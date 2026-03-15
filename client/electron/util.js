@@ -4,8 +4,12 @@
 
 function stripEnumPrefix(val) {
   if (typeof val !== 'string') return val;
+  // Two-segment prefix: "RESOURCE_TYPE_GRAIN" → "grain"
   const match = val.match(/^[A-Z][A-Z0-9]+_[A-Z][A-Z0-9]+_(.+)$/);
-  return match ? match[1].toLowerCase() : val;
+  if (match) return match[1].toLowerCase();
+  // All-uppercase single enum name: "DISCORD" → "discord"
+  if (/^[A-Z][A-Z0-9_]*$/.test(val)) return val.toLowerCase();
+  return val;
 }
 
 export function normalizeResponse(obj) {

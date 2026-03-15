@@ -49,8 +49,12 @@ function toSnakeCase(s: string): string {
 }
 
 function stripEnumPrefix(val: string): string {
+  // Two-segment prefix: "RESOURCE_TYPE_GRAIN" → "grain"
   const m = val.match(/^[A-Z][A-Z0-9]+_[A-Z][A-Z0-9]+_(.+)$/);
-  return m ? m[1].toLowerCase() : val;
+  if (m) return m[1].toLowerCase();
+  // All-uppercase single enum name: "DISCORD" → "discord"
+  if (/^[A-Z][A-Z0-9_]*$/.test(val)) return val.toLowerCase();
+  return val;
 }
 
 function normalizeResponse(obj: unknown): unknown {

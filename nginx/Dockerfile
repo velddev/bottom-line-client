@@ -6,7 +6,7 @@ COPY package.json package-lock.json ./
 COPY client/package.json client/package-lock.json ./client/
 COPY client/ ./client/
 
-ARG VITE_API_BASE=https://api.ventured.gg
+ARG VITE_API_BASE=https://api.ventured.gg/v1
 ENV VITE_API_BASE=$VITE_API_BASE
 
 RUN npm ci --ignore-scripts
