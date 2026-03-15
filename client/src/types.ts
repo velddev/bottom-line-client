@@ -235,7 +235,8 @@ export interface TileInfo {
   building_player_id: string;
   building_player_name: string;
   building_level: number;
-  construction_ticks_remaining: number;
+  /** Tick when construction completes; 0 if already built */
+  construction_ready_at_tick: number;
   population_capacity: number;    // residential buildings only
   is_government_port: boolean;
 }

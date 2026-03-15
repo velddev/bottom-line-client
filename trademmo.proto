@@ -1115,7 +1115,7 @@ message TileInfo {
   string         building_player_id           = 14; // player who owns the building
   string         building_player_name         = 15;
   int32          building_level               = 16;
-  int32          construction_ticks_remaining = 17;
+  int64          construction_ready_at_tick   = 17; // tick when construction completes; 0 if already built
   int32          population_capacity          = 18; // residential buildings only
   bool           is_government_port           = 19;
 }

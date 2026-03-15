@@ -233,7 +233,7 @@ export default function TilesScreen() {
             building_player_id:           tc.buildingPlayerId ?? '',
             building_player_name:         tc.buildingPlayerName ?? '',
             building_level:               tc.buildingLevel ?? 0,
-            construction_ticks_remaining: tc.constructionTicksRemaining ?? 0,
+            construction_ready_at_tick:   tc.constructionReadyAtTick ?? 0,
             population_capacity:          tc.populationCapacity ?? 0,
             is_government_port:           tc.isGovernmentPort ?? false,
           };
