@@ -114,12 +114,17 @@ export function createHttpApi(): IApiService {
 
     openDiscordOAuth: (clientId) =>
       new Promise((resolve, reject) => {
-        const redirectUri = `${window.location.origin}/v1/auth/callback`;
+        // Redirect URI must point to the API server's callback (registered in Discord portal)
+        const redirectUri = new URL(`${BASE}/auth/callback`, window.location.origin).href;
+        // Determine the API server's origin (for accepting postMessage from the popup)
+        const apiOrigin = BASE.startsWith('http') ? new URL(BASE).origin : window.location.origin;
+
         const params = new URLSearchParams({
           client_id:     clientId,
           redirect_uri:  redirectUri,
           response_type: 'code',
           scope:         'identify',
+          state:         window.location.origin, // tells the server where to postMessage
         });
         const popup = window.open(
           `https://discord.com/oauth2/authorize?${params}`,
@@ -129,7 +134,8 @@ export function createHttpApi(): IApiService {
         if (!popup) { reject(new Error('Popup blocked — please allow popups for this site')); return; }
 
         const onMessage = (ev: MessageEvent<{ type: string; code: string }>) => {
-          if (ev.origin !== window.location.origin) return;
+          // Accept from own origin (dev proxy) or the API server origin (production)
+          if (ev.origin !== window.location.origin && ev.origin !== apiOrigin) return;
           if (ev.data?.type !== 'discord-oauth-code') return;
           window.removeEventListener('message', onMessage);
           clearInterval(closedCheck);
