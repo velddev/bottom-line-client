@@ -248,6 +248,7 @@ export default function CityScene3D({ children, focusWorldPos, snapNextFocus }: 
         maxZoom={60}
         screenSpacePanning
         zoomSpeed={1.5}
+        mouseButtons={{ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE }}
       />
 
       {children}
