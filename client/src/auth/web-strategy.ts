@@ -40,12 +40,22 @@ export class WebStrategy implements AuthStrategy {
         return;
       }
 
-      const onMessage = (ev: MessageEvent<{ type: string; code: string }>) => {
+      const onMessage = (ev: MessageEvent<{ type: string; api_key?: string; player_id?: string; code?: string }>) => {
         if (ev.origin !== window.location.origin && ev.origin !== apiOrigin) return;
-        if (ev.data?.type !== 'discord-oauth-code') return;
-        window.removeEventListener('message', onMessage);
-        clearInterval(closedCheck);
-        resolve({ code: ev.data.code, redirectUri });
+        // Server now sends the exchanged result directly
+        if (ev.data?.type === 'discord-oauth-result' && ev.data.api_key) {
+          window.removeEventListener('message', onMessage);
+          clearInterval(closedCheck);
+          resolve({ api_key: ev.data.api_key, player_id: ev.data.player_id });
+          return;
+        }
+        // Legacy fallback: server sends just the code
+        if (ev.data?.type === 'discord-oauth-code' && ev.data.code) {
+          window.removeEventListener('message', onMessage);
+          clearInterval(closedCheck);
+          resolve({ code: ev.data.code, redirectUri });
+          return;
+        }
       };
 
       const closedCheck = setInterval(() => {

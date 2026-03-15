@@ -156,26 +156,48 @@ describe('AuthScreen', () => {
       });
     });
 
-    it('exchanges code when onCodeReceived fires', async () => {
-      let codeCallback: ((code: string, redirectUri: string) => void) | undefined;
+    it('exchanges code when onResultReceived fires with code', async () => {
+      let resultCallback: ((result: OAuthResult) => void) | undefined;
       const strategy = createMockStrategy({
         startOAuth: vi.fn().mockResolvedValue(null),
-        onCodeReceived: vi.fn().mockImplementation((cb) => {
-          codeCallback = cb;
+        onResultReceived: vi.fn().mockImplementation((cb) => {
+          resultCallback = cb;
           return () => {};
         }),
       });
 
       renderAuthScreen(strategy);
 
-      // Simulate receiving the code via deep link
-      codeCallback!('deep-link-code', 'https://api.ventured.gg/v1/auth/callback');
+      // Simulate receiving a code via deep link (legacy flow)
+      resultCallback!({ code: 'deep-link-code', redirectUri: 'https://api.ventured.gg/v1/auth/callback' });
 
       await waitFor(() => {
         expect(mockApi.exchangeOAuthCode).toHaveBeenCalledWith(
           'DISCORD', 'deep-link-code', 'https://api.ventured.gg/v1/auth/callback'
         );
       });
+    });
+
+    it('logs in directly when onResultReceived fires with api_key', async () => {
+      let resultCallback: ((result: OAuthResult) => void) | undefined;
+      const strategy = createMockStrategy({
+        startOAuth: vi.fn().mockResolvedValue(null),
+        onResultReceived: vi.fn().mockImplementation((cb) => {
+          resultCallback = cb;
+          return () => {};
+        }),
+      });
+
+      renderAuthScreen(strategy);
+
+      // Simulate receiving pre-exchanged credentials (new flow)
+      resultCallback!({ api_key: 'my-key', player_id: 'my-player' });
+
+      await waitFor(() => {
+        expect(mockGetProfile).toHaveBeenCalled();
+      });
+      // Should NOT have called exchangeOAuthCode
+      expect(mockApi.exchangeOAuthCode).not.toHaveBeenCalled();
     });
 
     it('cancel button returns to idle from waiting state', async () => {

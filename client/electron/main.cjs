@@ -24,9 +24,13 @@ function handleDeepLink(deepUrl) {
   try {
     const parsed = new url.URL(deepUrl);
     if (parsed.hostname === 'auth') {
-      const code = parsed.searchParams.get('code');
-      if (code) {
-        const win = getMainWindow();
+      const apiKey   = parsed.searchParams.get('api_key');
+      const playerId = parsed.searchParams.get('player_id');
+      const code     = parsed.searchParams.get('code'); // legacy fallback
+      const win = getMainWindow();
+      if (apiKey && playerId) {
+        win?.webContents.send('auth:discord-result', { api_key: apiKey, player_id: playerId });
+      } else if (code) {
         win?.webContents.send('auth:discord-code', { code });
       }
     }

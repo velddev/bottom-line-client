@@ -18,6 +18,7 @@ declare global {
       onEvent: (cb: (data: unknown) => void) => () => void;
       onEventError: (cb: (data: unknown) => void) => () => void;
       onDiscordAuth: (cb: (data: { code: string }) => void) => () => void;
+      onDiscordResult: (cb: (data: { api_key: string; player_id: string }) => void) => () => void;
     };
   }
 }

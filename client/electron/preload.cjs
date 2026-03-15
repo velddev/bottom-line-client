@@ -23,4 +23,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('auth:discord-code', listener);
     return () => ipcRenderer.off('auth:discord-code', listener);
   },
+  onDiscordResult: (callback) => {
+    const listener = (_, data) => callback(data);
+    ipcRenderer.on('auth:discord-result', listener);
+    return () => ipcRenderer.off('auth:discord-result', listener);
+  },
 });

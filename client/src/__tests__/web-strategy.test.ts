@@ -15,8 +15,8 @@ describe('WebStrategy', () => {
   it('has correct metadata', () => {
     expect(strategy.name).toBe('web');
     expect(strategy.autoLogin).toBe(false);
-    // Web strategy doesn't implement onCodeReceived (no async code delivery)
-    expect((strategy as any).onCodeReceived).toBeUndefined();
+    // Web strategy doesn't implement onResultReceived (synchronous popup flow)
+    expect((strategy as any).onResultReceived).toBeUndefined();
   });
 
   it('rejects when popup is blocked', async () => {
@@ -147,5 +147,23 @@ describe('WebStrategy', () => {
     const openUrl = (window.open as any).mock.calls[0][0] as string;
     const params = new URLSearchParams(openUrl.split('?')[1]);
     expect(params.get('redirect_uri')).toContain('/v1/auth/callback');
+  });
+
+  it('resolves with api_key when discord-oauth-result postMessage arrives', async () => {
+    const crossOriginStrategy = new WebStrategy('https://api.ventured.gg/v1');
+    const mockPopup = { closed: false, close: vi.fn() };
+    vi.spyOn(window, 'open').mockReturnValue(mockPopup as any);
+
+    const promise = crossOriginStrategy.startOAuth('test-client-id');
+
+    window.dispatchEvent(new MessageEvent('message', {
+      origin: 'https://api.ventured.gg',
+      data: { type: 'discord-oauth-result', api_key: 'server-key', player_id: 'server-player' },
+    }));
+
+    const result = await promise;
+    expect(result.api_key).toBe('server-key');
+    expect(result.player_id).toBe('server-player');
+    expect(result.code).toBeUndefined();
   });
 });

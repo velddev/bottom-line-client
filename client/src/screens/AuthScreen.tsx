@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { getProfile, useApi } from '../api';
 import { useAuth } from '../auth';
 import { detectAuthStrategy } from '../auth/detect-strategy';
-import type { AuthStrategy } from '../auth/auth-strategy';
+import type { AuthStrategy, OAuthResult } from '../auth/auth-strategy';
 
 type Step =
   | { kind: 'idle' }
-  | { kind: 'waiting-for-code' }    // Discord browser opened, waiting for deep-link code
+  | { kind: 'waiting-for-code' }    // Discord browser opened, waiting for deep-link result
   | { kind: 'exchanging' }          // exchanging code with server
   | { kind: 'manual' };             // manual credential entry (returning players)
 
@@ -24,17 +24,32 @@ export default function AuthScreen({ strategyOverride }: { strategyOverride?: Au
   const [manualCityId, setManualCityId]       = useState('');
   const [manualUsername, setManualUsername]   = useState('');
 
-  // Exchange code with server and log in
-  const exchangeAndLogin = async (code: string, redirectUri: string) => {
+  // Handle an OAuthResult: either a pre-exchanged token or a code to exchange
+  const handleOAuthResult = async (result: OAuthResult) => {
     setStep({ kind: 'exchanging' });
     setError(null);
     try {
-      const result = await api.exchangeOAuthCode('DISCORD', code, redirectUri);
-      localStorage.setItem('api_key', result.api_key);
+      let apiKey: string;
+      let playerId: string;
+
+      if (result.api_key && result.player_id) {
+        // Server already exchanged the code — use the token directly
+        apiKey   = result.api_key;
+        playerId = result.player_id;
+      } else if (result.code && result.redirectUri) {
+        // Code needs to be exchanged (e.g. Discord Activity SDK)
+        const exchanged = await api.exchangeOAuthCode('DISCORD', result.code, result.redirectUri);
+        apiKey   = exchanged.api_key;
+        playerId = exchanged.player_id;
+      } else {
+        throw new Error('Invalid OAuth result — no token or code received.');
+      }
+
+      localStorage.setItem('api_key', apiKey);
       const profile = await getProfile();
       login({
-        player_id: result.player_id,
-        api_key:   result.api_key,
+        player_id: playerId,
+        api_key:   apiKey,
         city_id:   profile.city_id,
         username:  profile.username,
       });
@@ -60,17 +75,7 @@ export default function AuthScreen({ strategyOverride }: { strategyOverride?: Au
         const oauthResult = await strategy.startOAuth(discord.client_id);
         if (cancelled || !oauthResult) return;
 
-        const result = await api.exchangeOAuthCode('DISCORD', oauthResult.code, oauthResult.redirectUri);
-        localStorage.setItem('api_key', result.api_key);
-        const profile = await getProfile();
-        if (cancelled) return;
-
-        login({
-          player_id: result.player_id,
-          api_key:   result.api_key,
-          city_id:   profile.city_id,
-          username:  profile.username,
-        });
+        await handleOAuthResult(oauthResult);
       } catch (err) {
         if (!cancelled) {
           setError((err as Error).message);
@@ -82,11 +87,11 @@ export default function AuthScreen({ strategyOverride }: { strategyOverride?: Au
     return () => { cancelled = true; };
   }, [strategy, api, login]);
 
-  // ── Async code listener (Electron deep-link) ──────────────────────────────
+  // ── Async result listener (Electron deep-link) ────────────────────────────
   useEffect(() => {
-    if (!strategy.onCodeReceived) return;
-    return strategy.onCodeReceived((code, redirectUri) => {
-      exchangeAndLogin(code, redirectUri);
+    if (!strategy.onResultReceived) return;
+    return strategy.onResultReceived((result) => {
+      handleOAuthResult(result);
     });
   }, [strategy]);
 
@@ -101,10 +106,10 @@ export default function AuthScreen({ strategyOverride }: { strategyOverride?: Au
 
         const result = await strategy.startOAuth(discord.client_id);
         if (result) {
-          // Synchronous path (web popup, Discord Activity): code available now
-          await exchangeAndLogin(result.code, result.redirectUri);
+          // Synchronous path (web popup, Discord Activity): result available now
+          await handleOAuthResult(result);
         } else {
-          // Async path (Electron deep-link): code arrives via onCodeReceived
+          // Async path (Electron deep-link): result arrives via onResultReceived
           setStep({ kind: 'waiting-for-code' });
         }
       } catch (err) {
