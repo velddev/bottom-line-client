@@ -30,4 +30,13 @@ router.get('/share', handle(async (req) => {
   }, getApiKey(req));
 }));
 
+router.get('/demand-utilization', handle(async (req) => {
+  const { city_id = '', history_ticks = 10 } = req.query;
+  return rpc(stubs.market, 'GetDemandUtilization', {
+    city_id,
+    history_ticks: parseInt(history_ticks, 10),
+  }, getApiKey(req));
+}));
+
 export default router;
+

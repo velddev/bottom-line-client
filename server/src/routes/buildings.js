@@ -72,6 +72,11 @@ router.get('/:id/sales', handle(async (req) => {
   }, getApiKey(req));
 }));
 
+router.get('/tile-market-score', handle(async (req) => {
+  const { city_id = '', tile_id = '' } = req.query;
+  return rpc(stubs.building, 'GetTileMarketScore', { city_id, tile_id }, getApiKey(req));
+}));
+
 router.get('/:id', handle(async (req) => {
   return rpc(stubs.building, 'GetStatus', { building_id: req.params.id }, getApiKey(req));
 }));

@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth';
 import Layout from './components/Layout';
 import AuthScreen from './screens/AuthScreen';
@@ -15,7 +15,7 @@ function AppRoutes() {
   if (!auth) return <AuthScreen />;
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Layout>
         <Routes>
           <Route path="/"             element={<Navigate to="/dashboard" replace />} />
@@ -28,7 +28,7 @@ function AppRoutes() {
           <Route path="*"             element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Layout>
-    </BrowserRouter>
+      </HashRouter>
   );
 }
 

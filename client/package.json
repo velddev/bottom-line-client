@@ -3,10 +3,38 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "concurrently -k -n vite,electron -c blue,green \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "tsc && vite build && electron-builder",
+    "electron:release": "tsc && vite build && electron-builder --publish always"
+  },
+  "build": {
+    "appId": "com.trademmo.client",
+    "productName": "TradeMMO",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": "portable"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
+    }
   },
   "dependencies": {
     "@tanstack/react-query": "^5.40.0",
@@ -25,9 +53,13 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
+    "electron": "^41.0.2",
+    "electron-builder": "^26.8.1",
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.6",
     "typescript": "^5.5.3",
-    "vite": "^5.3.3"
+    "vite": "^5.3.3",
+    "wait-on": "^9.0.4"
   }
 }

@@ -32,6 +32,7 @@ export interface BuildingStatus {
   tile_grid_y: number;
   construction_ticks_remaining: number; // > 0 only when status === 'under_construction'
   output_type: string;   // normalized resource type string, e.g. 'cattle', 'grain', '' if no recipe
+  population_capacity: number; // citizens housed (residential buildings only; 0 otherwise)
 }
 
 export interface RecipeInfo {
@@ -287,7 +288,21 @@ export interface CompanyTickSnapshot {
 export const BUILDING_TYPES = ['factory', 'field', 'store', 'warehouse'] as const;
 export const BUILDING_ICONS: Record<string, string> = {
   factory: '🏭', field: '🌾', store: '🏪', warehouse: '📦', landmark: '🏛️', bank: '🏦',
+  residential_low: '🏠', residential_medium: '🏘️', residential_high: '🏙️',
 };
+
+export interface TileMarketScore {
+  score: number;
+  best_allowed_tier: string; // e.g. 'residential_high'
+}
+
+export interface DemandUtilizationPoint {
+  resource_type: string;
+  total_demand: number;
+  fulfilled_demand: number;
+  utilization_pct: number;
+  tick: number;
+}
 
 export const RESOURCE_COLORS: Record<string, string> = {
   grain:       'text-yellow-400',

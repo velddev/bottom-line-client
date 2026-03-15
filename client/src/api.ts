@@ -4,10 +4,19 @@ import type {
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
   SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
-  CompanyTickSnapshot,
+  CompanyTickSnapshot, TileMarketScore, DemandUtilizationPoint,
 } from './types';
 
-const BASE = '/api';
+declare global {
+  interface Window {
+    electron?: { isElectron: boolean };
+  }
+}
+
+// In Electron (dev or prod), call the server directly. In browser dev, use the Vite proxy.
+const BASE = window.electron?.isElectron
+  ? 'http://localhost:3001/api'
+  : '/api';
 
 function headers(): HeadersInit {
   const key = localStorage.getItem('api_key') ?? '';
@@ -213,3 +222,9 @@ export const setAutoSellConfig = (buildingId: string, resource_type: string, pri
 
 export const getBuildingSales = (buildingId: string, historyTicks = 20) =>
   get<GetBuildingSalesResponse>(`/buildings/${buildingId}/sales?history_ticks=${historyTicks}`);
+
+export const getTileMarketScore = (cityId: string, tileId: string) =>
+  get<TileMarketScore>(`/buildings/tile-market-score?city_id=${cityId}&tile_id=${tileId}`);
+
+export const getDemandUtilization = (cityId: string, historyTicks = 10) =>
+  get<{ points: DemandUtilizationPoint[] }>(`/market/demand-utilization?city_id=${cityId}&history_ticks=${historyTicks}`);

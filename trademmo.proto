@@ -33,13 +33,16 @@ enum ResourceType {
 
 // Building types that players can construct.
 enum BuildingType {
-  BUILDING_TYPE_UNSPECIFIED = 0;
-  BUILDING_TYPE_FIELD       = 1; // outdoor plot — grows grain or raises cattle
-  BUILDING_TYPE_FACTORY     = 2; // processes raw resources into goods
-  BUILDING_TYPE_STORE       = 3; // sells consumer goods directly to citizens
-  BUILDING_TYPE_WAREHOUSE   = 4; // bulk storage, redistributes resources via supply links
-  BUILDING_TYPE_LANDMARK    = 5; // government or special building
-  BUILDING_TYPE_BANK        = 6; // provides loans to players
+  BUILDING_TYPE_UNSPECIFIED          = 0;
+  BUILDING_TYPE_FIELD                = 1; // outdoor plot — grows grain or raises cattle
+  BUILDING_TYPE_FACTORY              = 2; // processes raw resources into goods
+  BUILDING_TYPE_STORE                = 3; // sells consumer goods directly to citizens
+  BUILDING_TYPE_WAREHOUSE            = 4; // bulk storage, redistributes resources via supply links
+  BUILDING_TYPE_LANDMARK             = 5; // government or special building
+  BUILDING_TYPE_BANK                 = 6; // provides loans to players
+  BUILDING_TYPE_RESIDENTIAL_LOW      = 7; // low-density housing, capacity 25, any tile
+  BUILDING_TYPE_RESIDENTIAL_MEDIUM   = 8; // medium-density housing, capacity 100, market score >= 30
+  BUILDING_TYPE_RESIDENTIAL_HIGH     = 9; // high-density housing, capacity 500, market score >= 70
 }
 
 // Lifecycle state of a building.
@@ -216,6 +219,9 @@ service BuildingService {
   // Set the auto-sell price and enabled state for a resource type on a building.
   rpc SetAutoSellConfig      (SetAutoSellConfigRequest)      returns (SetAutoSellConfigResponse) {
   }
+  // Get the market value score for a tile (used to determine what residential tier can be built).
+  rpc GetTileMarketScore     (GetTileMarketScoreRequest)     returns (GetTileMarketScoreResponse) {
+  }
   // Get historical per-tick sales data for a store building.
   rpc GetBuildingSales       (GetBuildingSalesRequest)       returns (GetBuildingSalesResponse) {
   }
@@ -262,6 +268,7 @@ message BuildingInfo {
   int32          tile_grid_y                  = 11;
   int32          construction_ticks_remaining = 12; // > 0 only when status = UNDER_CONSTRUCTION
   ResourceType   output_type                  = 13; // resource this building currently produces (unspecified if no recipe set)
+  int32          population_capacity          = 14; // number of citizens housed (residential buildings only; 0 otherwise)
 }
 
 message ListBuildingsRequest {}
@@ -349,6 +356,15 @@ message SetAutoSellConfigRequest {
   bool         is_enabled     = 4;
 }
 message SetAutoSellConfigResponse { bool success = 1; }
+
+message GetTileMarketScoreRequest {
+  string city_id = 1;
+  string tile_id = 2;
+}
+message GetTileMarketScoreResponse {
+  double         score              = 1; // raw market value score
+  BuildingType   best_allowed_tier  = 2; // best residential tier buildable here
+}
 
 message GetBuildingSalesRequest {
   string building_id   = 1;
@@ -539,13 +555,15 @@ message TileChangedEvent {
 // market.proto
 // ─────────────────────────────────────────────────────────────────────────
 service MarketService {
-  rpc ListOfferings  (ListOfferingsRequest)  returns (ListOfferingsResponse) {
+  rpc ListOfferings         (ListOfferingsRequest)         returns (ListOfferingsResponse) {
   }
-  rpc CancelOffering (CancelOfferingRequest) returns (CancelOfferingResponse) {
+  rpc CancelOffering        (CancelOfferingRequest)        returns (CancelOfferingResponse) {
   }
-  rpc Purchase       (PurchaseRequest)       returns (PurchaseResponse) {
+  rpc Purchase              (PurchaseRequest)              returns (PurchaseResponse) {
   }
-  rpc GetMarketShare (GetMarketShareRequest) returns (GetMarketShareResponse) {
+  rpc GetMarketShare        (GetMarketShareRequest)        returns (GetMarketShareResponse) {
+  }
+  rpc GetDemandUtilization  (GetDemandUtilizationRequest)  returns (GetDemandUtilizationResponse) {
   }
 }
 
@@ -612,6 +630,26 @@ message MarketShareDataPoint {
 
 message GetMarketShareResponse {
   repeated MarketShareDataPoint data = 1;
+}
+
+// ── Demand Utilization ────────────────────────────────────────────────────────
+
+message GetDemandUtilizationRequest {
+  string city_id       = 1;
+  int32  history_ticks = 2; // default 20
+}
+
+/// How much of total citizen demand was fulfilled for a given resource and tick.
+message DemandUtilizationPoint {
+  int64        tick             = 1;
+  ResourceType resource_type   = 2;
+  double       total_demand    = 3;   // total units citizens wanted to buy
+  double       fulfilled_demand = 4;  // units actually sold
+  float        utilization_pct = 5;   // fulfilled / total × 100
+}
+
+message GetDemandUtilizationResponse {
+  repeated DemandUtilizationPoint data = 1;
 }
 
 

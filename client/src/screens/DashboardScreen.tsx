@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getProfile, listBuildings, listResearch, getCityStats, getInventory } from '../api';
-import { fmtMoney, fmtPct } from '../types';
+import { fmtMoney, fmtPct, BUILDING_ICONS } from '../types';
 import { useAuth } from '../auth';
 import { Building2, FlaskConical, Package } from 'lucide-react';
 import MarketShareChart from '../components/MarketShareChart';
@@ -155,7 +155,7 @@ export default function DashboardScreen() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-gray-500 border-b border-gray-800">
-                  {['Name', 'Type', 'Status', 'Recipe', 'Workers', 'Level'].map((h) => (
+                  {['Name', 'Type', 'Status', 'Recipe / Capacity', 'Workers', 'Level'].map((h) => (
                     <th key={h} className="text-left px-4 py-2 font-medium uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -164,7 +164,7 @@ export default function DashboardScreen() {
                 {buildings.map((b) => (
                   <tr key={b.building_id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                     <td className="px-4 py-2 text-white font-medium">{b.name}</td>
-                    <td className="px-4 py-2 text-gray-400 capitalize">{b.building_type}</td>
+                    <td className="px-4 py-2 text-gray-400 capitalize">{BUILDING_ICONS[b.building_type] ?? '🏗️'} {b.building_type.replace(/_/g, ' ')}</td>
                     <td className="px-4 py-2">
                       <span className={`px-1.5 py-0.5 rounded text-xs ${
                         b.status === 'producing'          ? 'bg-emerald-900/40 text-emerald-400' :
@@ -179,7 +179,11 @@ export default function DashboardScreen() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-gray-400">{b.active_recipe || '—'}</td>
+                    <td className="px-4 py-2 text-gray-400">
+                      {b.population_capacity > 0
+                        ? <span className="text-blue-400">👥 {b.population_capacity.toLocaleString()} capacity</span>
+                        : (b.active_recipe || '—')}
+                    </td>
                     <td className="px-4 py-2 text-gray-300">{b.workers}</td>
                     <td className="px-4 py-2 text-gray-300">{b.level}</td>
                   </tr>

@@ -687,6 +687,11 @@ export default function TilesScreen() {
                       {BUILDING_TYPES.map((t) => (
                         <option key={t} value={t}>{BUILDING_ICONS[t]} {t.charAt(0).toUpperCase() + t.slice(1)}</option>
                       ))}
+                      <optgroup label="Residential">
+                        {(['residential_low', 'residential_medium', 'residential_high'] as const).map((t) => (
+                          <option key={t} value={t}>{BUILDING_ICONS[t]} {t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+                        ))}
+                      </optgroup>
                     </select>
                     <input placeholder="Building name" value={buildForm.name}
                       onChange={(e) => setBuildForm((f) => ({ ...f, name: e.target.value }))}
