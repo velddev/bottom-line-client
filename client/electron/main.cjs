@@ -26,6 +26,12 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
+
+  // Prevent Ctrl+Scroll / pinch-to-zoom from scaling the page
+  win.webContents.setVisualZoomLevelLimits(1, 1);
+  win.webContents.on('zoom-changed', (_, dir) => {
+    void dir; // ignore zoom events
+  });
 }
 
 // Set PROTO_PATH before loading the IPC bundle so grpc-client.js can find the proto file
