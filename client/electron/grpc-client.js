@@ -16,14 +16,12 @@ const packageDef = protoLoader.loadSync(PROTO_PATH, {
 
 const proto = grpc.loadPackageDefinition(packageDef).trademmo;
 
-const IS_DEV = process.env.NODE_ENV === 'development';
-const TARGET = process.env.GRPC_TARGET
-  ?? (IS_DEV ? 'localhost:8080' : 'api.ventured.gg:443');
+const TARGET = process.env.GRPC_TARGET ?? 'api.ventured.gg:443';
 const creds = TARGET.startsWith('localhost')
   ? grpc.credentials.createInsecure()
   : grpc.credentials.createSsl();
 
-if (IS_DEV) console.log(`[gRPC] target=${TARGET} secure=${TARGET !== 'localhost' && !TARGET.startsWith('localhost')}`);
+if (DEBUG) console.log(`[gRPC] target=${TARGET} secure=${!TARGET.startsWith('localhost')}`);
 
 export const stubs = {
   auth:      new proto.AuthService(TARGET, creds),
