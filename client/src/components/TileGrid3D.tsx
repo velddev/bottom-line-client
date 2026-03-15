@@ -22,8 +22,6 @@ const COLOR_WARNING = new THREE.Color('#f59e0b');
 const COLOR_FORSALE = new THREE.Color('#60a5fa');
 const COLOR_DEFAULT = new THREE.Color('#86c280');
 const COLOR_HOVER   = new THREE.Color('#a3d99c');
-const COLOR_SELECTED = new THREE.Color('#fefce8');
-
 function tileColor(tile: TileInfo, myPlayerId: string): THREE.Color {
   if (tile.owner_player_id === myPlayerId) {
     if (WARNING_STATUSES.has(tile.building_status)) return COLOR_WARNING;
@@ -91,7 +89,14 @@ export default function TileGrid3D({
       const isHovered = hoveredTile?.tile_id === tile.tile_id;
 
       if (isSelected) {
-        mesh.setColorAt(i, COLOR_SELECTED);
+        const base = tileColor(tile, myPlayerId);
+        const brighten = 0.25;
+        _tempColor.setRGB(
+          Math.min(1, base.r + brighten),
+          Math.min(1, base.g + brighten),
+          Math.min(1, base.b + brighten)
+        );
+        mesh.setColorAt(i, _tempColor);
       } else if (isHovered) {
         mesh.setColorAt(i, COLOR_HOVER);
       } else {

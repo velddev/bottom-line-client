@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { ChevronDown, ChevronRight, Building2 } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { ChevronDown, ChevronRight, Building2, Users, Layers } from 'lucide-react';
 import type { TileInfo } from '../types';
 import { BUILDING_ICONS } from '../types';
 
@@ -10,12 +10,15 @@ interface CompanyListProps {
   selectedTileId?: string;
 }
 
-interface OwnerGroup {
-  ownerId: string;
-  ownerName: string;
+interface ListGroup {
+  id: string;
+  label: string;
+  icon?: string;
   buildings: TileInfo[];
-  isMine: boolean;
+  highlight?: boolean;
 }
+
+type GroupMode = 'company' | 'building';
 
 const STATUS_DOT: Record<string, string> = {
   Producing: 'bg-emerald-400',
@@ -25,40 +28,77 @@ const STATUS_DOT: Record<string, string> = {
   MissingResources: 'bg-rose-400',
 };
 
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedTileId }: CompanyListProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [panelOpen, setPanelOpen] = useState(true);
+  const [groupMode, setGroupMode] = useState<GroupMode>('company');
+  const collapsedInit = useRef<GroupMode | null>(null);
 
-  const groups = useMemo(() => {
-    const byOwner = new Map<string, OwnerGroup>();
+  const groups = useMemo((): ListGroup[] => {
+    if (groupMode === 'company') {
+      const byOwner = new Map<string, ListGroup>();
 
-    for (const tile of tiles.values()) {
-      if (!tile.building_id) continue;
-
-      const ownerId = tile.owner_player_id || 'government';
-      if (!byOwner.has(ownerId)) {
-        byOwner.set(ownerId, {
-          ownerId,
-          ownerName: tile.owner_name || 'Government',
-          buildings: [],
-          isMine: ownerId === myPlayerId,
-        });
+      for (const tile of tiles.values()) {
+        if (!tile.building_id) continue;
+        const ownerId = tile.owner_player_id || 'government';
+        if (!byOwner.has(ownerId)) {
+          byOwner.set(ownerId, {
+            id: ownerId,
+            label: tile.owner_name || 'Government',
+            buildings: [],
+            highlight: ownerId === myPlayerId,
+          });
+        }
+        byOwner.get(ownerId)!.buildings.push(tile);
       }
-      byOwner.get(ownerId)!.buildings.push(tile);
+
+      return [...byOwner.values()].sort((a, b) => {
+        if (a.highlight !== b.highlight) return a.highlight ? -1 : 1;
+        return a.label.localeCompare(b.label);
+      });
+    } else {
+      const byType = new Map<string, ListGroup>();
+
+      for (const tile of tiles.values()) {
+        if (!tile.building_id) continue;
+        const type = tile.building_type?.toLowerCase() ?? 'unknown';
+        if (!byType.has(type)) {
+          byType.set(type, {
+            id: type,
+            label: capitalize(type),
+            icon: BUILDING_ICONS[type] ?? '🏢',
+            buildings: [],
+          });
+        }
+        byType.get(type)!.buildings.push(tile);
+      }
+
+      return [...byType.values()].sort((a, b) => a.label.localeCompare(b.label));
     }
+  }, [tiles, myPlayerId, groupMode]);
 
-    // Sort: my company first, then alphabetical
-    return [...byOwner.values()].sort((a, b) => {
-      if (a.isMine !== b.isMine) return a.isMine ? -1 : 1;
-      return a.ownerName.localeCompare(b.ownerName);
-    });
-  }, [tiles, myPlayerId]);
+  // Collapse all groups except player's own on first load (per mode)
+  if (collapsedInit.current !== groupMode && groups.length > 0) {
+    collapsedInit.current = groupMode;
+    const initialCollapsed = new Set<string>();
+    if (groupMode === 'company') {
+      for (const g of groups) {
+        if (!g.highlight) initialCollapsed.add(g.id);
+      }
+    }
+    // For building mode, start all expanded
+    setCollapsed(initialCollapsed);
+  }
 
-  const toggle = (ownerId: string) => {
+  const toggle = (id: string) => {
     setCollapsed(prev => {
       const next = new Set(prev);
-      if (next.has(ownerId)) next.delete(ownerId);
-      else next.add(ownerId);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -70,7 +110,7 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
         className="absolute top-3 left-3 z-[1000] bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 shadow-xl text-xs text-gray-300 hover:text-white transition-colors flex items-center gap-1.5"
       >
         <Building2 size={14} />
-        Companies
+        Buildings
       </button>
     );
   }
@@ -80,14 +120,30 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
       {/* Header */}
       <div className="px-3 py-2.5 border-b border-gray-700 flex items-center justify-between">
         <h2 className="text-white font-semibold text-xs flex items-center gap-1.5">
-          <Building2 size={14} /> Companies
+          <Building2 size={14} /> Buildings
         </h2>
-        <button
-          onClick={() => setPanelOpen(false)}
-          className="text-gray-500 hover:text-gray-300 text-lg leading-none"
-        >
-          ×
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setGroupMode('company')}
+            title="Group by company"
+            className={`p-1 rounded transition-colors ${groupMode === 'company' ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
+          >
+            <Users size={12} />
+          </button>
+          <button
+            onClick={() => setGroupMode('building')}
+            title="Group by type"
+            className={`p-1 rounded transition-colors ${groupMode === 'building' ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
+          >
+            <Layers size={12} />
+          </button>
+          <button
+            onClick={() => setPanelOpen(false)}
+            className="text-gray-500 hover:text-gray-300 text-lg leading-none ml-1"
+          >
+            ×
+          </button>
+        </div>
       </div>
 
       {/* Scrollable list */}
@@ -97,20 +153,21 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
         )}
 
         {groups.map(group => {
-          const isOpen = !collapsed.has(group.ownerId);
+          const isOpen = !collapsed.has(group.id);
 
           return (
-            <div key={group.ownerId}>
-              {/* Owner header */}
+            <div key={group.id}>
+              {/* Group header */}
               <button
-                onClick={() => toggle(group.ownerId)}
+                onClick={() => toggle(group.id)}
                 className="w-full flex items-center gap-1.5 px-3 py-2 text-xs hover:bg-gray-800/60 transition-colors border-b border-gray-800/50"
               >
                 {isOpen
                   ? <ChevronDown size={12} className="text-gray-500 shrink-0" />
                   : <ChevronRight size={12} className="text-gray-500 shrink-0" />}
-                <span className={`font-medium truncate ${group.isMine ? 'text-emerald-400' : 'text-gray-300'}`}>
-                  {group.ownerName}
+                {group.icon && <span className="shrink-0">{group.icon}</span>}
+                <span className={`font-medium truncate ${group.highlight ? 'text-emerald-400' : 'text-gray-300'}`}>
+                  {group.label}
                 </span>
                 <span className="text-gray-600 ml-auto shrink-0">{group.buildings.length}</span>
               </button>
@@ -134,7 +191,9 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
                         }`}
                       >
                         <span className="shrink-0">{icon}</span>
-                        <span className="truncate">{tile.building_name}</span>
+                        <span className="truncate">
+                          {groupMode === 'building' ? (tile.owner_name || tile.building_name) : tile.building_name}
+                        </span>
                         <span className={`w-1.5 h-1.5 rounded-full ml-auto shrink-0 ${dotClass}`} />
                       </button>
                     );
