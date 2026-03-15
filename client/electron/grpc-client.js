@@ -48,9 +48,3 @@ export function rpc(stub, method, request, apiKey) {
     });
   });
 }
-
-// Map gRPC status codes to HTTP status codes
-export function grpcErrToHttp(err) {
-  const MAP = { 1: 499, 2: 500, 3: 400, 4: 504, 5: 404, 6: 409, 7: 403, 16: 401 };
-  return MAP[err.code] ?? 500;
-}

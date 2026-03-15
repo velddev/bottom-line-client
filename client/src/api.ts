@@ -85,8 +85,10 @@ export function useApi(): IApiService {
 }
 
 // Re-use the HTTP base request for these two helpers
+const HTTP_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/v1';
+
 function httpGet<T>(path: string): Promise<T> {
-  return fetch(`/v1${path}`).then(async (res) => {
+  return fetch(`${HTTP_BASE}${path}`).then(async (res) => {
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error ?? 'Request failed');

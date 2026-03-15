@@ -1,26 +1,13 @@
-import { grpcErrToHttp } from './grpc-client.js';
-
-export function getApiKey(req) {
-  const auth = req.headers.authorization ?? '';
-  return auth.startsWith('Bearer ') ? auth.slice(7) : '';
-}
-
 // ── Enum normalization ────────────────────────────────────────────────────────
-// The proto enum names follow the pattern PREFIX_TYPE_VALUE (e.g., RESOURCE_TYPE_GRAIN).
-// We normalise these down to the bare lowercase value (e.g., "grain") so the
-// React client never needs to change when the server-side protos are strict-typed.
+// Strips proto enum prefixes so the React client sees clean lowercase values.
+// e.g. "RESOURCE_TYPE_ANIMAL_FEED" → "animal_feed"
 
-/** Strips proto enum prefix and lowercases the value.
- *  "RESOURCE_TYPE_ANIMAL_FEED" → "animal_feed"
- *  Any string that doesn't match the pattern is returned unchanged.
- */
 function stripEnumPrefix(val) {
   if (typeof val !== 'string') return val;
   const match = val.match(/^[A-Z][A-Z0-9]+_[A-Z][A-Z0-9]+_(.+)$/);
   return match ? match[1].toLowerCase() : val;
 }
 
-/** Recursively normalise all enum-like strings in a plain JS object/array. */
 export function normalizeResponse(obj) {
   if (obj === null || obj === undefined) return obj;
   if (Array.isArray(obj)) return obj.map(normalizeResponse);
@@ -32,7 +19,10 @@ export function normalizeResponse(obj) {
   return stripEnumPrefix(obj);
 }
 
-// Lookup tables: lowercase value → proto enum name (for request conversion)
+// ── Request enum conversion ───────────────────────────────────────────────────
+// Converts plain lowercase values to the full proto enum name expected by grpc-js.
+// e.g. "grain" → "RESOURCE_TYPE_GRAIN"
+
 const RESOURCE_TYPE = {
   grain: 'RESOURCE_TYPE_GRAIN', water: 'RESOURCE_TYPE_WATER',
   animal_feed: 'RESOURCE_TYPE_ANIMAL_FEED', cattle: 'RESOURCE_TYPE_CATTLE',
@@ -55,11 +45,6 @@ const AGREEMENT_ROLE = {
   creator: 'AGREEMENT_ROLE_CREATOR', buyer: 'AGREEMENT_ROLE_BUYER',
 };
 
-/** Converts a plain-string enum value to the proto enum name expected by grpc-js.
- *  field         → e.g. "grain" → "RESOURCE_TYPE_GRAIN"
- *  value         → string value from the React client
- *  Returns the proto name, or the original value if no mapping found.
- */
 export function toProtoEnum(field, value) {
   if (!value) return value;
   const map = {
@@ -70,17 +55,4 @@ export function toProtoEnum(field, value) {
     role: AGREEMENT_ROLE,
   }[field];
   return map?.[value.toLowerCase()] ?? value;
-}
-
-/** Wraps an async route handler with standard error handling and response normalisation. */
-export function handle(fn) {
-  return async (req, res) => {
-    try {
-      const result = await fn(req);
-      res.json(normalizeResponse(result));
-    } catch (err) {
-      const status = grpcErrToHttp(err);
-      res.status(status).json({ error: err.details ?? err.message ?? 'Unknown error' });
-    }
-  };
 }

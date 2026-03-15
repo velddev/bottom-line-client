@@ -8,9 +8,9 @@ import type {
 } from './types';
 import type { IApiService } from './api-interface';
 
-// Base URL for the JSON transcoding API. In dev, Vite proxies /v1/* to localhost:8081.
-// In production, nginx routes game.ventured.gg/v1/* to trademmo.server:8081.
-const BASE = '/v1';
+// In production: VITE_API_BASE=https://api.ventured.gg (set in nginx/Dockerfile build arg)
+// In dev: falls back to /v1 — Vite proxies /v1/* to localhost:8081
+const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/v1';
 
 function headers(): HeadersInit {
   const key = localStorage.getItem('api_key') ?? '';

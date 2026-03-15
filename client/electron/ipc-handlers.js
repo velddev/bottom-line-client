@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow, shell } from 'electron';
-import { stubs, rpc, makeMeta } from '../../server/src/grpc-client.js';
-import { toProtoEnum, normalizeResponse } from '../../server/src/util.js';
+import { stubs, rpc, makeMeta } from './grpc-client.js';
+import { toProtoEnum, normalizeResponse } from './util.js';
 
 function sendToRenderer(channel, data) {
   for (const win of BrowserWindow.getAllWindows()) {
