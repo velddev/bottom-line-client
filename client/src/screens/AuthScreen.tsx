@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getProfile, useApi } from '../api';
 import { useAuth } from '../auth';
 import { isDiscordActivity, getDiscordActivityCode } from '../discord-activity';
@@ -6,7 +6,6 @@ import { isDiscordActivity, getDiscordActivityCode } from '../discord-activity';
 type Step =
   | { kind: 'idle' }
   | { kind: 'waiting-for-code' }    // Discord browser opened, waiting for deep-link code
-  | { kind: 'pick-username' }       // code received — now choose a handle
   | { kind: 'exchanging' }          // exchanging code with server
   | { kind: 'manual' };             // manual credential entry (returning players)
 
@@ -15,7 +14,6 @@ export default function AuthScreen() {
   const api = useApi();
 
   const [step, setStep] = useState<Step>({ kind: 'idle' });
-  const [username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   // Manual login state
@@ -67,31 +65,12 @@ export default function AuthScreen() {
     return () => { cancelled = true; };
   }, [api, login]);
 
-  // Capture pending code + redirect URI for use after the OAuth callback
-  const pendingCode        = useRef('');
-  const pendingRedirectUri = useRef('');
-
-  // Listen for the ventured://auth deep-link code from Electron main process
-  useEffect(() => {
-    if (!window.electronAPI?.onDiscordAuth) return;
-    const stop = window.electronAPI.onDiscordAuth(({ code }) => {
-      pendingCode.current        = code;
-      pendingRedirectUri.current = 'https://api.ventured.gg/v1/auth/callback';
-      setUsername('');
-      setError(null);
-      setStep({ kind: 'pick-username' });
-    });
-    return stop;
-  }, []);
-
-  // Called once the user submits their chosen handle (after Discord OAuth)
-  const handleFinishLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Exchange code with server and log in
+  const exchangeAndLogin = async (code: string, redirectUri: string) => {
     setStep({ kind: 'exchanging' });
     setError(null);
     try {
-      const result = await api.exchangeOAuthCode(
-        'DISCORD', pendingCode.current, pendingRedirectUri.current, username.trim());
+      const result = await api.exchangeOAuthCode('DISCORD', code, redirectUri);
       localStorage.setItem('api_key', result.api_key);
       const profile = await getProfile();
       login({
@@ -102,9 +81,18 @@ export default function AuthScreen() {
       });
     } catch (err) {
       setError((err as Error).message);
-      setStep({ kind: 'pick-username' });
+      setStep({ kind: 'idle' });
     }
   };
+
+  // Listen for the ventured://auth deep-link code from Electron main process
+  useEffect(() => {
+    if (!window.electronAPI?.onDiscordAuth) return;
+    const stop = window.electronAPI.onDiscordAuth(({ code }) => {
+      exchangeAndLogin(code, 'https://api.ventured.gg/v1/auth/callback');
+    });
+    return stop;
+  }, []);
 
   // ── Step: idle — show main login button ──────────────────────────────────
   if (step.kind === 'idle') {
@@ -117,12 +105,8 @@ export default function AuthScreen() {
 
         const result = await api.openDiscordOAuth(discord.client_id);
         if (result.code) {
-          // Web popup path: code returned directly alongside the redirect URI used
-          pendingCode.current        = result.code;
-          pendingRedirectUri.current = result.redirectUri;
-          setUsername('');
-          setError(null);
-          setStep({ kind: 'pick-username' });
+          // Web popup path: code returned directly — exchange immediately
+          await exchangeAndLogin(result.code, result.redirectUri);
         } else {
           // Electron deep-link path: code arrives later via IPC
           setStep({ kind: 'waiting-for-code' });
@@ -154,46 +138,6 @@ export default function AuthScreen() {
         >
           Enter credentials manually
         </button>
-      </LoginShell>
-    );
-  }
-
-  // ── Step: pick-username — Discord approved, now choose a handle ───────────
-  if (step.kind === 'pick-username') {
-    return (
-      <LoginShell error={error}>
-        <form onSubmit={handleFinishLogin} className="space-y-4">
-          <div>
-            <label className="block text-xs text-gray-600 mb-1 uppercase tracking-wider">
-              Choose a username
-            </label>
-            <input
-              autoFocus
-              className="w-full bg-gray-100 border border-gray-200 rounded-lg px-3 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-indigo-500"
-              placeholder="your_handle  (leave blank to use Discord name)"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Only matters for new accounts. Returning players keep their existing name.
-            </p>
-          </div>
-
-          <button
-            type="submit"
-            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-sm font-semibold transition-colors"
-          >
-            Enter Game →
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStep({ kind: 'idle' })}
-            className="w-full text-xs text-gray-500 hover:text-gray-700 py-1 transition-colors"
-          >
-            ← Back
-          </button>
-        </form>
       </LoginShell>
     );
   }
