@@ -74,6 +74,7 @@ export interface AgreementSummary {
 }
 
 export interface ResearchProgress {
+  project_id: string;
   resource_type: string;
   level: number;
   progress: number;

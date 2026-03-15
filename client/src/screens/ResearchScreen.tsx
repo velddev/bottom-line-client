@@ -69,7 +69,7 @@ export default function ResearchScreen() {
                   {p.is_active ? 'Active' : 'Paused'}
                 </span>
                 <button
-                  onClick={() => pauseMut.mutate({ id: p.resource_type, pause: p.is_active })}
+                  onClick={() => pauseMut.mutate({ id: p.project_id, pause: p.is_active })}
                   className={`transition-colors ${p.is_active ? 'text-amber-400 hover:text-amber-300' : 'text-emerald-400 hover:text-emerald-300'}`}
                   title={p.is_active ? 'Pause' : 'Resume'}
                 >

@@ -309,6 +309,7 @@ message ResearchProgress {
   bool   is_active       = 4;
   int64  budget_per_tick = 5;
   int32  workers         = 6;
+  string project_id      = 7;
 }
 
 message ListResearchRequest  {}
