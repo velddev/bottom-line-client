@@ -1,5 +1,5 @@
 // AUTO-GENERATED — do not edit manually.
-// Run `node sync-protos.mjs` from the repo root to regenerate.
+// Run `python sync_protos.py` from the TradeMMO/ directory to regenerate.
 //
 // Merged from TradeMMO.Server/Protos/*.proto
 // HTTP transcoding annotations are stripped; all service definitions are preserved.
