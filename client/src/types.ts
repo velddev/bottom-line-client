@@ -232,6 +232,7 @@ export interface SupplyLinkInfo {
   supplier_tile_x: number;
   supplier_tile_y: number;
   priority: number;
+  supplier_current_price: number;
 }
 
 export interface PotentialSupplier {

@@ -152,6 +152,9 @@ function IngredientSupplyRow({
                   {link.supplier_building_name}
                   <span className="text-gray-600 ml-1">({link.supplier_tile_x},{link.supplier_tile_y})</span>
                 </span>
+                <span className={`font-mono text-xs shrink-0 ${link.supplier_current_price > 0 ? 'text-amber-400' : 'text-gray-600'}`}>
+                  {link.supplier_current_price > 0 ? `${fmtMoney(link.supplier_current_price)}/u` : 'no listing'}
+                </span>
                 <button
                   disabled={removeMut.isPending}
                   onClick={() => removeMut.mutate(link.supply_link_id)}
@@ -549,6 +552,29 @@ export default function SupplySection({
           Produces <span className="text-white font-medium">{recipe.output_type}</span>
           <span className="text-gray-600 ml-1">× {recipe.output_min}–{recipe.output_max} / {recipe.ticks_required}t</span>
         </p>
+        {(() => {
+          // Calculate input cost per run using cheapest linked supplier for each ingredient
+          const costItems = recipe.ingredients.map((ing: { resource_type: string; quantity: number }) => {
+            const myLinks = links.filter(l => l.resource_type === ing.resource_type && l.supplier_current_price > 0);
+            const cheapest = myLinks.length > 0 ? Math.min(...myLinks.map(l => l.supplier_current_price)) : null;
+            return { ...ing, cheapestPrice: cheapest };
+          });
+          const allPriced = costItems.every((c: { cheapestPrice: number | null }) => c.cheapestPrice !== null);
+          const totalCentsCost = allPriced
+            ? costItems.reduce((sum: number, c: { quantity: number; cheapestPrice: number | null }) => sum + c.quantity * (c.cheapestPrice ?? 0), 0)
+            : null;
+          const avgOutput = (recipe.output_min + recipe.output_max) / 2;
+          const costPerUnit = totalCentsCost !== null && avgOutput > 0 ? totalCentsCost / avgOutput : null;
+          if (recipe.ingredients.length === 0 || totalCentsCost === null) return null;
+          return (
+            <p className="text-xs text-gray-500 mt-1">
+              Input cost: <span className="text-amber-400 font-mono">{fmtMoney(totalCentsCost)}/run</span>
+              {costPerUnit !== null && (
+                <span className="ml-2 text-gray-600">≈ <span className="text-amber-300 font-mono">{fmtMoney(costPerUnit)}/unit</span> produced</span>
+              )}
+            </p>
+          );
+        })()}
         <AutoSellRow buildingId={buildingId} resourceType={recipe.output_type} />
       </div>
 
