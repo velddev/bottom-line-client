@@ -76,7 +76,7 @@ export default function AuthScreen() {
     if (!window.electronAPI?.onDiscordAuth) return;
     const stop = window.electronAPI.onDiscordAuth(({ code }) => {
       pendingCode.current        = code;
-      pendingRedirectUri.current = 'ventured://auth';
+      pendingRedirectUri.current = 'https://api.ventured.gg/v1/auth/callback?source=electron';
       setUsername('');
       setError(null);
       setStep({ kind: 'pick-username' });
