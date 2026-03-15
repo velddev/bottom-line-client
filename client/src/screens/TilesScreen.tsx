@@ -216,6 +216,9 @@ export default function TilesScreen() {
         const evt = JSON.parse(e.data as string);
         if (evt.tileChanged) {
           const tc = evt.tileChanged;
+          const key = `${tc.gridX ?? 0}_${tc.gridY ?? 0}`;
+          const existing = tileCache.current.get(key);
+
           const updated: TileInfo = {
             tile_id:                 tc.tileId       ?? '',
             city_id:                 tc.cityId       ?? '',
@@ -231,7 +234,17 @@ export default function TilesScreen() {
             building_status:         tc.buildingStatus ?? '',
             is_reserved_for_citizens: false,
           };
-          tileCache.current.set(`${updated.grid_x}_${updated.grid_y}`, updated);
+
+          // Skip update if tile data hasn't changed
+          if (existing
+            && existing.building_status === updated.building_status
+            && existing.building_id === updated.building_id
+            && existing.owner_player_id === updated.owner_player_id
+            && existing.is_for_sale === updated.is_for_sale
+            && existing.building_name === updated.building_name
+          ) return;
+
+          tileCache.current.set(key, updated);
           setTiles(new Map(tileCache.current));
         }
       } catch { /* ignore parse errors */ }
