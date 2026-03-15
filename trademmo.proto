@@ -1,438 +1,163 @@
+// AUTO-GENERATED — do not edit manually.
+// Run `node sync-protos.mjs` from the repo root to regenerate.
+//
+// Merged from TradeMMO.Server/Protos/*.proto
+// HTTP transcoding annotations are stripped; all service definitions are preserved.
+// google.protobuf.Timestamp is inlined as a local message to avoid WKT import.
+
 syntax = "proto3";
 
 package trademmo;
 
-// ─────────────────────────────────────────
-// Common
-// ─────────────────────────────────────────
+// Inline replacement for google.protobuf.Timestamp (avoids WKT import in merged proto).
+message Timestamp { int64 seconds = 1; int32 nanos = 2; }
 
-message Timestamp {
-  int64 seconds = 1;
-  int32 nanos   = 2;
+
+// ─────────────────────────────────────────────────────────────────────────
+// common.proto
+// ─────────────────────────────────────────────────────────────────────────
+// Shared enum types used across all TradeMMO services.
+
+// All tradeable resource types in the game.
+// monetary values are cents (int64); quantities are doubles.
+enum ResourceType {
+  RESOURCE_TYPE_UNSPECIFIED = 0;
+  RESOURCE_TYPE_WATER       = 1; // fresh water, consumed by fields and factories
+  RESOURCE_TYPE_GRAIN       = 2; // grown on fields, used in animal feed and food production
+  RESOURCE_TYPE_ANIMAL_FEED = 3; // produced from grain + water in a factory, consumed by cattle farms
+  RESOURCE_TYPE_CATTLE      = 4; // raised on fields with animal feed, slaughtered in factories
+  RESOURCE_TYPE_MEAT        = 5; // produced from cattle in a factory; sold to stores
+  RESOURCE_TYPE_LEATHER     = 6; // by-product of meat production; sold to stores
+  RESOURCE_TYPE_FOOD        = 7; // processed food produced in a factory; sold in stores to citizens
 }
 
-// ─────────────────────────────────────────
-// GameEventService
-// ─────────────────────────────────────────
-
-service GameEventService {
-  rpc Subscribe(SubscribeRequest) returns (stream GameEvent);
+// Building types that players can construct.
+enum BuildingType {
+  BUILDING_TYPE_UNSPECIFIED = 0;
+  BUILDING_TYPE_FIELD       = 1; // outdoor plot — grows grain or raises cattle
+  BUILDING_TYPE_FACTORY     = 2; // processes raw resources into goods
+  BUILDING_TYPE_STORE       = 3; // sells consumer goods directly to citizens
+  BUILDING_TYPE_WAREHOUSE   = 4; // bulk storage, redistributes resources via supply links
+  BUILDING_TYPE_LANDMARK    = 5; // government or special building
+  BUILDING_TYPE_BANK        = 6; // provides loans to players
 }
 
-message SubscribeRequest {
-  string city_id = 1;
+// Lifecycle state of a building.
+enum BuildingStatus {
+  BUILDING_STATUS_UNSPECIFIED        = 0;
+  BUILDING_STATUS_UNDER_CONSTRUCTION = 1; // ticks_to_ready > 0
+  BUILDING_STATUS_IDLE               = 2; // configured but not producing
+  BUILDING_STATUS_PRODUCING          = 3; // actively producing this tick
+  BUILDING_STATUS_PAUSED             = 4; // manually paused by the owner
+  BUILDING_STATUS_MISSING_RESOURCES  = 5; // supply chain could not fill requirements
 }
 
-message GameEvent {
-  string    event_id    = 1;
-  int64     tick        = 2;
-  Timestamp occurred_at = 3;
+// Status of a trade agreement.
+enum AgreementStatus {
+  AGREEMENT_STATUS_UNSPECIFIED = 0;
+  AGREEMENT_STATUS_PENDING     = 1; // awaiting buyer acceptance
+  AGREEMENT_STATUS_ACTIVE      = 2; // accepted; terms in effect
+  AGREEMENT_STATUS_REJECTED    = 3; // buyer rejected
+  AGREEMENT_STATUS_CANCELLED   = 4; // creator or buyer cancelled
+  AGREEMENT_STATUS_EXPIRED     = 5; // reached expires_at_tick without renewal
+}
 
-  oneof payload {
-    TickCompletedEvent        tick_completed        = 10;
-    ResourceProducedEvent     resource_produced     = 11;
-    TradeCompletedEvent       trade_completed       = 12;
-    MarketPriceChangedEvent   market_price_changed  = 13;
-    BuildingConstructedEvent  building_constructed  = 14;
-    ElectionAnnouncedEvent    election_announced    = 15;
-    ElectionConcludedEvent    election_concluded    = 16;
-    TradeAgreementChangedEvent agreement_changed    = 17;
-    BrandValueChangedEvent    brand_value_changed   = 18;
-    TaxesCollectedEvent       taxes_collected       = 19;
-    TileChangedEvent          tile_changed          = 20;
+// Lifecycle phase of a city election.
+enum ElectionStatus {
+  ELECTION_STATUS_UNSPECIFIED = 0;
+  ELECTION_STATUS_UPCOMING    = 1; // announced, not yet in campaign phase
+  ELECTION_STATUS_CAMPAIGNING = 2; // candidates can register
+  ELECTION_STATUS_VOTING      = 3; // citizens are voting
+  ELECTION_STATUS_CONCLUDED   = 4; // winner determined
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// agreement.proto
+// ─────────────────────────────────────────────────────────────────────────
+service TradeAgreementService {
+  rpc Create  (CreateAgreementRequest)  returns (CreateAgreementResponse) {
+  }
+  rpc Respond (RespondAgreementRequest) returns (RespondAgreementResponse) {
+    option (google.api.http) = { put: "/v1/agreements/{agreement_id}/respond" body: "*" };
+  }
+  rpc List    (ListAgreementsRequest)   returns (ListAgreementsResponse) {
+  }
+  rpc Cancel  (CancelAgreementRequest)  returns (CancelAgreementResponse) {
+    option (google.api.http) = { delete: "/v1/agreements/{agreement_id}" };
   }
 }
 
-message TickCompletedEvent        { string city_id = 1; }
-message ResourceProducedEvent     { string building_id = 1; string player_id = 2; string resource_type = 3; double quantity = 4; float quality = 5; }
-message TradeCompletedEvent       { string buyer_building_id = 1; string seller_building_id = 2; string resource_type = 3; double quantity = 4; int64  total_price = 5; }
-message MarketPriceChangedEvent   { string city_id = 1; string resource_type = 2; int64  old_median_price = 3; int64  new_median_price = 4; }
-message BuildingConstructedEvent  { string building_id = 1; string player_id = 2; string building_type = 3; }
-message ElectionAnnouncedEvent    { string election_id = 1; string city_id = 2; int64 voting_start_tick = 3; }
-message ElectionConcludedEvent    { string election_id = 1; string city_id = 2; string winner_player_id = 3; }
-message TradeAgreementChangedEvent{ string agreement_id = 1; string creator_player_id = 2; string buyer_player_id = 3; string new_status = 4; }
-message BrandValueChangedEvent    { string brand_id = 1; string player_id = 2; string resource_category = 3; float old_weight = 4; float new_weight = 5; }
-message TaxesCollectedEvent       { string city_id = 1; int64  total_collected = 2; }
-message TileChangedEvent          { string city_id = 1; string tile_id = 2; int32 grid_x = 3; int32 grid_y = 4; string owner_player_id = 5; string owner_name = 6; bool is_for_sale = 7; int64  purchase_price = 8; string building_id = 9; string building_name = 10; string building_type = 11; string building_status = 12; }
-
-// ─────────────────────────────────────────
-// PlayerService
-// ─────────────────────────────────────────
-
-service PlayerService {
-  rpc Register   (RegisterRequest)      returns (RegisterResponse);
-  rpc GetProfile (GetProfileRequest)    returns (PlayerProfile);
-  rpc GetInventory(GetInventoryRequest) returns (InventoryResponse);
+enum AgreementResponse {
+  AGREEMENT_RESPONSE_UNSPECIFIED = 0;
+  AGREEMENT_RESPONSE_ACCEPT      = 1;
+  AGREEMENT_RESPONSE_REJECT      = 2;
 }
 
-message RegisterRequest  { string username = 1; }
-message RegisterResponse { string player_id = 1; string api_key = 2; }
-
-message GetProfileRequest {}
-
-message PlayerProfile {
-  string player_id         = 1;
-  string username          = 2;
-  int64  balance           = 3;
-  float  public_perception = 4;
-  string city_id           = 5;
-  int64  joined_at_tick    = 6;
-}
-
-message GetInventoryRequest { string building_id = 1; }
-message InventoryResponse   { repeated InventoryItem items = 1; }
-
-message InventoryItem {
-  string building_id   = 1;
-  string building_name = 2;
-  string resource_type = 3;
-  double quantity      = 4;
-  float  quality       = 5;
-  string brand_id      = 6;
-}
-
-// ─────────────────────────────────────────
-// BuildingService
-// ─────────────────────────────────────────
-
-service BuildingService {
-  rpc Construct     (ConstructRequest)     returns (ConstructResponse);
-  rpc Configure     (ConfigureRequest)     returns (ConfigureResponse);
-  rpc GetStatus     (GetBuildingRequest)   returns (BuildingStatus);
-  rpc ListBuildings (ListBuildingsRequest) returns (ListBuildingsResponse);
-  rpc ListRecipes   (ListRecipesRequest)   returns (ListRecipesResponse);
-  rpc GetSupplyLinks (GetSupplyLinksRequest) returns (GetSupplyLinksResponse);
-  rpc AddSupplyLink (AddSupplyLinkRequest) returns (AddSupplyLinkResponse);
-  rpc RemoveSupplyLink (RemoveSupplyLinkRequest) returns (RemoveSupplyLinkResponse);
-  rpc ListPotentialSuppliers (ListPotentialSuppliersRequest) returns (ListPotentialSuppliersResponse);
-  rpc GetAutoSellConfigs (GetAutoSellConfigsRequest) returns (GetAutoSellConfigsResponse);
-  rpc SetAutoSellConfig  (SetAutoSellConfigRequest)  returns (SetAutoSellConfigResponse);
-  rpc GetBuildingSales   (GetBuildingSalesRequest)   returns (GetBuildingSalesResponse);
-}
-
-message ConstructRequest  { string city_id = 1; string building_type = 2; string name = 3; string tile_id = 4; }
-message ConstructResponse { string building_id = 1; int32 construction_ticks_remaining = 2; }
-
-message ConfigureRequest  { string building_id = 1; string recipe_id = 2; int32 workers_assigned = 3; }
-message ConfigureResponse { bool success = 1; }
-
-message GetBuildingRequest  { string building_id = 1; }
-message ListBuildingsRequest {}
-message ListBuildingsResponse { repeated BuildingStatus buildings = 1; }
-
-message BuildingStatus {
-  string building_id    = 1;
-  string name           = 2;
-  string building_type  = 3;
-  string status         = 4;
-  string active_recipe  = 5;
-  int32  workers        = 6;
-  int32  level          = 7;
-  int32  ticks_to_ready = 8;
-  string tile_id        = 9;
-  int32  tile_grid_x    = 10;
-  int32  tile_grid_y    = 11;
-}
-
-message ListRecipesRequest  { string building_type = 1; }
-message ListRecipesResponse { repeated RecipeInfo recipes = 1; }
-
-message RecipeInfo {
-  string recipe_id      = 1;
-  string name           = 2;
-  string building_type  = 3;
-  string output_type    = 4;
-  double output_min     = 5;
-  double output_max     = 6;
-  int32  ticks_required = 7;
-  repeated IngredientInfo ingredients = 8;
-}
-
-message IngredientInfo { string resource_type = 1; double quantity = 2; }
-
-message SupplyLinkInfo {
-  string supply_link_id = 1;
-  string consumer_building_id = 2;
-  string resource_type = 3;
-  string supplier_building_id = 4;
-  string supplier_building_name = 5;
-  int32 supplier_tile_x = 6;
-  int32 supplier_tile_y = 7;
-  int32 priority = 8;
-  int64 supplier_current_price = 9;
-}
-
-message GetSupplyLinksRequest  { string building_id = 1; }
-message GetSupplyLinksResponse { repeated SupplyLinkInfo links = 1; }
-
-message AddSupplyLinkRequest {
-  string consumer_building_id = 1;
-  string resource_type = 2;
-  string supplier_building_id = 3;
-}
-message AddSupplyLinkResponse  { string supply_link_id = 1; }
-
-message RemoveSupplyLinkRequest  { string supply_link_id = 1; }
-message RemoveSupplyLinkResponse { bool success = 1; }
-
-message PotentialSupplier {
-  string building_id = 1;
-  string building_name = 2;
-  int32 tile_x = 3;
-  int32 tile_y = 4;
-  string owner_name = 5;
-  int64  price_per_unit = 6;
-  double quantity_available = 7;
-}
-
-message ListPotentialSuppliersRequest {
-  string city_id = 1;
-  string resource_type = 2;
-}
-message ListPotentialSuppliersResponse { repeated PotentialSupplier suppliers = 1; }
-
-message GetAutoSellConfigsRequest  { string building_id = 1; }
-message GetAutoSellConfigsResponse { repeated AutoSellConfigInfo configs = 1; }
-message AutoSellConfigInfo {
-  string resource_type  = 1;
-  int64  price_per_unit = 2;
-  bool   is_enabled     = 3;
-}
-message SetAutoSellConfigRequest {
-  string building_id    = 1;
-  string resource_type  = 2;
-  int64  price_per_unit = 3;
-  bool   is_enabled     = 4;
-}
-message SetAutoSellConfigResponse { bool success = 1; }
-
-message GetBuildingSalesRequest {
-  string building_id   = 1;
-  int32  history_ticks = 2;
-}
-message SalesTick {
-  int64  tick          = 1;
-  string resource_type = 2;
-  double sale_volume   = 3;
-  int64  revenue_cents = 4;
-}
-message GetBuildingSalesResponse {
-  repeated SalesTick ticks = 1;
-}
-
-// ─────────────────────────────────────────
-// MarketService
-// ─────────────────────────────────────────
-
-service MarketService {
-  rpc ListOfferings  (ListOfferingsRequest)  returns (ListOfferingsResponse);
-  rpc CancelOffering (CancelOfferingRequest) returns (CancelOfferingResponse);
-  rpc Purchase       (PurchaseRequest)       returns (PurchaseResponse);
-  rpc GetMarketShare (GetMarketShareRequest) returns (GetMarketShareResponse);
-}
-
-message ListOfferingsRequest  { string city_id = 1; string resource_type = 2; }
-message ListOfferingsResponse { repeated Offering offerings = 1; }
-
-message Offering {
-  string offering_id    = 1;
-  string seller_name    = 2;
-  string resource_type  = 3;
-  int64  price_per_unit = 4;
-  double quantity       = 5;
-  float  quality        = 6;
-  string brand_name     = 7;
-  string visibility     = 8;
-}
-
-message CancelOfferingRequest  { string offering_id = 1; }
-message CancelOfferingResponse { bool success = 1; }
-
-message PurchaseRequest  { string buyer_building_id = 1; string offering_id = 2; double quantity = 3; }
-message PurchaseResponse { int64  total_paid = 1; float quality = 2; }
-
-message GetMarketShareRequest  { string city_id = 1; string resource_type = 2; int32 history_ticks = 3; }
-message MarketShareDataPoint   { string player_id = 1; string player_name = 2; string resource_type = 3; double sale_volume = 4; float share_percent = 5; int64 tick = 6; }
-message GetMarketShareResponse { repeated MarketShareDataPoint data = 1; }
-
-// ─────────────────────────────────────────
-// TradeAgreementService
-// ─────────────────────────────────────────
-
-service TradeAgreementService {
-  rpc Create  (CreateAgreementRequest)  returns (CreateAgreementResponse);
-  rpc Respond (RespondAgreementRequest) returns (RespondAgreementResponse);
-  rpc List    (ListAgreementsRequest)   returns (ListAgreementsResponse);
-  rpc Cancel  (CancelAgreementRequest)  returns (CancelAgreementResponse);
+enum AgreementRole {
+  AGREEMENT_ROLE_UNSPECIFIED = 0;
+  AGREEMENT_ROLE_CREATOR     = 1; // filter: only agreements you created
+  AGREEMENT_ROLE_BUYER       = 2; // filter: only agreements you are a buyer of
 }
 
 message CreateAgreementRequest {
-  string buyer_player_id         = 1;
-  string resource_type           = 2;
-  float  discount_rate           = 3;
-  bool   require_non_competition = 4;
-  bool   require_msrp            = 5;
-  int64  msrp_price              = 6;
-  bool   disallow_white_labeling = 7;
-  int64  expires_at_tick         = 8;
+  string          buyer_player_id         = 1;
+  ResourceType    resource_type           = 2;
+  float           discount_rate           = 3;
+  bool            require_non_competition = 4;
+  bool            require_msrp            = 5;
+  int64           msrp_price              = 6;
+  bool            disallow_white_labeling = 7;
+  int64           expires_at_tick         = 8; // 0 = no expiry
 }
-message CreateAgreementResponse { string agreement_id = 1; }
 
-message RespondAgreementRequest  { string agreement_id = 1; string response = 2; }
-message RespondAgreementResponse { bool success = 1; }
+message CreateAgreementResponse {
+  string agreement_id = 1;
+}
 
-message ListAgreementsRequest  { string role = 1; }
-message ListAgreementsResponse { repeated AgreementSummary agreements = 1; }
+message RespondAgreementRequest {
+  string            agreement_id = 1;
+  AgreementResponse response     = 2;
+}
+
+message RespondAgreementResponse {
+  bool success = 1;
+}
 
 message AgreementSummary {
-  string agreement_id            = 1;
-  string creator_player_id       = 2;
-  string buyer_player_id         = 3;
-  string resource_type           = 4;
-  float  discount_rate           = 5;
-  string status                  = 6;
-  bool   require_non_competition = 7;
-  bool   require_msrp            = 8;
-  int64  msrp_price              = 9;
-  bool   disallow_white_labeling = 10;
-  int64  expires_at_tick         = 11;
+  string          agreement_id            = 1;
+  string          creator_player_id       = 2;
+  string          buyer_player_id         = 3;
+  ResourceType    resource_type           = 4;
+  float           discount_rate           = 5;
+  AgreementStatus status                  = 6;
+  bool            require_non_competition = 7;
+  bool            require_msrp            = 8;
+  int64           msrp_price              = 9;
+  bool            disallow_white_labeling = 10;
+  int64           expires_at_tick         = 11;
 }
 
-message CancelAgreementRequest  { string agreement_id = 1; }
-message CancelAgreementResponse { bool success = 1; }
-
-// ─────────────────────────────────────────
-// ResearchService
-// ─────────────────────────────────────────
-
-service ResearchService {
-  rpc StartResearch (StartResearchRequest) returns (StartResearchResponse);
-  rpc GetProgress   (GetResearchRequest)   returns (ResearchProgress);
-  rpc ListResearch  (ListResearchRequest)  returns (ListResearchResponse);
-  rpc PauseResearch (PauseResearchRequest) returns (PauseResearchResponse);
+message ListAgreementsRequest {
+  AgreementRole role = 1; // 0 = both creator and buyer
 }
 
-message StartResearchRequest  { string resource_type = 1; int32 workers_assigned = 2; int64  budget_per_tick = 3; }
-message StartResearchResponse { string project_id = 1; }
-
-message GetResearchRequest    { string resource_type = 1; }
-
-message ResearchProgress {
-  string resource_type   = 1;
-  int32  level           = 2;
-  float  progress        = 3;
-  bool   is_active       = 4;
-  int64  budget_per_tick = 5;
-  int32  workers         = 6;
-  string project_id      = 7;
+message ListAgreementsResponse {
+  repeated AgreementSummary agreements = 1;
 }
 
-message ListResearchRequest  {}
-message ListResearchResponse { repeated ResearchProgress projects = 1; }
-
-message PauseResearchRequest  { string project_id = 1; bool pause = 2; }
-message PauseResearchResponse { bool success = 1; }
-
-// ─────────────────────────────────────────
-// MarketingService
-// ─────────────────────────────────────────
-
-service MarketingService {
-  rpc CreateBrand    (CreateBrandRequest)    returns (CreateBrandResponse);
-  rpc CreateCampaign (CreateCampaignRequest) returns (CreateCampaignResponse);
-  rpc PauseCampaign  (PauseCampaignRequest)  returns (PauseCampaignResponse);
-  rpc GetBrandValue  (GetBrandValueRequest)  returns (BrandValueResponse);
-  rpc ListBrands     (ListBrandsRequest)     returns (ListBrandsResponse);
+message CancelAgreementRequest {
+  string agreement_id = 1;
 }
 
-message CreateBrandRequest  { string name = 1; string resource_type = 2; }
-message CreateBrandResponse { string brand_id = 1; }
-
-message CreateCampaignRequest  { string brand_id = 1; string campaign_name = 2; int64  budget_per_tick = 3; int32 workers_allocated = 4; }
-message CreateCampaignResponse { string campaign_id = 1; }
-
-message PauseCampaignRequest  { string campaign_id = 1; bool pause = 2; }
-message PauseCampaignResponse { bool success = 1; }
-
-message GetBrandValueRequest { string brand_id = 1; }
-message BrandValueResponse {
-  string brand_id          = 1;
-  string brand_name        = 2;
-  string resource_category = 3;
-  float  brand_weight      = 4;
-  float  market_share      = 5;
+message CancelAgreementResponse {
+  bool success = 1;
 }
 
-message ListBrandsRequest  {}
-message ListBrandsResponse { repeated BrandSummary brands = 1; }
 
-message BrandSummary {
-  string brand_id     = 1;
-  string name         = 2;
-  string resource     = 3;
-  float  brand_weight = 4;
-  float  market_share = 5;
-}
-
-// ─────────────────────────────────────────
-// PoliticsService
-// ─────────────────────────────────────────
-
-service PoliticsService {
-  rpc GetGovernment  (GetGovernmentRequest)  returns (GovernmentInfo);
-  rpc GetElection    (GetElectionRequest)    returns (ElectionInfo);
-  rpc RunForElection (RunForElectionRequest) returns (RunForElectionResponse);
-  rpc EnactPolicy    (EnactPolicyRequest)    returns (EnactPolicyResponse);
-}
-
-message GetGovernmentRequest { string city_id = 1; }
-message GovernmentInfo {
-  string ruling_player_id   = 1;
-  string ruling_player_name = 2;
-  float  consumer_tax_rate  = 3;
-  float  profit_tax_rate    = 4;
-  float  land_tax_rate      = 5;
-  float  employee_tax_rate  = 6;
-  float  approval_city      = 7;
-  float  approval_people    = 8;
-  float  approval_business  = 9;
-  int64  term_start_tick    = 10;
-  int64  term_end_tick      = 11;
-}
-
-message GetElectionRequest { string city_id = 1; }
-message ElectionInfo {
-  string election_id      = 1;
-  string status           = 2;
-  int64  voting_start     = 3;
-  int64  voting_end       = 4;
-  string winner_player_id = 5;
-  repeated CandidateInfo candidates = 6;
-}
-
-message CandidateInfo {
-  string player_id   = 1;
-  string player_name = 2;
-  float  perception  = 3;
-  int32  votes       = 4;
-}
-
-message RunForElectionRequest  { string election_id = 1; }
-message RunForElectionResponse { bool success = 1; string message = 2; }
-
-message EnactPolicyRequest {
-  string city_id           = 1;
-  float  consumer_tax_rate = 2;
-  float  profit_tax_rate   = 3;
-  float  land_tax_rate     = 4;
-  float  employee_tax_rate = 5;
-}
-message EnactPolicyResponse { bool success = 1; string message = 2; }
-
-// ─────────────────────────────────────────
-// BankService
-// ─────────────────────────────────────────
-
+// ─────────────────────────────────────────────────────────────────────────
+// bank.proto
+// ─────────────────────────────────────────────────────────────────────────
 service BankService {
   rpc GetLoan       (GetLoanRequest)       returns (GetLoanResponse);
   rpc BorrowCapital (BorrowCapitalRequest) returns (BorrowCapitalResponse);
@@ -441,27 +166,228 @@ service BankService {
 
 message GetLoanRequest       { string city_id = 1; }
 message GetLoanResponse      {
-  int64  balance           = 1;
-  double interest_rate     = 2;
-  int64  interest_per_tick = 3;
-  int64  max_borrow        = 4;
-  int64  player_balance    = 5;
+  int64  balance             = 1;
+  double interest_rate       = 2;  // per tick
+  int64  interest_per_tick   = 3;  // current interest charge per tick (cents)
+  int64  max_borrow          = 4;  // maximum additional borrowing allowed (cents)
+  int64  player_balance      = 5;  // player's current cash balance (cents)
 }
 
-message BorrowCapitalRequest  { string city_id = 1; int64  amount = 2; }
-message BorrowCapitalResponse { int64  new_loan_balance = 1; int64  player_balance = 2; string message = 3; }
+message BorrowCapitalRequest  { string city_id = 1; int64 amount = 2; }
+message BorrowCapitalResponse { int64 new_loan_balance = 1; int64 player_balance = 2; string message = 3; }
 
-message RepayDebtRequest      { string city_id = 1; int64  amount = 2; }
-message RepayDebtResponse     { int64  new_loan_balance = 1; int64  player_balance = 2; string message = 3; }
+message RepayDebtRequest      { string city_id = 1; int64 amount = 2; }
+message RepayDebtResponse     { int64 new_loan_balance = 1; int64 player_balance = 2; string message = 3; }
 
-// ─────────────────────────────────────────
-// CityService
-// ─────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────
+// building.proto
+// ─────────────────────────────────────────────────────────────────────────
+service BuildingService {
+  // Construct a new building on the given tile in the city.
+  rpc Construct              (ConstructRequest)              returns (ConstructResponse) {
+  }
+  // Configure a building's recipe and worker count.
+  rpc Configure              (ConfigureRequest)              returns (ConfigureResponse) {
+    option (google.api.http) = { put: "/v1/buildings/{building_id}/configure" body: "*" };
+  }
+  // Get full status of a single building.
+  rpc GetStatus              (GetBuildingRequest)            returns (BuildingInfo) {
+    option (google.api.http) = { get: "/v1/buildings/{building_id}" };
+  }
+  // List all buildings owned by the authenticated player.
+  rpc ListBuildings          (ListBuildingsRequest)          returns (ListBuildingsResponse) {
+  }
+  // List all production recipes, optionally filtered by building type.
+  rpc ListRecipes            (ListRecipesRequest)            returns (ListRecipesResponse) {
+  }
+  // Get all active supply links for a building (what it buys from and who).
+  rpc GetSupplyLinks         (GetSupplyLinksRequest)         returns (GetSupplyLinksResponse) {
+    option (google.api.http) = { get: "/v1/buildings/{building_id}/supply-links" };
+  }
+  // Add a supply link: building will auto-buy resource_type from supplier_building_id each tick.
+  rpc AddSupplyLink          (AddSupplyLinkRequest)          returns (AddSupplyLinkResponse) {
+    option (google.api.http) = { post: "/v1/buildings/{consumer_building_id}/supply-links" body: "*" };
+  }
+  // Remove a supply link by ID.
+  rpc RemoveSupplyLink       (RemoveSupplyLinkRequest)       returns (RemoveSupplyLinkResponse) {
+    option (google.api.http) = { delete: "/v1/supply-links/{supply_link_id}" };
+  }
+  // List buildings in the city that sell a given resource type (for supply link creation).
+  // Stores are excluded — they sell to citizens only.
+  rpc ListPotentialSuppliers (ListPotentialSuppliersRequest) returns (ListPotentialSuppliersResponse) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/potential-suppliers" };
+  }
+  // Get auto-sell price configs for all resource types a building produces.
+  rpc GetAutoSellConfigs     (GetAutoSellConfigsRequest)     returns (GetAutoSellConfigsResponse) {
+    option (google.api.http) = { get: "/v1/buildings/{building_id}/auto-sell" };
+  }
+  // Set the auto-sell price and enabled state for a resource type on a building.
+  rpc SetAutoSellConfig      (SetAutoSellConfigRequest)      returns (SetAutoSellConfigResponse) {
+    option (google.api.http) = { put: "/v1/buildings/{building_id}/auto-sell" body: "*" };
+  }
+  // Get historical per-tick sales data for a store building.
+  rpc GetBuildingSales       (GetBuildingSalesRequest)       returns (GetBuildingSalesResponse) {
+    option (google.api.http) = { get: "/v1/buildings/{building_id}/sales" };
+  }
+}
+
+message ConstructRequest {
+  string       city_id       = 1;
+  BuildingType building_type = 2;
+  string       name          = 3;
+  string       tile_id       = 4; // tile the building will be placed on
+}
+
+message ConstructResponse {
+  string building_id                   = 1;
+  int32  construction_ticks_remaining  = 2;
+}
+
+message ConfigureRequest {
+  string building_id       = 1;
+  string recipe_id         = 2;
+  int32  workers_assigned  = 3;
+}
+
+message ConfigureResponse {
+  bool success = 1;
+}
+
+message GetBuildingRequest {
+  string building_id = 1;
+}
+
+// Full building detail (returned by GetStatus and listed in ListBuildings).
+message BuildingInfo {
+  string         building_id                  = 1;
+  string         name                         = 2;
+  BuildingType   building_type                = 3;
+  BuildingStatus status                       = 4;
+  string         active_recipe                = 5;
+  int32          workers                      = 6;
+  int32          level                        = 7;
+  int32          ticks_to_ready               = 8;
+  string         tile_id                      = 9;  // empty = not placed on a tile
+  int32          tile_grid_x                  = 10;
+  int32          tile_grid_y                  = 11;
+  int32          construction_ticks_remaining = 12; // > 0 only when status = UNDER_CONSTRUCTION
+  ResourceType   output_type                  = 13; // resource this building currently produces (unspecified if no recipe set)
+}
+
+message ListBuildingsRequest {}
+
+message ListBuildingsResponse {
+  repeated BuildingInfo buildings = 1;
+}
+
+message RecipeInfo {
+  string       recipe_id      = 1;
+  string       name           = 2;
+  BuildingType building_type  = 3;
+  ResourceType output_type    = 4;
+  double       output_min     = 5;
+  double       output_max     = 6;
+  int32        ticks_required = 7;
+  repeated IngredientInfo ingredients = 8;
+}
+
+message IngredientInfo {
+  ResourceType resource_type = 1;
+  double       quantity      = 2;
+}
+
+message ListRecipesRequest {
+  BuildingType building_type = 1; // optional filter; 0 = no filter
+}
+
+message ListRecipesResponse {
+  repeated RecipeInfo recipes = 1;
+}
+
+message SupplyLinkInfo {
+  string       supply_link_id         = 1;
+  string       consumer_building_id   = 2;
+  ResourceType resource_type          = 3;
+  string       supplier_building_id   = 4;
+  string       supplier_building_name = 5;
+  int32        supplier_tile_x        = 6;
+  int32        supplier_tile_y        = 7;
+  int32        priority               = 8;
+  int64        supplier_current_price = 9;
+}
+
+message GetSupplyLinksRequest  { string building_id = 1; }
+message GetSupplyLinksResponse { repeated SupplyLinkInfo links = 1; }
+
+message AddSupplyLinkRequest {
+  string       consumer_building_id = 1;
+  ResourceType resource_type        = 2;
+  string       supplier_building_id = 3;
+}
+message AddSupplyLinkResponse  { string supply_link_id = 1; }
+
+message RemoveSupplyLinkRequest  { string supply_link_id = 1; }
+message RemoveSupplyLinkResponse { bool success = 1; }
+
+message PotentialSupplier {
+  string building_id        = 1;
+  string building_name      = 2;
+  int32  tile_x             = 3;
+  int32  tile_y             = 4;
+  string owner_name         = 5;
+  int64  price_per_unit     = 6;
+  double quantity_available = 7;
+}
+
+message ListPotentialSuppliersRequest {
+  string       city_id       = 1;
+  ResourceType resource_type = 2;
+}
+message ListPotentialSuppliersResponse { repeated PotentialSupplier suppliers = 1; }
+
+message GetAutoSellConfigsRequest  { string building_id = 1; }
+message GetAutoSellConfigsResponse { repeated AutoSellConfigInfo configs = 1; }
+message AutoSellConfigInfo {
+  ResourceType resource_type  = 1;
+  int64        price_per_unit = 2;
+  bool         is_enabled     = 3;
+}
+message SetAutoSellConfigRequest {
+  string       building_id    = 1;
+  ResourceType resource_type  = 2;
+  int64        price_per_unit = 3;
+  bool         is_enabled     = 4;
+}
+message SetAutoSellConfigResponse { bool success = 1; }
+
+message GetBuildingSalesRequest {
+  string building_id   = 1;
+  int32  history_ticks = 2; // how many past ticks to return (default 20)
+}
+message SalesTick {
+  int64        tick          = 1;
+  ResourceType resource_type = 2;
+  double       sale_volume   = 3;
+  int64        revenue_cents = 4;
+}
+message GetBuildingSalesResponse {
+  repeated SalesTick ticks = 1;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// city.proto
+// ─────────────────────────────────────────────────────────────────────────
 service CityService {
-  rpc ListCities        (ListCitiesRequest)        returns (ListCitiesResponse);
-  rpc GetCityStats      (GetCityStatsRequest)       returns (CityStats);
-  rpc ListCityBuildings (ListCityBuildingsRequest)  returns (ListCityBuildingsResponse);
+  rpc ListCities        (ListCitiesRequest)       returns (ListCitiesResponse) {
+  }
+  rpc GetCityStats      (GetCityStatsRequest)     returns (CityStats) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}" };
+  }
+  rpc ListCityBuildings (ListCityBuildingsRequest) returns (ListCityBuildingsResponse) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/buildings" };
+  }
 }
 
 message ListCitiesRequest {}
@@ -491,27 +417,496 @@ message CityStats {
 message ListCityBuildingsRequest { string city_id = 1; }
 
 message CityBuildingInfo {
-  string building_id   = 1;
-  string name          = 2;
-  string owner_name    = 3;
-  string building_type = 4;
-  string status        = 5;
-  int32  level         = 6;
-  bool   is_government = 7;
+  string         building_id   = 1;
+  string         name          = 2;
+  string         owner_name    = 3;
+  BuildingType   building_type = 4;
+  BuildingStatus status        = 5;
+  int32          level         = 6;
+  bool           is_government = 7;
 }
 
 message ListCityBuildingsResponse { repeated CityBuildingInfo buildings = 1; }
 
-// ─────────────────────────────────────────
-// TileService
-// ─────────────────────────────────────────
 
-service TileService {
-  rpc ListTiles    (ListTilesRequest)    returns (ListTilesResponse);
-  rpc GetTile      (GetTileRequest)      returns (TileInfo);
-  rpc PurchaseTile (PurchaseTileRequest) returns (PurchaseTileResponse);
+// ─────────────────────────────────────────────────────────────────────────
+// events.proto
+// ─────────────────────────────────────────────────────────────────────────
+// ── Subscribe to game events ──────────────────────────────────────────────────
+
+service GameEventService {
+  // Open a streaming subscription to all game events in the player's city.
+  rpc Subscribe (SubscribeRequest) returns (stream GameEvent);
 }
 
+message SubscribeRequest {
+  string city_id = 1;
+}
+
+// ── Envelope ──────────────────────────────────────────────────────────────────
+
+message GameEvent {
+  string event_id   = 1;
+  int64  tick       = 2;
+  Timestamp occurred_at = 3;
+
+  oneof payload {
+    TickCompletedEvent         tick_completed          = 10;
+    ResourceProducedEvent      resource_produced       = 11;
+    TradeCompletedEvent        trade_completed         = 12;
+    MarketPriceChangedEvent    market_price_changed    = 13;
+    BuildingConstructedEvent   building_constructed    = 14;
+    ElectionAnnouncedEvent     election_announced      = 15;
+    ElectionConcludedEvent     election_concluded      = 16;
+    TradeAgreementChangedEvent agreement_changed       = 17;
+    BrandValueChangedEvent     brand_value_changed     = 18;
+    TaxesCollectedEvent        taxes_collected         = 19;
+    TileChangedEvent           tile_changed            = 20;
+  }
+}
+
+// ── Event payloads ────────────────────────────────────────────────────────────
+
+message TickCompletedEvent {
+  string city_id = 1;
+}
+
+message ResourceProducedEvent {
+  string       building_id   = 1;
+  string       player_id     = 2;
+  ResourceType resource_type = 3;
+  double       quantity      = 4;
+  float        quality       = 5;
+}
+
+message TradeCompletedEvent {
+  string       buyer_building_id  = 1;
+  string       seller_building_id = 2;
+  ResourceType resource_type      = 3;
+  double       quantity           = 4;
+  int64        total_price        = 5;
+}
+
+message MarketPriceChangedEvent {
+  string       city_id          = 1;
+  ResourceType resource_type    = 2;
+  int64        old_median_price = 3;
+  int64        new_median_price = 4;
+}
+
+message BuildingConstructedEvent {
+  string       building_id   = 1;
+  string       player_id     = 2;
+  BuildingType building_type = 3;
+}
+
+message ElectionAnnouncedEvent {
+  string election_id       = 1;
+  string city_id           = 2;
+  int64  voting_start_tick = 3;
+}
+
+message ElectionConcludedEvent {
+  string election_id       = 1;
+  string city_id           = 2;
+  string winner_player_id  = 3; // empty = AI retains control
+}
+
+message TradeAgreementChangedEvent {
+  string          agreement_id      = 1;
+  string          creator_player_id = 2;
+  string          buyer_player_id   = 3;
+  AgreementStatus new_status        = 4;
+}
+
+message BrandValueChangedEvent {
+  string brand_id          = 1;
+  string player_id         = 2;
+  string resource_category = 3;
+  float  old_weight        = 4;
+  float  new_weight        = 5;
+}
+
+message TaxesCollectedEvent {
+  string city_id         = 1;
+  int64  total_collected = 2;
+}
+
+message TileChangedEvent {
+  string         city_id         = 1;
+  string         tile_id         = 2;
+  int32          grid_x          = 3;
+  int32          grid_y          = 4;
+  string         owner_player_id = 5;
+  string         owner_name      = 6;
+  bool           is_for_sale     = 7;
+  int64          purchase_price  = 8;
+  string         building_id     = 9;
+  string         building_name   = 10;
+  BuildingType   building_type   = 11;
+  BuildingStatus building_status = 12;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// market.proto
+// ─────────────────────────────────────────────────────────────────────────
+service MarketService {
+  rpc ListOfferings  (ListOfferingsRequest)  returns (ListOfferingsResponse) {
+  }
+  rpc CancelOffering (CancelOfferingRequest) returns (CancelOfferingResponse) {
+    option (google.api.http) = { delete: "/v1/market/offerings/{offering_id}" };
+  }
+  rpc Purchase       (PurchaseRequest)       returns (PurchaseResponse) {
+    option (google.api.http) = { post: "/v1/market/offerings/{offering_id}/purchase" body: "*" };
+  }
+  rpc GetMarketShare (GetMarketShareRequest) returns (GetMarketShareResponse) {
+  }
+}
+
+enum OfferingVisibility {
+  OFFERING_VISIBILITY_UNSPECIFIED    = 0;
+  OFFERING_VISIBILITY_PUBLIC         = 1; // visible to all buyers
+  OFFERING_VISIBILITY_PRIVATE        = 2; // not listed on open market
+  OFFERING_VISIBILITY_AGREEMENT_ONLY = 3; // only available via trade agreement
+}
+
+message ListOfferingsRequest {
+  string       city_id       = 1;
+  ResourceType resource_type = 2; // optional filter; 0 = no filter
+}
+
+message Offering {
+  string             offering_id    = 1;
+  string             seller_name    = 2;
+  ResourceType       resource_type  = 3;
+  int64              price_per_unit = 4;
+  double             quantity       = 5;
+  float              quality        = 6;
+  string             brand_name     = 7; // empty = white-label
+  OfferingVisibility visibility     = 8;
+}
+
+message ListOfferingsResponse {
+  repeated Offering offerings = 1;
+}
+
+message CancelOfferingRequest {
+  string offering_id = 1;
+}
+
+message CancelOfferingResponse {
+  bool success = 1;
+}
+
+message PurchaseRequest {
+  string buyer_building_id = 1;
+  string offering_id       = 2;
+  double quantity          = 3;
+}
+
+message PurchaseResponse {
+  int64 total_paid = 1;
+  float quality    = 2;
+}
+
+message GetMarketShareRequest {
+  string       city_id       = 1;
+  ResourceType resource_type = 2; // optional — 0 returns all resource types
+  int32        history_ticks = 3; // how many ticks of history (default 20)
+}
+
+message MarketShareDataPoint {
+  string       player_id     = 1;
+  string       player_name   = 2;
+  ResourceType resource_type = 3;
+  double       sale_volume   = 4;
+  float        share_percent = 5;
+  int64        tick          = 6;
+}
+
+message GetMarketShareResponse {
+  repeated MarketShareDataPoint data = 1;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// marketing.proto
+// ─────────────────────────────────────────────────────────────────────────
+service MarketingService {
+  rpc CreateBrand    (CreateBrandRequest)    returns (CreateBrandResponse) {
+  }
+  rpc CreateCampaign (CreateCampaignRequest) returns (CreateCampaignResponse) {
+    option (google.api.http) = { post: "/v1/brands/{brand_id}/campaigns" body: "*" };
+  }
+  rpc PauseCampaign  (PauseCampaignRequest)  returns (PauseCampaignResponse) {
+    option (google.api.http) = { put: "/v1/brands/campaigns/{campaign_id}/pause" body: "*" };
+  }
+  rpc GetBrandValue  (GetBrandValueRequest)  returns (BrandValueResponse) {
+    option (google.api.http) = { get: "/v1/brands/{brand_id}" };
+  }
+  rpc ListBrands     (ListBrandsRequest)     returns (ListBrandsResponse) {
+  }
+}
+
+message CreateBrandRequest {
+  string       name          = 1;
+  ResourceType resource_type = 2;
+}
+
+message CreateBrandResponse {
+  string brand_id = 1;
+}
+
+message CreateCampaignRequest {
+  string brand_id          = 1;
+  string campaign_name     = 2;
+  int64  budget_per_tick   = 3;
+  int32  workers_allocated = 4;
+}
+
+message CreateCampaignResponse {
+  string campaign_id = 1;
+}
+
+message PauseCampaignRequest {
+  string campaign_id = 1;
+  bool   pause       = 2;
+}
+
+message PauseCampaignResponse {
+  bool success = 1;
+}
+
+message GetBrandValueRequest {
+  string brand_id = 1;
+}
+
+message BrandValueResponse {
+  string       brand_id          = 1;
+  string       brand_name        = 2;
+  ResourceType resource_category = 3;
+  float        brand_weight      = 4;
+  float        market_share      = 5; // 0–1 fraction of total brand weight in category
+}
+
+message BrandSummary {
+  string       brand_id    = 1;
+  string       name        = 2;
+  ResourceType resource    = 3;
+  float        brand_weight = 4;
+  float        market_share = 5;
+}
+
+message ListBrandsRequest {}
+
+message ListBrandsResponse {
+  repeated BrandSummary brands = 1;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// player.proto
+// ─────────────────────────────────────────────────────────────────────────
+service PlayerService {
+  rpc Register     (RegisterRequest)     returns (RegisterResponse) {
+  }
+  rpc GetProfile   (GetProfileRequest)   returns (PlayerProfile) {
+  }
+  rpc GetInventory (GetInventoryRequest) returns (InventoryResponse) {
+  }
+}
+
+message RegisterRequest {
+  string username = 1;
+}
+
+message RegisterResponse {
+  string player_id = 1;
+  string api_key   = 2; // raw key — shown once, store it!
+}
+
+message GetProfileRequest {
+  // player_id resolved from API key by interceptor
+}
+
+message PlayerProfile {
+  string player_id         = 1;
+  string username          = 2;
+  int64  balance           = 3;
+  float  public_perception = 4;
+  string city_id           = 5;
+  int64  joined_at_tick    = 6;
+}
+
+message GetInventoryRequest {
+  string building_id = 1; // optional; omit to get all buildings
+}
+
+message InventoryItem {
+  string       building_id   = 1;
+  string       building_name = 2;
+  ResourceType resource_type = 3;
+  double       quantity      = 4;
+  float        quality       = 5;
+  string       brand_id      = 6; // empty = unbranded
+}
+
+message InventoryResponse {
+  repeated InventoryItem items = 1;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// politics.proto
+// ─────────────────────────────────────────────────────────────────────────
+service PoliticsService {
+  rpc GetGovernment  (GetGovernmentRequest)  returns (GovernmentInfo) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/government" };
+  }
+  rpc GetElection    (GetElectionRequest)    returns (ElectionInfo) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/election" };
+  }
+  rpc RunForElection (RunForElectionRequest) returns (RunForElectionResponse) {
+    option (google.api.http) = { post: "/v1/elections/{election_id}/run" body: "*" };
+  }
+  rpc EnactPolicy    (EnactPolicyRequest)    returns (EnactPolicyResponse) {
+    option (google.api.http) = { put: "/v1/cities/{city_id}/policy" body: "*" };
+  }
+}
+
+message GetGovernmentRequest {
+  string city_id = 1;
+}
+
+message GovernmentInfo {
+  string ruling_player_id      = 1; // empty = AI
+  string ruling_player_name    = 2;
+  float  consumer_tax_rate     = 3;
+  float  profit_tax_rate       = 4;
+  float  land_tax_rate         = 5;
+  float  employee_tax_rate     = 6;
+  float  approval_city         = 7;
+  float  approval_people       = 8;
+  float  approval_business     = 9;
+  int64  term_start_tick       = 10;
+  int64  term_end_tick         = 11;
+}
+
+message GetElectionRequest {
+  string city_id = 1;
+}
+
+message CandidateInfo {
+  string player_id   = 1;
+  string player_name = 2;
+  float  perception  = 3;
+  int32  votes       = 4; // populated after voting ends
+}
+
+message ElectionInfo {
+  string         election_id      = 1;
+  ElectionStatus status           = 2;
+  int64          voting_start     = 3;
+  int64          voting_end       = 4;
+  string         winner_player_id = 5;
+  repeated CandidateInfo candidates = 6;
+}
+
+message RunForElectionRequest {
+  string election_id = 1;
+}
+
+message RunForElectionResponse {
+  bool   success = 1;
+  string message = 2;
+}
+
+message EnactPolicyRequest {
+  string city_id              = 1;
+  float  consumer_tax_rate    = 2; // -1 = don't change
+  float  profit_tax_rate      = 3;
+  float  land_tax_rate        = 4;
+  float  employee_tax_rate    = 5;
+}
+
+message EnactPolicyResponse {
+  bool   success = 1;
+  string message = 2;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// research.proto
+// ─────────────────────────────────────────────────────────────────────────
+service ResearchService {
+  rpc StartResearch (StartResearchRequest) returns (StartResearchResponse) {
+  }
+  rpc GetProgress   (GetResearchRequest)   returns (ResearchProgress) {
+    option (google.api.http) = { get: "/v1/research/{resource_type}" };
+  }
+  rpc ListResearch  (ListResearchRequest)  returns (ListResearchResponse) {
+  }
+  rpc PauseResearch (PauseResearchRequest) returns (PauseResearchResponse) {
+    option (google.api.http) = { put: "/v1/research/{project_id}/pause" body: "*" };
+  }
+}
+
+message StartResearchRequest {
+  ResourceType resource_type    = 1;
+  int32        workers_assigned = 2;
+  int64        budget_per_tick  = 3;
+}
+
+message StartResearchResponse {
+  string project_id = 1;
+}
+
+message GetResearchRequest {
+  ResourceType resource_type = 1;
+}
+
+message ResearchProgress {
+  ResourceType resource_type   = 1;
+  int32        level           = 2;
+  float        progress        = 3; // 0–1 fraction (divide entity 0–100 by 100 before sending)
+  bool         is_active       = 4;
+  int64        budget_per_tick = 5;
+  int32        workers         = 6;
+  string       project_id      = 7;
+}
+
+message ListResearchRequest {}
+
+message ListResearchResponse {
+  repeated ResearchProgress projects = 1;
+}
+
+message PauseResearchRequest {
+  string project_id = 1;
+  bool   pause      = 2; // true = pause, false = resume
+}
+
+message PauseResearchResponse {
+  bool success = 1;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// tile.proto
+// ─────────────────────────────────────────────────────────────────────────
+service TileService {
+  rpc ListTiles    (ListTilesRequest)    returns (ListTilesResponse) {
+  }
+  rpc GetTile      (GetTileRequest)      returns (TileInfo) {
+    option (google.api.http) = { get: "/v1/tiles/{tile_id}" };
+  }
+  rpc PurchaseTile (PurchaseTileRequest) returns (PurchaseTileResponse) {
+    option (google.api.http) = { post: "/v1/tiles/{tile_id}/purchase" body: "*" };
+  }
+}
+
+// Viewport query — returns tiles whose GridX/Y is within the given bounds
 message ListTilesRequest {
   string city_id = 1;
   int32  min_x   = 2;
@@ -521,23 +916,24 @@ message ListTilesRequest {
 }
 
 message TileInfo {
-  string tile_id                  = 1;
-  string city_id                  = 2;
-  int32  grid_x                   = 3;
-  int32  grid_y                   = 4;
-  string owner_player_id          = 5;
-  string owner_name               = 6;
-  bool   is_reserved_for_citizens = 7;
-  bool   is_for_sale              = 8;
-  int64  purchase_price           = 9;
-  string building_id              = 10;
-  string building_name            = 11;
-  string building_type            = 12;
-  string building_status          = 13;
+  string         tile_id                  = 1;
+  string         city_id                  = 2;
+  int32          grid_x                   = 3;
+  int32          grid_y                   = 4;
+  string         owner_player_id          = 5;  // empty = government
+  string         owner_name               = 6;
+  bool           is_reserved_for_citizens = 7;
+  bool           is_for_sale              = 8;
+  int64          purchase_price           = 9;
+  string         building_id              = 10; // empty = no building
+  string         building_name            = 11;
+  BuildingType   building_type            = 12;
+  BuildingStatus building_status          = 13;
 }
 
 message ListTilesResponse {
   repeated TileInfo tiles  = 1;
+  // City tile metadata so the client can compute lat/lon from grid coords
   double tile_origin_lat   = 2;
   double tile_origin_lon   = 3;
   int32  tile_grid_cols    = 4;
@@ -545,7 +941,8 @@ message ListTilesResponse {
   int32  tile_size_meters  = 6;
 }
 
-message GetTileRequest       { string tile_id = 1; }
+message GetTileRequest    { string tile_id = 1; }
+
 message PurchaseTileRequest  { string tile_id = 1; }
-message PurchaseTileResponse { string tile_id = 1; int64  new_balance = 2; }
+message PurchaseTileResponse { string tile_id = 1; int64 new_balance = 2; }
 
