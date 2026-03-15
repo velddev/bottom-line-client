@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MessageSquare, Send, X, ChevronDown } from 'lucide-react';
-import { getChatMessages, sendChatMessage, subscribeToEvents } from '../api';
+import { MessageSquare, Send, X, ChevronDown, ArrowLeft, Users } from 'lucide-react';
+import { getChatMessages, sendChatMessage, listDmConversations, subscribeToEvents } from '../api';
 import { useAuth } from '../auth';
-import type { ChatMessage, ChatMessageEvent } from '../types';
+import type { ChatMessage, ChatMessageEvent, DmConversation } from '../types';
 
 function Bubble({ msg, myId }: { msg: ChatMessage; myId: string }) {
   const isMe = msg.from_player_id === myId;
@@ -21,121 +21,219 @@ function Bubble({ msg, myId }: { msg: ChatMessage; myId: string }) {
   );
 }
 
+type Tab = 'city' | 'dm';
+
 export default function ChatOverlay() {
   const { auth } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [tab, setTab] = useState<Tab>('city');
+  const [dmThread, setDmThread] = useState<{ id: string; name: string } | null>(null);
   const [input, setInput] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
-  const prevCountRef = useRef(0);
+  const prevCityCountRef = useRef(0);
+  const prevDmCountRef = useRef(0);
 
-  const { data } = useQuery({
+  // ── City chat ──────────────────────────────────────────────────────────────
+  const { data: cityData } = useQuery({
     queryKey: ['chat', 'city', auth?.city_id],
     queryFn: () => getChatMessages(auth!.city_id, '', 40),
     enabled: !!auth?.city_id,
     refetchInterval: 15_000,
   });
+  const cityMessages: ChatMessage[] = cityData?.messages ?? [];
 
-  const messages = data?.messages ?? [];
+  // ── DM conversations list ──────────────────────────────────────────────────
+  const { data: convData } = useQuery({
+    queryKey: ['chat', 'conversations'],
+    queryFn: listDmConversations,
+    refetchInterval: 20_000,
+  });
+  const conversations: DmConversation[] = convData?.conversations ?? [];
 
-  // Track unread count when panel is closed
+  // ── Active DM thread ───────────────────────────────────────────────────────
+  const { data: dmData } = useQuery({
+    queryKey: ['chat', 'dm', auth?.city_id, dmThread?.id],
+    queryFn: () => getChatMessages(auth!.city_id, dmThread!.id, 40),
+    enabled: !!auth?.city_id && !!dmThread,
+    refetchInterval: 10_000,
+  });
+  const dmMessages: ChatMessage[] = dmData?.messages ?? [];
+
+  const activeMessages = tab === 'city' ? cityMessages : dmMessages;
+
+  // ── Unread badge ───────────────────────────────────────────────────────────
   useEffect(() => {
-    const count = messages.length;
-    if (count > prevCountRef.current) {
-      if (!open) setUnread((u) => u + (count - prevCountRef.current));
+    if (!open) {
+      const cityNew = cityMessages.length - prevCityCountRef.current;
+      if (cityNew > 0) setUnread((u) => u + cityNew);
     }
-    prevCountRef.current = count;
-  }, [messages.length, open]);
+    prevCityCountRef.current = cityMessages.length;
+  }, [cityMessages.length, open]);
 
-  // Clear unread when opened
+  useEffect(() => {
+    if (!open) {
+      const dmNew = dmMessages.length - prevDmCountRef.current;
+      if (dmNew > 0) setUnread((u) => u + dmNew);
+    }
+    prevDmCountRef.current = dmMessages.length;
+  }, [dmMessages.length, open]);
+
   useEffect(() => {
     if (open) setUnread(0);
   }, [open]);
 
-  // SSE live updates
+  // ── SSE live updates ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!auth?.city_id || !auth?.api_key) return;
     const unsub = subscribeToEvents(auth.city_id, auth.api_key, (event) => {
-      if (event.chat_message) {
-        const m = event.chat_message as ChatMessageEvent;
-        if (!m.to_player_id) {
-          qc.invalidateQueries({ queryKey: ['chat', 'city'] });
-        }
+      if (!event.chat_message) return;
+      const m = event.chat_message as ChatMessageEvent;
+      if (!m.to_player_id) {
+        qc.invalidateQueries({ queryKey: ['chat', 'city'] });
+      } else if (m.from_player_id === auth.player_id || m.to_player_id === auth.player_id) {
+        qc.invalidateQueries({ queryKey: ['chat', 'dm'] });
+        qc.invalidateQueries({ queryKey: ['chat', 'conversations'] });
       }
     });
     return () => unsub();
-  }, [auth?.city_id, auth?.api_key, qc]);
+  }, [auth?.city_id, auth?.api_key, auth?.player_id, qc]);
 
-  // Auto-scroll on new messages when open
+  // ── Auto-scroll ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, open]);
+  }, [activeMessages.length, open, tab, dmThread]);
 
+  // ── Send ───────────────────────────────────────────────────────────────────
   const sendMut = useMutation({
-    mutationFn: () => sendChatMessage(input.trim()),
+    mutationFn: () => sendChatMessage(input.trim(), tab === 'dm' ? dmThread?.id : undefined),
     onSuccess: () => {
       setInput('');
-      qc.invalidateQueries({ queryKey: ['chat', 'city'] });
+      if (tab === 'city') {
+        qc.invalidateQueries({ queryKey: ['chat', 'city'] });
+      } else {
+        qc.invalidateQueries({ queryKey: ['chat', 'dm'] });
+        qc.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+      }
     },
   });
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim()) sendMut.mutate();
+    if (!input.trim()) return;
+    if (tab === 'dm' && !dmThread) return;
+    sendMut.mutate();
   };
+
+  const showDmThread = tab === 'dm' && !!dmThread;
+  const showDmList   = tab === 'dm' && !dmThread;
+  const showInput    = tab === 'city' || showDmThread;
 
   return (
     <div className="absolute bottom-4 left-4 z-[1001] flex flex-col items-start">
-      {/* Expanded chat panel */}
       {open && (
         <div
           className="mb-2 w-72 flex flex-col rounded-xl overflow-hidden shadow-2xl border border-gray-700"
-          style={{ height: 300, background: 'rgba(17,24,39,0.92)', backdropFilter: 'blur(8px)' }}
+          style={{ height: 320, background: 'rgba(17,24,39,0.93)', backdropFilter: 'blur(8px)' }}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700/60 shrink-0">
-            <span className="text-xs font-semibold text-gray-200">🌆 City Chat</span>
+          {/* Tab / thread header */}
+          <div className="flex items-center border-b border-gray-700/60 shrink-0">
+            {showDmThread ? (
+              <button
+                onClick={() => { setDmThread(null); setInput(''); }}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors"
+              >
+                <ArrowLeft size={12} />
+                <span className="truncate max-w-[160px] font-medium text-gray-200">{dmThread.name}</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => setTab('city')}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 transition-colors ${
+                    tab === 'city' ? 'border-indigo-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  <Users size={11} /> City
+                </button>
+                <button
+                  onClick={() => setTab('dm')}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 transition-colors ${
+                    tab === 'dm' ? 'border-indigo-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  <MessageSquare size={11} /> DM
+                </button>
+              </>
+            )}
             <button
               onClick={() => setOpen(false)}
-              className="text-gray-500 hover:text-gray-300 transition-colors"
+              className="ml-auto px-3 py-2 text-gray-600 hover:text-gray-300 transition-colors"
             >
-              <ChevronDown size={14} />
+              <ChevronDown size={13} />
             </button>
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-1.5 min-h-0">
-            {messages.length === 0 && (
-              <p className="text-gray-600 text-xs text-center mt-6">No messages yet. Say hello!</p>
-            )}
-            {messages.map((m) => (
-              <Bubble key={m.message_id} msg={m} myId={auth?.player_id ?? ''} />
-            ))}
-            <div ref={bottomRef} />
-          </div>
+          {/* DM conversation list */}
+          {showDmList && (
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {conversations.length === 0 ? (
+                <p className="text-gray-600 text-xs text-center mt-8 px-4">No direct messages yet.</p>
+              ) : conversations.map((c) => (
+                <button
+                  key={c.partner_player_id}
+                  onClick={() => setDmThread({ id: c.partner_player_id, name: c.partner_player_name })}
+                  className="w-full text-left px-3 py-2.5 hover:bg-gray-800/60 transition-colors border-b border-gray-800/40"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <MessageSquare size={11} className="text-indigo-400 shrink-0" />
+                    <span className="text-xs text-gray-200 font-medium truncate">{c.partner_player_name}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 truncate mt-0.5 pl-[19px]">{c.last_message}</p>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Chat bubbles (city or DM thread) */}
+          {(tab === 'city' || showDmThread) && (
+            <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-1.5 min-h-0">
+              {activeMessages.length === 0 && (
+                <p className="text-gray-600 text-xs text-center mt-6">
+                  {tab === 'city' ? 'No messages yet. Say hello!' : `Start a conversation with ${dmThread?.name}…`}
+                </p>
+              )}
+              {activeMessages.map((m) => (
+                <Bubble key={m.message_id} msg={m} myId={auth?.player_id ?? ''} />
+              ))}
+              <div ref={bottomRef} />
+            </div>
+          )}
 
           {/* Input */}
-          <form
-            onSubmit={handleSend}
-            className="shrink-0 flex gap-1.5 px-2 py-2 border-t border-gray-700/60"
-          >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Message city…"
-              maxLength={500}
-              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500"
-            />
-            <button
-              type="submit"
-              disabled={sendMut.isPending || !input.trim()}
-              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-2.5 py-1 rounded-lg transition-colors"
+          {showInput && (
+            <form
+              onSubmit={handleSend}
+              className="shrink-0 flex gap-1.5 px-2 py-2 border-t border-gray-700/60"
             >
-              <Send size={12} />
-            </button>
-          </form>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={tab === 'city' ? 'Message city…' : `Message ${dmThread?.name}…`}
+                maxLength={500}
+                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+              />
+              <button
+                type="submit"
+                disabled={sendMut.isPending || !input.trim()}
+                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-2.5 py-1 rounded-lg transition-colors"
+              >
+                <Send size={12} />
+              </button>
+            </form>
+          )}
         </div>
       )}
 
