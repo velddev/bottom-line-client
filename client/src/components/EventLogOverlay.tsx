@@ -33,12 +33,12 @@ interface EventEntry {
 
 const CATEGORY_BADGE: Record<Category, { label: string; cls: string }> = {
   economy:    { label: 'Economy',    cls: 'bg-emerald-900/60 text-emerald-400' },
-  production: { label: 'Production', cls: 'bg-slate-800 text-slate-300' },
+  production: { label: 'Production', cls: 'bg-slate-100 text-slate-700' },
   market:     { label: 'Market',     cls: 'bg-amber-900/50 text-amber-400' },
   politics:   { label: 'Politics',   cls: 'bg-purple-900/50 text-purple-400' },
   world:      { label: 'World',      cls: 'bg-indigo-900/50 text-indigo-400' },
-  social:     { label: 'Social',     cls: 'bg-gray-800 text-gray-300' },
-  system:     { label: 'System',     cls: 'bg-gray-900 text-gray-600' },
+  social:     { label: 'Social',     cls: 'bg-gray-100 text-gray-700' },
+  system:     { label: 'System',     cls: 'bg-white text-gray-600' },
 };
 
 function describe(e: GameEvent): EventEntry {
@@ -57,7 +57,7 @@ function describe(e: GameEvent): EventEntry {
       icon: '🏭', category: 'production',
       headline: `${cap} produced`,
       detail: `${quantity.toFixed(2)} units · Quality ${quality.toFixed(2)} ${qualityBar(quality)}`,
-      cls: 'text-slate-300',
+      cls: 'text-slate-700',
     };
   }
 
@@ -123,7 +123,7 @@ function describe(e: GameEvent): EventEntry {
       icon: isBad ? '⚠️' : isGood ? '✅' : '🔄', category: 'production',
       headline: `${label} — ${statusLabel[new_status] ?? new_status}`,
       detail: `Was ${old_status} · ${building_type}`,
-      cls: isBad ? 'text-rose-400' : isGood ? 'text-emerald-400' : 'text-gray-400',
+      cls: isBad ? 'text-rose-400' : isGood ? 'text-emerald-400' : 'text-gray-600',
     };
   }
 
@@ -215,7 +215,7 @@ function describe(e: GameEvent): EventEntry {
       icon: isDm ? '💬' : '🗣️', category: 'social',
       headline: isDm ? `DM: ${from_player_name} → ${to_player_name}` : `${from_player_name}`,
       detail: content,
-      cls: isDm ? 'text-indigo-300' : 'text-gray-300',
+      cls: isDm ? 'text-indigo-300' : 'text-gray-700',
     };
   }
 
@@ -281,37 +281,37 @@ export default function EventLogOverlay({ cityId, apiKey }: { cityId: string; ap
     <div className="absolute bottom-4 right-4 z-[1001] flex flex-col items-end">
       {open && (
         <div
-          className="mb-2 w-80 flex flex-col rounded-xl overflow-hidden shadow-2xl border border-gray-700"
-          style={{ height: 400, background: 'rgba(17,24,39,0.94)', backdropFilter: 'blur(8px)' }}
+          className="mb-2 w-80 flex flex-col rounded-xl overflow-hidden shadow-2xl border border-gray-200"
+          style={{ height: 400, background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(8px)' }}
         >
           {/* Header */}
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-700/60 shrink-0">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 shrink-0">
             <Radio size={11} className={connected ? 'text-emerald-400 animate-pulse' : 'text-gray-600'} />
-            <span className="text-xs font-semibold text-gray-200 flex-1">Live Events</span>
+            <span className="text-xs font-semibold text-gray-800 flex-1">Live Events</span>
             <span className="text-[10px] text-gray-600 font-mono mr-1">{displayed.length}/{events.length}</span>
             <button
               onClick={() => setShowFilter((v) => !v)}
-              className={`text-gray-500 hover:text-gray-300 transition-colors ${showFilter ? 'text-gray-200' : ''}`}
+              className={`text-gray-500 hover:text-gray-700 transition-colors ${showFilter ? 'text-gray-800' : ''}`}
               title="Filter by category"
             >
               <Filter size={12} />
             </button>
-            <button onClick={() => setOpen(false)} className="text-gray-600 hover:text-gray-300 transition-colors">
+            <button onClick={() => setOpen(false)} className="text-gray-600 hover:text-gray-700 transition-colors">
               <ChevronDown size={13} />
             </button>
           </div>
 
           {/* Filter bar */}
           {showFilter && (
-            <div className="flex flex-wrap gap-1 px-3 py-1.5 border-b border-gray-700/50 shrink-0">
+            <div className="flex flex-wrap gap-1 px-3 py-1.5 border-b border-gray-200 shrink-0">
               {FILTERS.map((f) => (
                 <button
                   key={f.value}
                   onClick={() => setFilter(f.value as Category | 'all')}
                   className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
                     filter === f.value
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-800 text-gray-500 hover:text-gray-300'
+                      ? 'bg-indigo-600 text-gray-900'
+                      : 'bg-gray-100 text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   {f.label}
@@ -333,7 +333,7 @@ export default function EventLogOverlay({ cityId, apiKey }: { cityId: string; ap
               return (
                 <div
                   key={e.event_id}
-                  className="flex gap-2 px-3 py-2 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors"
+                  className="flex gap-2 px-3 py-2 border-b border-gray-200 hover:bg-gray-100/20 transition-colors"
                 >
                   <span className="shrink-0 mt-0.5 text-sm">{entry.icon}</span>
                   <div className="flex-1 min-w-0">
@@ -360,15 +360,15 @@ export default function EventLogOverlay({ cityId, apiKey }: { cityId: string; ap
         onClick={() => setOpen((o) => !o)}
         className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium shadow-lg transition-all ${
           open
-            ? 'bg-gray-700 text-white'
-            : 'bg-gray-900/90 text-gray-300 hover:bg-gray-800 border border-gray-700'
+            ? 'bg-gray-200 text-gray-900'
+            : 'bg-white/90 text-gray-700 hover:bg-gray-100 border border-gray-200'
         }`}
         style={{ backdropFilter: 'blur(8px)' }}
       >
         {open ? <X size={13} /> : <Radio size={13} className={connected ? 'text-emerald-400' : 'text-gray-500'} />}
         <span>Events</span>
         {!open && unread > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-amber-500 text-gray-900 text-[10px] font-bold rounded-full flex items-center justify-center px-1">
             {unread > 99 ? '99+' : unread}
           </span>
         )}

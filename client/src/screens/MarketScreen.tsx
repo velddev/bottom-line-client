@@ -38,12 +38,12 @@ export default function MarketScreen() {
 
   return (
     <div className="max-w-6xl space-y-4">
-      <h1 className="text-xl font-bold text-white">Market</h1>
+      <h1 className="text-xl font-bold text-gray-900">Market</h1>
 
       <div className="flex flex-wrap gap-2 text-xs">
         <button
           onClick={() => setResourceFilter('')}
-          className={`px-3 py-1.5 rounded border transition-colors ${!resourceFilter ? 'border-indigo-500 text-indigo-300 bg-indigo-900/20' : 'border-gray-700 text-gray-400 hover:border-gray-500'}`}
+          className={`px-3 py-1.5 rounded border transition-colors ${!resourceFilter ? 'border-indigo-500 text-indigo-300 bg-indigo-900/20' : 'border-gray-200 text-gray-600 hover:border-gray-500'}`}
         >
           All
         </button>
@@ -51,7 +51,7 @@ export default function MarketScreen() {
           <button
             key={r}
             onClick={() => setResourceFilter(r === resourceFilter ? '' : r)}
-            className={`px-3 py-1.5 rounded border capitalize transition-colors ${r === resourceFilter ? 'border-indigo-500 text-indigo-300 bg-indigo-900/20' : 'border-gray-700 text-gray-400 hover:border-gray-500'} ${resourceColor(r)}`}
+            className={`px-3 py-1.5 rounded border capitalize transition-colors ${r === resourceFilter ? 'border-indigo-500 text-indigo-300 bg-indigo-900/20' : 'border-gray-200 text-gray-600 hover:border-gray-500'} ${resourceColor(r)}`}
           >
             {r}
           </button>
@@ -61,17 +61,17 @@ export default function MarketScreen() {
       {isLoading && <p className="text-gray-500 text-sm animate-pulse">Loading market...</p>}
 
       {!isLoading && offerings.length === 0 && (
-        <div className="text-center py-16 text-gray-400 border border-dashed border-gray-800 rounded-lg">
+        <div className="text-center py-16 text-gray-600 border border-dashed border-gray-200 rounded-lg">
           <p className="text-4xl mb-3">📭</p>
           <p className="text-sm">No offerings in this city right now.</p>
         </div>
       )}
 
       {offerings.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-gray-400 border-b border-gray-800">
+              <tr className="text-gray-600 border-b border-gray-200">
                 {['Seller', 'Resource', 'Price/Unit', 'Quantity', 'Quality', 'Brand', ''].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 font-medium uppercase tracking-wider">{h}</th>
                 ))}
@@ -79,13 +79,13 @@ export default function MarketScreen() {
             </thead>
             <tbody>
               {offerings.map((o) => (
-                <tr key={o.offering_id} className="border-b border-gray-800/50 hover:bg-gray-800/20">
-                  <td className="px-3 py-2.5 text-gray-300">{o.seller_name}</td>
+                <tr key={o.offering_id} className="border-b border-gray-200 hover:bg-gray-100/20">
+                  <td className="px-3 py-2.5 text-gray-700">{o.seller_name}</td>
                   <td className={`px-3 py-2.5 capitalize font-medium ${resourceColor(o.resource_type)}`}>{o.resource_type}</td>
                   <td className="px-3 py-2.5 text-emerald-400 font-mono">{fmtMoney(o.price_per_unit)}</td>
-                  <td className="px-3 py-2.5 text-gray-300 font-mono">{o.quantity.toFixed(1)}</td>
-                  <td className="px-3 py-2.5 text-gray-300 font-mono">{fmtQuality(o.quality)}</td>
-                  <td className="px-3 py-2.5 text-gray-400">{o.brand_name || '—'}</td>
+                  <td className="px-3 py-2.5 text-gray-700 font-mono">{o.quantity.toFixed(1)}</td>
+                  <td className="px-3 py-2.5 text-gray-700 font-mono">{fmtQuality(o.quality)}</td>
+                  <td className="px-3 py-2.5 text-gray-600">{o.brand_name || '—'}</td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
                       <button
@@ -118,10 +118,10 @@ export default function MarketScreen() {
           submitLabel={buyMut.isPending ? 'Purchasing...' : 'Purchase'}
           submitDisabled={buyMut.isPending}
         >
-          <div className="bg-gray-800 rounded p-3 text-xs space-y-1 text-gray-300">
+          <div className="bg-gray-100 rounded p-3 text-xs space-y-1 text-gray-700">
             <p>Price: <span className="text-emerald-400 font-mono">{fmtMoney(buyTarget.price_per_unit)}</span> per unit</p>
-            <p>Available: <span className="text-white font-mono">{buyTarget.quantity.toFixed(1)}</span></p>
-            <p>Quality: <span className="text-white font-mono">{fmtQuality(buyTarget.quality)}</span></p>
+            <p>Available: <span className="text-gray-900 font-mono">{buyTarget.quantity.toFixed(1)}</span></p>
+            <p>Quality: <span className="text-gray-900 font-mono">{fmtQuality(buyTarget.quality)}</span></p>
           </div>
           <Field label="Deliver to Building">
             <Select value={buyForm.building_id} onChange={(e) => setBuyForm((f) => ({ ...f, building_id: e.target.value }))}>
@@ -134,7 +134,7 @@ export default function MarketScreen() {
               onChange={(e) => setBuyForm((f) => ({ ...f, quantity: e.target.value }))} />
           </Field>
           {buyForm.quantity && (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-600">
               Total: <span className="text-emerald-400 font-mono">{fmtMoney(parseFloat(buyForm.quantity) * buyTarget.price_per_unit)}</span>
             </p>
           )}

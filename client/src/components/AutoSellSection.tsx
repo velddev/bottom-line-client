@@ -41,8 +41,8 @@ function AutoSellRow({
   };
 
   return (
-    <div className="flex items-center gap-2 py-1.5 border-b border-gray-800/60 last:border-0">
-      <span className="text-gray-300 text-xs w-24 capitalize shrink-0">{resourceType}</span>
+    <div className="flex items-center gap-2 py-1.5 border-b border-gray-200/60 last:border-0">
+      <span className="text-gray-700 text-xs w-24 capitalize shrink-0">{resourceType}</span>
       <input
         type="number"
         min="0.01"
@@ -51,15 +51,15 @@ function AutoSellRow({
         value={price}
         onChange={(e) => setPrice(e.target.value)}
         onBlur={savePrice}
-        className="w-20 px-2 py-1 text-xs bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-600 outline-none focus:border-indigo-500"
+        className="w-20 px-2 py-1 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 placeholder-gray-400 outline-none focus:border-indigo-500"
       />
       <button
         disabled={mut.isPending || !validPrice}
         onClick={toggle}
         className={`ml-auto px-2 py-1 text-xs rounded transition-colors disabled:opacity-50 ${
           isEnabled
-            ? 'bg-emerald-700 hover:bg-emerald-600 text-white'
-            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            ? 'bg-emerald-700 hover:bg-emerald-600 text-gray-900'
+            : 'bg-gray-200 hover:bg-gray-600 text-gray-700'
         }`}
       >
         {isEnabled ? 'On' : 'Off'}
@@ -86,10 +86,10 @@ export default function AutoSellSection({
 
   return (
     <div>
-      <p className="text-xs text-gray-400 mb-2">
+      <p className="text-xs text-gray-600 mb-2">
         Set a price and toggle On to auto-sell inventory each tick.
       </p>
-      {isLoading && <p className="text-gray-400 text-xs animate-pulse">Loading…</p>}
+      {isLoading && <p className="text-gray-600 text-xs animate-pulse">Loading…</p>}
       {!isLoading && (
         <div>
           {resources.map((r) => (

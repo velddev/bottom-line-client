@@ -44,12 +44,12 @@ function SupplierPickerModal({
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60">
-      <div className="bg-gray-900 border border-gray-700 rounded-lg w-80 max-h-[70vh] flex flex-col shadow-2xl">
-        <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-          <h3 className="text-white font-semibold text-sm capitalize">
+      <div className="bg-white border border-gray-200 rounded-lg w-80 max-h-[70vh] flex flex-col shadow-2xl">
+        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+          <h3 className="text-gray-900 font-semibold text-sm capitalize">
             Add supplier — {resourceType}
           </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-lg">×</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-lg">×</button>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {isLoading && <p className="text-gray-600 text-xs p-2 animate-pulse">Loading…</p>}
@@ -64,11 +64,11 @@ function SupplierPickerModal({
               key={s.building_id}
               disabled={addMut.isPending}
               onClick={() => addMut.mutate(s.building_id)}
-              className="w-full text-left px-3 py-2 rounded hover:bg-gray-800 transition-colors disabled:opacity-50"
+              className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 transition-colors disabled:opacity-50"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-white text-xs font-medium">{s.building_name}</p>
+                  <p className="text-gray-900 text-xs font-medium">{s.building_name}</p>
                   <p className="text-gray-500 text-xs">
                     {s.owner_name} · ({s.tile_x},{s.tile_y})
                   </p>
@@ -123,7 +123,7 @@ function IngredientSupplyRow({
       )}
       <div className="mb-3">
         {/* Ingredient header */}
-        <div className="w-full flex items-center justify-between text-xs font-semibold text-gray-300 mb-1.5">
+        <div className="w-full flex items-center justify-between text-xs font-semibold text-gray-700 mb-1.5">
           <span className="capitalize">
             {ingredient.resource_type}
             <span className="text-gray-500 font-normal ml-1">× {ingredient.quantity} per run</span>
@@ -136,11 +136,11 @@ function IngredientSupplyRow({
             )}
             {myLinks.map((link) => (
               <div key={link.supply_link_id}
-                className="flex items-center gap-1.5 text-xs bg-gray-800/50 rounded px-2 py-1">
+                className="flex items-center gap-1.5 text-xs bg-gray-100/50 rounded px-2 py-1">
                 <span className="text-emerald-400 font-mono text-xs w-4 text-center">
                   {link.priority + 1}
                 </span>
-                <span className="flex-1 text-gray-300 truncate">
+                <span className="flex-1 text-gray-700 truncate">
                   {link.supplier_building_name}
                   <span className="text-gray-600 ml-1">({link.supplier_tile_x},{link.supplier_tile_y})</span>
                 </span>
@@ -199,14 +199,14 @@ function ResourcePickerDropdown({
   return (
     <div
       ref={ref}
-      className="absolute top-full left-0 mt-1 w-52 bg-gray-800 border border-gray-700 rounded shadow-lg z-50"
+      className="absolute top-full left-0 mt-1 w-52 bg-gray-100 border border-gray-200 rounded shadow-lg z-50"
     >
       <input
         autoFocus
         value={search}
         onChange={e => setSearch(e.target.value)}
         placeholder="Search…"
-        className="w-full px-2 py-1.5 text-xs bg-transparent border-b border-gray-700 text-white placeholder-gray-600 outline-none"
+        className="w-full px-2 py-1.5 text-xs bg-transparent border-b border-gray-200 text-gray-900 placeholder-gray-400 outline-none"
       />
       <div className="max-h-40 overflow-y-auto py-1">
         {filtered.length === 0 && (
@@ -216,7 +216,7 @@ function ResourcePickerDropdown({
           <button
             key={g}
             onClick={() => { onSelect(g); onClose(); }}
-            className="w-full text-left px-2 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors capitalize"
+            className="w-full text-left px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors capitalize"
           >
             {g}
           </button>
@@ -255,7 +255,7 @@ function StoreSupplySection({
     <div>
       <p className="text-xs text-gray-500 mb-3">Configure suppliers for items you want to sell</p>
       {activeItems.map(r => (
-        <div key={r} className="mb-3 border-b border-gray-700/30 pb-3 last:border-0 last:pb-0">
+        <div key={r} className="mb-3 border-b border-gray-200 pb-3 last:border-0 last:pb-0">
           <IngredientSupplyRow
             ingredient={{ resource_type: r, quantity: 10 }}
             buildingId={buildingId}
@@ -325,7 +325,7 @@ function RecipePicker({
         value={search}
         onChange={e => setSearch(e.target.value)}
         placeholder="Search recipes…"
-        className="w-full px-2 py-1.5 text-xs bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-600 outline-none focus:border-indigo-500 mb-2"
+        className="w-full px-2 py-1.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 placeholder-gray-400 outline-none focus:border-indigo-500 mb-2"
       />
       <div className="space-y-1 max-h-60 overflow-y-auto">
         {filtered.map(r => (
@@ -333,13 +333,13 @@ function RecipePicker({
             key={r.recipe_id}
             disabled={configureMut.isPending}
             onClick={() => configureMut.mutate(r.recipe_id)}
-            className="w-full text-left px-3 py-2 rounded bg-gray-800/50 hover:bg-gray-700 transition-colors disabled:opacity-50 relative"
+            className="w-full text-left px-3 py-2 rounded bg-gray-100/50 hover:bg-gray-200 transition-colors disabled:opacity-50 relative"
           >
             {configureMut.isPending && configureMut.variables === r.recipe_id && (
               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs animate-pulse">saving…</span>
             )}
             <div className="flex items-center justify-between">
-              <span className="text-white text-xs font-medium capitalize">{r.output_type}</span>
+              <span className="text-gray-900 text-xs font-medium capitalize">{r.output_type}</span>
               <span className="text-gray-500 text-xs">
                 ×{r.output_min}–{r.output_max} / {r.ticks_required}t
               </span>
@@ -460,7 +460,7 @@ function AutoSellRow({ buildingId, resourceType }: { buildingId: string; resourc
   const isEnabled = config?.is_enabled ?? false;
 
   return (
-    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700/40">
+    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
       <span className="text-xs text-gray-500 shrink-0">Auto-sell at</span>
       <input
         type="number"
@@ -470,13 +470,13 @@ function AutoSellRow({ buildingId, resourceType }: { buildingId: string; resourc
         value={price}
         onChange={e => setPrice(e.target.value)}
         onBlur={() => validPrice && mut.mutate({ enabled: isEnabled, priceCents })}
-        className="w-20 px-2 py-0.5 text-xs bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-600 outline-none focus:border-indigo-500"
+        className="w-20 px-2 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 placeholder-gray-400 outline-none focus:border-indigo-500"
       />
       <button
         disabled={mut.isPending || !validPrice}
         onClick={() => mut.mutate({ enabled: !isEnabled, priceCents })}
         className={`px-2 py-0.5 text-xs rounded transition-colors disabled:opacity-40 ${
-          isEnabled ? 'bg-emerald-700 hover:bg-emerald-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+          isEnabled ? 'bg-emerald-700 hover:bg-emerald-600 text-gray-900' : 'bg-gray-200 hover:bg-gray-600 text-gray-700'
         }`}
       >
         {isEnabled ? 'On' : 'Off'}
@@ -508,7 +508,7 @@ function StoreAnalyticsPanel({ buildingId }: { buildingId: string }) {
   const resources = Object.keys(byResource);
 
   return (
-    <div className="mt-4 border-t border-gray-700/50 pt-3">
+    <div className="mt-4 border-t border-gray-200 pt-3">
       <button
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
@@ -530,16 +530,16 @@ function StoreAnalyticsPanel({ buildingId }: { buildingId: string }) {
             const totalRev   = rows.reduce((s, r) => s + r.revenue_cents, 0);
             return (
               <div key={res} className="mb-3">
-                <p className="text-xs font-medium text-gray-300 mb-1 capitalize">{res}</p>
+                <p className="text-xs font-medium text-gray-700 mb-1 capitalize">{res}</p>
                 <div className="text-xs text-gray-500 flex gap-4 mb-1">
                   <span>Last {rows.length} ticks</span>
-                  <span>Units: <span className="text-white font-mono">{totalUnits.toFixed(1)}</span></span>
+                  <span>Units: <span className="text-gray-900 font-mono">{totalUnits.toFixed(1)}</span></span>
                   <span>Revenue: <span className="text-green-400 font-mono">{fmtMoney(totalRev)}</span></span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[10px] text-gray-500">
                     <thead>
-                      <tr className="border-b border-gray-700/40">
+                      <tr className="border-b border-gray-200">
                         <th className="text-left py-0.5 pr-3">Tick</th>
                         <th className="text-right pr-3">Units sold</th>
                         <th className="text-right">Revenue</th>
@@ -547,9 +547,9 @@ function StoreAnalyticsPanel({ buildingId }: { buildingId: string }) {
                     </thead>
                     <tbody>
                       {rows.map(r => (
-                        <tr key={r.tick} className="border-b border-gray-800/40">
+                        <tr key={r.tick} className="border-b border-gray-200">
                           <td className="py-0.5 pr-3 font-mono">{r.tick}</td>
-                          <td className="text-right pr-3 font-mono text-white">{r.sale_volume.toFixed(2)}</td>
+                          <td className="text-right pr-3 font-mono text-gray-900">{r.sale_volume.toFixed(2)}</td>
                           <td className="text-right font-mono text-green-400">{fmtMoney(r.revenue_cents)}</td>
                         </tr>
                       ))}
@@ -623,9 +623,9 @@ export default function SupplySection({
   return (
     <div>
       {/* Recipe summary + auto-sell */}
-      <div className="mb-3 pb-3 border-b border-gray-700/50">
+      <div className="mb-3 pb-3 border-b border-gray-200">
         <p className="text-xs text-gray-500">
-          Produces <span className="text-white font-medium">{recipe.output_type}</span>
+          Produces <span className="text-gray-900 font-medium">{recipe.output_type}</span>
           <span className="text-gray-600 ml-1">× {recipe.output_min}–{recipe.output_max} / {recipe.ticks_required}t</span>
         </p>
         {(() => {

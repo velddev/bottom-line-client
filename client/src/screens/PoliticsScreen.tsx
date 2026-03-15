@@ -10,10 +10,10 @@ function TaxBar({ label, value }: { label: string; value: number }) {
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
-        <span className="text-gray-400">{label}</span>
+        <span className="text-gray-600">{label}</span>
         <span className="text-amber-400 font-mono">{fmtPct(value)}</span>
       </div>
-      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div className="h-full bg-amber-500/60 rounded-full" style={{ width: `${Math.min(value * 100, 100)}%` }} />
       </div>
     </div>
@@ -24,10 +24,10 @@ function ApprovalBar({ label, value, color }: { label: string; value: number; co
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
-        <span className="text-gray-400">{label}</span>
+        <span className="text-gray-600">{label}</span>
         <span className={`${color} font-mono`}>{fmtPct(value)}</span>
       </div>
-      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div className={`h-full ${color.replace('text-', 'bg-').replace('-400', '-500')}/60 rounded-full`} style={{ width: `${Math.min(value * 100, 100)}%` }} />
       </div>
     </div>
@@ -39,12 +39,12 @@ function PollBar({ name, pollPct, playerVotes, citizenVotes, isMe, isLeader }:
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
-        <span className={isMe ? 'text-indigo-300 font-semibold' : 'text-gray-300'}>
+        <span className={isMe ? 'text-indigo-300 font-semibold' : 'text-gray-700'}>
           {isLeader && '🏆 '}{name}{isMe && ' (you)'}
         </span>
-        <span className="text-white font-mono font-bold">{pollPct.toFixed(1)}%</span>
+        <span className="text-gray-900 font-mono font-bold">{pollPct.toFixed(1)}%</span>
       </div>
-      <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-500 ${isMe ? 'bg-indigo-500' : 'bg-blue-600/70'}`}
           style={{ width: `${Math.min(pollPct, 100)}%` }}
@@ -112,18 +112,18 @@ export default function PoliticsScreen() {
   const statusColor = (s: string) => ({
     campaigning: 'bg-sky-900/40 text-sky-400',
     voting:      'bg-emerald-900/40 text-emerald-400',
-    concluded:   'bg-gray-800 text-gray-400',
-  }[s] ?? 'bg-gray-800 text-gray-500');
+    concluded:   'bg-gray-100 text-gray-600',
+  }[s] ?? 'bg-gray-100 text-gray-500');
 
   return (
     <div className="max-w-4xl space-y-6">
-      <h1 className="text-xl font-bold text-white">Politics</h1>
+      <h1 className="text-xl font-bold text-gray-900">Politics</h1>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Government panel */}
-        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-            <h2 className="text-sm font-semibold text-white">🏛️ Government</h2>
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <h2 className="text-sm font-semibold text-gray-900">🏛️ Government</h2>
             {isRuler && (
               <button
                 onClick={() => {
@@ -147,7 +147,7 @@ export default function PoliticsScreen() {
               <>
                 <div>
                   <p className="text-gray-500 text-xs mb-0.5">Current Ruler</p>
-                  <p className="text-white font-semibold">{gov.ruling_player_name || 'AI Government'}</p>
+                  <p className="text-gray-900 font-semibold">{gov.ruling_player_name || 'AI Government'}</p>
                   {isRuler && <span className="text-indigo-400 text-xs">← You</span>}
                   <p className="text-gray-600 text-xs">Term: t{gov.term_start_tick} – t{gov.term_end_tick}</p>
                 </div>
@@ -172,15 +172,15 @@ export default function PoliticsScreen() {
         </div>
 
         {/* Election panel */}
-        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-            <h2 className="text-sm font-semibold text-white">🗳️ Election</h2>
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <h2 className="text-sm font-semibold text-gray-900">🗳️ Election</h2>
             <div className="flex items-center gap-2">
               {election && inCampaign && !isCandidate && (
                 <button
                   onClick={() => runMut.mutate()}
                   disabled={runMut.isPending}
-                  className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-2.5 py-1.5 rounded transition-colors"
+                  className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-gray-900 px-2.5 py-1.5 rounded transition-colors"
                 >
                   <Vote size={12} /> Run for Office
                 </button>
@@ -211,7 +211,7 @@ export default function PoliticsScreen() {
 
                 {election.winner_player_id && (
                   <p className="text-xs text-amber-400 mb-3">
-                    🏆 Winner: <span className="text-white font-semibold">
+                    🏆 Winner: <span className="text-gray-900 font-semibold">
                       {sortedCandidates.find(c => c.player_id === election.winner_player_id)?.player_name
                         ?? election.winner_player_id.slice(0, 8) + '…'}
                     </span>

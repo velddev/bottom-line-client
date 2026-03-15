@@ -13,7 +13,7 @@ function Bubble({ msg, myId }: { msg: ChatMessage; myId: string }) {
         <span className="text-[10px] text-gray-500 mb-0.5 px-1">{msg.from_player_name}</span>
       )}
       <div className={`rounded-xl px-2.5 py-1 text-xs leading-snug ${
-        isMe ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'
+        isMe ? 'bg-indigo-600 text-gray-900 rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'
       }`}>
         {msg.content}
       </div>
@@ -134,25 +134,25 @@ export default function ChatOverlay() {
     <div className="absolute bottom-4 left-4 z-[1001] flex flex-col items-start">
       {open && (
         <div
-          className="mb-2 w-72 flex flex-col rounded-xl overflow-hidden shadow-2xl border border-gray-700"
-          style={{ height: 320, background: 'rgba(17,24,39,0.93)', backdropFilter: 'blur(8px)' }}
+          className="mb-2 w-72 flex flex-col rounded-xl overflow-hidden shadow-2xl border border-gray-200"
+          style={{ height: 320, background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(8px)' }}
         >
           {/* Tab / thread header */}
-          <div className="flex items-center border-b border-gray-700/60 shrink-0">
+          <div className="flex items-center border-b border-gray-200 shrink-0">
             {showDmThread ? (
               <button
                 onClick={() => { setDmThread(null); setInput(''); }}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-400 hover:text-white transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <ArrowLeft size={12} />
-                <span className="truncate max-w-[160px] font-medium text-gray-200">{dmThread.name}</span>
+                <span className="truncate max-w-[160px] font-medium text-gray-800">{dmThread.name}</span>
               </button>
             ) : (
               <>
                 <button
                   onClick={() => setTab('city')}
                   className={`flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 transition-colors ${
-                    tab === 'city' ? 'border-indigo-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'
+                    tab === 'city' ? 'border-indigo-500 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   <Users size={11} /> City
@@ -160,7 +160,7 @@ export default function ChatOverlay() {
                 <button
                   onClick={() => setTab('dm')}
                   className={`flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 transition-colors ${
-                    tab === 'dm' ? 'border-indigo-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'
+                    tab === 'dm' ? 'border-indigo-500 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   <MessageSquare size={11} /> DM
@@ -169,7 +169,7 @@ export default function ChatOverlay() {
             )}
             <button
               onClick={() => setOpen(false)}
-              className="ml-auto px-3 py-2 text-gray-600 hover:text-gray-300 transition-colors"
+              className="ml-auto px-3 py-2 text-gray-600 hover:text-gray-700 transition-colors"
             >
               <ChevronDown size={13} />
             </button>
@@ -184,11 +184,11 @@ export default function ChatOverlay() {
                 <button
                   key={c.partner_player_id}
                   onClick={() => setDmThread({ id: c.partner_player_id, name: c.partner_player_name })}
-                  className="w-full text-left px-3 py-2.5 hover:bg-gray-800/60 transition-colors border-b border-gray-800/40"
+                  className="w-full text-left px-3 py-2.5 hover:bg-gray-100/60 transition-colors border-b border-gray-200"
                 >
                   <div className="flex items-center gap-1.5">
                     <MessageSquare size={11} className="text-indigo-400 shrink-0" />
-                    <span className="text-xs text-gray-200 font-medium truncate">{c.partner_player_name}</span>
+                    <span className="text-xs text-gray-800 font-medium truncate">{c.partner_player_name}</span>
                   </div>
                   <p className="text-[10px] text-gray-500 truncate mt-0.5 pl-[19px]">{c.last_message}</p>
                 </button>
@@ -215,7 +215,7 @@ export default function ChatOverlay() {
           {showInput && (
             <form
               onSubmit={handleSend}
-              className="shrink-0 flex gap-1.5 px-2 py-2 border-t border-gray-700/60"
+              className="shrink-0 flex gap-1.5 px-2 py-2 border-t border-gray-200"
             >
               <input
                 type="text"
@@ -223,12 +223,12 @@ export default function ChatOverlay() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={tab === 'city' ? 'Message city…' : `Message ${dmThread?.name}…`}
                 maxLength={500}
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+                className="flex-1 bg-gray-100 border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-indigo-500"
               />
               <button
                 type="submit"
                 disabled={sendMut.isPending || !input.trim()}
-                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-2.5 py-1 rounded-lg transition-colors"
+                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-gray-900 px-2.5 py-1 rounded-lg transition-colors"
               >
                 <Send size={12} />
               </button>
@@ -242,15 +242,15 @@ export default function ChatOverlay() {
         onClick={() => setOpen((o) => !o)}
         className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium shadow-lg transition-all ${
           open
-            ? 'bg-indigo-600 text-white'
-            : 'bg-gray-900/90 text-gray-300 hover:bg-gray-800 border border-gray-700'
+            ? 'bg-indigo-600 text-gray-900'
+            : 'bg-white/90 text-gray-700 hover:bg-gray-100 border border-gray-200'
         }`}
         style={{ backdropFilter: 'blur(8px)' }}
       >
         {open ? <X size={13} /> : <MessageSquare size={13} />}
         <span>Chat</span>
         {!open && unread > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-indigo-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-indigo-500 text-gray-900 text-[10px] font-bold rounded-full flex items-center justify-center px-1">
             {unread > 99 ? '99+' : unread}
           </span>
         )}

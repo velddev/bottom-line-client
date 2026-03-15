@@ -46,26 +46,26 @@ export default function BankPanel() {
       {/* Loan status */}
       <Panel compact title="🏦 Your Loan">
         <div className="flex justify-between text-xs">
-          <span className="text-gray-300">Outstanding</span>
-          <span className={`font-mono font-semibold ${(loan?.balance ?? 0) > 0 ? 'text-rose-400' : 'text-gray-400'}`}>
+          <span className="text-gray-700">Outstanding</span>
+          <span className={`font-mono font-semibold ${(loan?.balance ?? 0) > 0 ? 'text-rose-400' : 'text-gray-600'}`}>
             {fmtMoney(loan?.balance ?? 0)}
           </span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-300">Interest rate</span>
+          <span className="text-gray-700">Interest rate</span>
           <span className="font-mono text-amber-400">{fmtPct(loan?.interest_rate ?? 0.005)} / tick</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-300">Cost per tick</span>
+          <span className="text-gray-700">Cost per tick</span>
           <span className="font-mono text-amber-400">{fmtMoney(loan?.interest_per_tick ?? 0)}</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-300">Your balance</span>
+          <span className="text-gray-700">Your balance</span>
           <span className="font-mono text-emerald-400">{fmtMoney(loan?.player_balance ?? 0)}</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-300">Max borrow</span>
-          <span className="font-mono text-gray-300">{fmtMoney(loan?.max_borrow ?? 50000)}</span>
+          <span className="text-gray-700">Max borrow</span>
+          <span className="font-mono text-gray-700">{fmtMoney(loan?.max_borrow ?? 50000)}</span>
         </div>
       </Panel>
 
@@ -81,12 +81,12 @@ export default function BankPanel() {
               placeholder="Amount"
               value={borrowInput}
               onChange={(e) => setBorrowInput(e.target.value)}
-              className="flex-1 bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5 placeholder-gray-600"
+              className="flex-1 bg-gray-100 border border-gray-200 text-gray-900 text-xs rounded px-2 py-1.5 placeholder-gray-400"
             />
             <button
               disabled={borrowMut.isPending || borrowAmount <= 0 || Math.round(borrowAmount * 100) > (loan?.max_borrow ?? 0)}
               onClick={() => borrowMut.mutate(Math.round(borrowAmount * 100))}
-              className="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs px-3 py-1.5 rounded transition-colors"
+              className="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-gray-900 text-xs px-3 py-1.5 rounded transition-colors"
             >
               {borrowMut.isPending ? 'Processing…' : 'Borrow'}
             </button>
@@ -100,9 +100,9 @@ export default function BankPanel() {
       {(loan?.balance ?? 0) > 0 && (
         <Panel compact title="💳 Repay Debt">
           <div className="space-y-1">
-            <div className="flex justify-between text-xs text-gray-300">
+            <div className="flex justify-between text-xs text-gray-700">
               <span>Repay</span>
-              <span className="font-mono text-white">{fmtMoney(repaySlider)}</span>
+              <span className="font-mono text-gray-900">{fmtMoney(repaySlider)}</span>
             </div>
             <input
               type="range"
@@ -113,7 +113,7 @@ export default function BankPanel() {
               onChange={(e) => setRepaySlider(parseFloat(e.target.value))}
               className="w-full accent-indigo-500"
             />
-            <div className="flex justify-between text-xs text-gray-400">
+            <div className="flex justify-between text-xs text-gray-600">
               <span>{fmtMoney(0)}</span>
               <span>{fmtMoney(maxRepay)}</span>
             </div>
@@ -121,7 +121,7 @@ export default function BankPanel() {
           <button
             disabled={repayMut.isPending || repaySlider <= 0}
             onClick={() => repayMut.mutate(repaySlider)}
-            className="w-full bg-rose-900/60 hover:bg-rose-800/60 disabled:opacity-50 text-white text-xs py-2 rounded transition-colors"
+            className="w-full bg-rose-900/60 hover:bg-rose-800/60 disabled:opacity-50 text-gray-900 text-xs py-2 rounded transition-colors"
           >
             {repayMut.isPending ? 'Processing…' : `Repay ${fmtMoney(repaySlider)}`}
           </button>

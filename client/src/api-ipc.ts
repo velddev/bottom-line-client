@@ -4,7 +4,7 @@ import type {
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
   SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
-  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, RoadNetworkResponse,
+  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation,
 } from './types';
 import type { IApiService } from './api-interface';
 
@@ -176,9 +176,6 @@ export function createIpcApi(): IApiService {
 
     purchaseTile: (tile_id) =>
       invoke<{ tile_id: string; new_balance: number }>('api:purchaseTile', { tile_id, apiKey: apiKey() }),
-
-    getRoadNetwork: () =>
-      invoke<RoadNetworkResponse>('api:getRoadNetwork', {}),
 
     // ─── Supply Links ───────────────────────────────────────────────────────
     getSupplyLinks: (buildingId) =>

@@ -40,12 +40,12 @@ export default function Panel({
   const defaultBody = compact ? 'p-3 space-y-3' : 'p-4 space-y-3';
 
   return (
-    <div className={`bg-gray-900 border border-gray-700 rounded-lg flex flex-col overflow-hidden ${className}`}>
+    <div className={`bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden ${className}`}>
 
       {hasHeader && (
-        <div className={`${headerPad} border-b border-gray-700 flex items-center gap-2 shrink-0`}>
+        <div className={`${headerPad} border-b border-gray-200 flex items-center gap-2 shrink-0`}>
           {title !== undefined && (
-            <h2 className={`text-white font-semibold ${titleSize} truncate flex-1 flex items-center gap-1.5`}>
+            <h2 className={`text-gray-900 font-semibold ${titleSize} truncate flex-1 flex items-center gap-1.5`}>
               {title}
             </h2>
           )}
@@ -55,7 +55,7 @@ export default function Panel({
           {onClose && (
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-white text-lg leading-none shrink-0 transition-colors ml-auto"
+              className="text-gray-600 hover:text-gray-900 text-lg leading-none shrink-0 transition-colors ml-auto"
             >
               ×
             </button>
@@ -64,7 +64,7 @@ export default function Panel({
       )}
 
       {subheader !== undefined && (
-        <div className={`${subPad} border-b border-gray-700/50 shrink-0`}>
+        <div className={`${subPad} border-b border-gray-200 shrink-0`}>
           {subheader}
         </div>
       )}
@@ -74,7 +74,7 @@ export default function Panel({
       </div>
 
       {footer !== undefined && (
-        <div className={`border-t border-gray-700 ${footerPad} shrink-0`}>
+        <div className={`border-t border-gray-200 ${footerPad} shrink-0`}>
           {footer}
         </div>
       )}

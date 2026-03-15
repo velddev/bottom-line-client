@@ -70,15 +70,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-gray-950">
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-100">
 
       {/* ── Top navigation bar ─────────────────────────────────────────────── */}
-      <header className="shrink-0 h-12 bg-gray-950 border-b border-gray-800 flex items-center px-4 gap-6 z-[500]">
+      <header className="shrink-0 h-12 bg-gray-100 border-b border-gray-200 flex items-center px-4 gap-6 z-[500]">
 
         {/* Logo */}
         <NavLink to="/dashboard" className="flex items-center gap-1 shrink-0 mr-2">
           <span className="text-indigo-400 font-bold text-sm tracking-widest">BOTTOM</span>
-          <span className="text-gray-400 font-bold text-sm tracking-widest">LINE</span>
+          <span className="text-gray-600 font-bold text-sm tracking-widest">LINE</span>
         </NavLink>
 
         {/* Nav links */}
@@ -90,8 +90,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               className={({ isActive }) =>
                 `px-3 py-1.5 text-sm rounded transition-colors whitespace-nowrap ${
                   isActive
-                    ? 'text-white bg-gray-800'
-                    : 'text-gray-400 hover:text-gray-100 hover:bg-gray-800/60'
+                    ? 'text-gray-900 bg-gray-200'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
                 }`
               }
             >
@@ -111,7 +111,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {profile && (
             <span className="font-mono text-emerald-400">{fmtMoney(profile.balance)}</span>
           )}
-          <span className="text-gray-400 hidden md:block">{auth?.username}</span>
+          <span className="text-gray-600 hidden md:block">{auth?.username}</span>
           <button
             onClick={handleLogout}
             title="Logout"

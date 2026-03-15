@@ -12,10 +12,10 @@ function ChatBubble({ msg, myId }: { msg: ChatMessage; myId: string }) {
   return (
     <div className={`flex flex-col max-w-[80%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}>
       {!isMe && (
-        <span className="text-[10px] text-gray-400 mb-0.5 px-1">{msg.from_player_name}</span>
+        <span className="text-[10px] text-gray-600 mb-0.5 px-1">{msg.from_player_name}</span>
       )}
       <div className={`rounded-2xl px-3 py-1.5 text-sm ${
-        isMe ? 'bg-indigo-600 text-white rounded-br-sm' : 'bg-gray-800 text-gray-200 rounded-bl-sm'
+        isMe ? 'bg-indigo-600 text-gray-900 rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'
       }`}>
         {msg.content}
       </div>
@@ -119,14 +119,14 @@ export default function ChatScreen() {
         <button
           onClick={() => { setTab('city'); setDmPartner(null); }}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-            tab === 'city' ? 'bg-indigo-600 text-white' : 'bg-gray-900 text-gray-400 hover:text-gray-200'
+            tab === 'city' ? 'bg-indigo-600 text-gray-900' : 'bg-white text-gray-600 hover:text-gray-800'
           }`}
         >
           <Users size={14} /> City Chat
         </button>
 
         <div className="mt-2">
-          <p className="text-xs text-gray-400 uppercase tracking-widest px-2 mb-1">Direct Messages</p>
+          <p className="text-xs text-gray-600 uppercase tracking-widest px-2 mb-1">Direct Messages</p>
           {(conversations?.conversations ?? []).length === 0 && (
             <p className="text-xs text-gray-700 px-2">No conversations yet.</p>
           )}
@@ -136,37 +136,37 @@ export default function ChatScreen() {
               onClick={() => { setTab('dm'); setDmPartner({ id: c.partner_player_id, name: c.partner_player_name }); }}
               className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                 tab === 'dm' && dmPartner?.id === c.partner_player_id
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-900 text-gray-400 hover:text-gray-200'
+                  ? 'bg-indigo-600 text-gray-900'
+                  : 'bg-white text-gray-600 hover:text-gray-800'
               }`}
             >
               <div className="flex items-center gap-1.5">
                 <MessageSquare size={12} />
                 <span className="truncate">{c.partner_player_name}</span>
               </div>
-              <p className="text-xs text-gray-400 truncate mt-0.5">{c.last_message}</p>
+              <p className="text-xs text-gray-600 truncate mt-0.5">{c.last_message}</p>
             </button>
           ))}
         </div>
       </div>
 
       {/* ── Main chat panel ─────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+      <div className="flex-1 flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden">
 
         {/* Header */}
-        <div className="px-4 py-3 border-b border-gray-800 shrink-0">
-          <h2 className="text-sm font-semibold text-white">
+        <div className="px-4 py-3 border-b border-gray-200 shrink-0">
+          <h2 className="text-sm font-semibold text-gray-900">
             {tab === 'city' ? '🌆 City Chat' : `💬 DM: ${dmPartner?.name}`}
           </h2>
           {tab === 'city' && (
-            <p className="text-xs text-gray-400">Public — visible to all players in the city</p>
+            <p className="text-xs text-gray-600">Public — visible to all players in the city</p>
           )}
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
           {messages.length === 0 && (
-            <p className="text-gray-400 text-xs text-center mt-8">
+            <p className="text-gray-600 text-xs text-center mt-8">
               {tab === 'city' ? 'No messages yet. Say hello!' : `Start a conversation with ${dmPartner?.name ?? '...'}` }
             </p>
           )}
@@ -178,26 +178,26 @@ export default function ChatScreen() {
 
         {/* Input */}
         {(tab === 'city' || dmPartner) && (
-          <form onSubmit={handleSend} className="shrink-0 flex gap-2 px-3 py-2 border-t border-gray-800">
+          <form onSubmit={handleSend} className="shrink-0 flex gap-2 px-3 py-2 border-t border-gray-200">
             <input
               type="text"
               value={tab === 'city' ? input : dmInput}
               onChange={(e) => tab === 'city' ? setInput(e.target.value) : setDmInput(e.target.value)}
               placeholder={tab === 'city' ? 'Message city…' : `Message ${dmPartner?.name}…`}
               maxLength={500}
-              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+              className="flex-1 bg-gray-100 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-indigo-500"
             />
             <button
               type="submit"
               disabled={tab === 'city' ? sendMut.isPending || !input.trim() : sendDmMut.isPending || !dmInput.trim()}
-              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg transition-colors"
+              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-gray-900 px-3 py-1.5 rounded-lg transition-colors"
             >
               <Send size={14} />
             </button>
           </form>
         )}
         {tab === 'dm' && !dmPartner && (
-          <p className="text-gray-400 text-xs text-center py-3">Select a conversation from the sidebar.</p>
+          <p className="text-gray-600 text-xs text-center py-3">Select a conversation from the sidebar.</p>
         )}
       </div>
     </div>

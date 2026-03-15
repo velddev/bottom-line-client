@@ -108,7 +108,7 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
     return (
       <button
         onClick={() => setPanelOpen(true)}
-        className="absolute top-3 left-3 z-[1000] bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 shadow-xl text-xs text-gray-300 hover:text-white transition-colors flex items-center gap-1.5"
+        className="absolute top-3 left-3 z-[1000] bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 shadow-xl text-xs text-gray-700 hover:text-gray-900 transition-colors flex items-center gap-1.5"
       >
         <Building2 size={14} />
         Buildings
@@ -126,14 +126,14 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
           <button
             onClick={() => setGroupMode('company')}
             title="Group by company"
-            className={`p-1 rounded transition-colors ${groupMode === 'company' ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
+            className={`p-1 rounded transition-colors ${groupMode === 'company' ? 'text-gray-900 bg-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <Users size={12} />
           </button>
           <button
             onClick={() => setGroupMode('building')}
             title="Group by type"
-            className={`p-1 rounded transition-colors ${groupMode === 'building' ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-gray-300'}`}
+            className={`p-1 rounded transition-colors ${groupMode === 'building' ? 'text-gray-900 bg-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <Layers size={12} />
           </button>
@@ -142,7 +142,7 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
       bodyClassName=""
     >
         {groups.length === 0 && (
-          <p className="text-gray-400 text-xs p-3">No buildings yet</p>
+          <p className="text-gray-600 text-xs p-3">No buildings yet</p>
         )}
 
         {groups.map(group => {
@@ -153,21 +153,21 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
               {/* Group header */}
               <button
                 onClick={() => toggle(group.id)}
-                className="w-full flex items-center gap-1.5 px-3 py-2 text-xs hover:bg-gray-800/60 transition-colors border-b border-gray-800/50"
+                className="w-full flex items-center gap-1.5 px-3 py-2 text-xs hover:bg-gray-100/60 transition-colors border-b border-gray-200"
               >
                 {isOpen
                   ? <ChevronDown size={12} className="text-gray-500 shrink-0" />
                   : <ChevronRight size={12} className="text-gray-500 shrink-0" />}
                 {group.icon && <span className="shrink-0">{group.icon}</span>}
-                <span className={`font-medium truncate ${group.highlight ? 'text-emerald-400' : 'text-gray-300'}`}>
+                <span className={`font-medium truncate ${group.highlight ? 'text-emerald-400' : 'text-gray-700'}`}>
                   {group.label}
                 </span>
-                <span className="text-gray-400 ml-auto shrink-0">{group.buildings.length}</span>
+                <span className="text-gray-600 ml-auto shrink-0">{group.buildings.length}</span>
               </button>
 
               {/* Building list */}
               {isOpen && (
-                <div className="bg-gray-950/30">
+                <div className="bg-gray-100/30">
                   {group.buildings.map(tile => {
                     const icon = BUILDING_ICONS[tile.building_type?.toLowerCase() ?? ''] ?? '🏢';
                     const isSelected = tile.tile_id === selectedTileId;
@@ -179,8 +179,8 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
                         onClick={() => onSelectTile(tile)}
                         className={`w-full flex items-center gap-2 px-4 py-1.5 text-xs transition-colors ${
                           isSelected
-                            ? 'bg-indigo-900/40 text-white'
-                            : 'text-gray-400 hover:bg-gray-800/40 hover:text-gray-200'
+                            ? 'bg-indigo-900/40 text-gray-900'
+                            : 'text-gray-600 hover:bg-gray-100/40 hover:text-gray-800'
                         }`}
                       >
                         <span className="shrink-0">{icon}</span>

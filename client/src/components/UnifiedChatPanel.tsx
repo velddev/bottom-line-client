@@ -12,7 +12,7 @@ function describeEvent(e: GameEvent): { icon: string; text: string; cls: string 
   if (e.tick_completed)
     return { icon: '🕐', text: `Tick ${e.tick} complete`, cls: 'text-gray-500' };
   if (e.resource_produced)
-    return { icon: '🏭', text: `Produced ${e.resource_produced.quantity.toFixed(1)}× ${e.resource_produced.resource_type}`, cls: 'text-slate-300' };
+    return { icon: '🏭', text: `Produced ${e.resource_produced.quantity.toFixed(1)}× ${e.resource_produced.resource_type}`, cls: 'text-slate-700' };
   if (e.trade_completed)
     return { icon: '💰', text: `${e.trade_completed.quantity.toFixed(1)}× ${e.trade_completed.resource_type} — ${fmtMoney(e.trade_completed.total_price)}`, cls: 'text-emerald-400' };
   if (e.market_price_changed) {
@@ -38,7 +38,7 @@ function describeEvent(e: GameEvent): { icon: string; text: string; cls: string 
     return {
       icon: isDm ? '💬' : '🗣️',
       text: isDm ? `[DM] ${c.from_player_name}: ${c.content}` : `${c.from_player_name}: ${c.content}`,
-      cls: 'text-gray-400',
+      cls: 'text-gray-600',
     };
   }
   return { icon: '•', text: 'Event', cls: 'text-gray-600' };
@@ -66,7 +66,7 @@ function Bubble({
         </button>
       )}
       <div className={`rounded-xl px-2.5 py-1 text-xs leading-snug ${
-        isMe ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'
+        isMe ? 'bg-indigo-600 text-gray-900 rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'
       }`}>
         {msg.content}
       </div>
@@ -90,12 +90,12 @@ function TabBtn({
     <button
       onClick={onClick}
       className={`flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 shrink-0 transition-colors ${
-        active ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-300'
+        active ? 'border-indigo-500 text-gray-900' : 'border-transparent text-gray-600 hover:text-gray-700'
       }`}
     >
       {children}
       {!!unreadCount && unreadCount > 0 && (
-        <span className="bg-indigo-500 text-white text-[9px] font-bold rounded-full px-1 min-w-[14px] text-center leading-4">
+        <span className="bg-indigo-500 text-gray-900 text-[9px] font-bold rounded-full px-1 min-w-[14px] text-center leading-4">
           {unreadCount > 99 ? '99+' : unreadCount}
         </span>
       )}
@@ -273,12 +273,12 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
     <div className="absolute bottom-4 left-4 z-[1001] flex flex-col items-start">
       {open && (
         <div
-          className="mb-2 w-80 flex flex-col rounded-xl overflow-hidden shadow-2xl border border-gray-700"
-          style={{ height: 340, background: 'rgba(17,24,39,0.93)', backdropFilter: 'blur(8px)' }}
+          className="mb-2 w-80 flex flex-col rounded-xl overflow-hidden shadow-2xl border border-gray-200"
+          style={{ height: 340, background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(8px)' }}
         >
           {/* ── Tab bar ──────────────────────────────────────────────────── */}
           <div
-            className="flex items-center border-b border-gray-700/60 shrink-0 overflow-x-auto"
+            className="flex items-center border-b border-gray-200 shrink-0 overflow-x-auto"
             style={{ scrollbarWidth: 'none' }}
           >
             <TabBtn
@@ -306,24 +306,24 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
                 <div
                   key={t.playerId}
                   className={`flex items-center shrink-0 border-b-2 transition-colors ${
-                    isActive ? 'border-indigo-500 text-white' : 'border-transparent text-gray-400'
+                    isActive ? 'border-indigo-500 text-gray-900' : 'border-transparent text-gray-600'
                   }`}
                 >
                   <button
                     onClick={() => setActiveTab(tabKey)}
-                    className="flex items-center gap-1 pl-2 pr-0.5 py-2 text-xs hover:text-gray-200 transition-colors"
+                    className="flex items-center gap-1 pl-2 pr-0.5 py-2 text-xs hover:text-gray-800 transition-colors"
                   >
                     <MessageSquare size={10} />
                     <span className="max-w-[56px] truncate">{t.playerName}</span>
                     {(unread[tabKey] ?? 0) > 0 && (
-                      <span className="bg-indigo-500 text-white text-[9px] font-bold rounded-full px-1 min-w-[14px] text-center leading-4 ml-0.5">
+                      <span className="bg-indigo-500 text-gray-900 text-[9px] font-bold rounded-full px-1 min-w-[14px] text-center leading-4 ml-0.5">
                         {unread[tabKey] > 99 ? '99+' : unread[tabKey]}
                       </span>
                     )}
                   </button>
                   <button
                     onClick={(e) => closeDmTab(t.playerId, e)}
-                    className="px-1.5 py-2 text-gray-700 hover:text-gray-400 transition-colors"
+                    className="px-1.5 py-2 text-gray-700 hover:text-gray-600 transition-colors"
                     title="Close"
                   >
                     <X size={9} />
@@ -334,7 +334,7 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
 
             <button
               onClick={() => setOpen(false)}
-              className="ml-auto px-3 py-2 text-gray-600 hover:text-gray-300 transition-colors shrink-0"
+              className="ml-auto px-3 py-2 text-gray-600 hover:text-gray-700 transition-colors shrink-0"
             >
               <ChevronDown size={13} />
             </button>
@@ -364,7 +364,7 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
             <>
               <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-1.5 min-h-0">
                 {activeMessages.length === 0 && (
-                  <p className="text-gray-400 text-xs text-center mt-6">
+                  <p className="text-gray-600 text-xs text-center mt-6">
                     {activeTab === 'city' ? 'No messages yet. Say hello!' : 'No messages yet with this player.'}
                   </p>
                 )}
@@ -381,7 +381,7 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
 
               <form
                 onSubmit={handleSend}
-                className="shrink-0 flex gap-1.5 px-2 py-2 border-t border-gray-700/60"
+                className="shrink-0 flex gap-1.5 px-2 py-2 border-t border-gray-200"
               >
                 <input
                   type="text"
@@ -389,12 +389,12 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={chatPlaceholder}
                   maxLength={500}
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+                  className="flex-1 bg-gray-100 border border-gray-200 rounded-lg px-2.5 py-1 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-indigo-500"
                 />
                 <button
                   type="submit"
                   disabled={sendMut.isPending || !input.trim()}
-                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white px-2.5 py-1 rounded-lg transition-colors"
+                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-gray-900 px-2.5 py-1 rounded-lg transition-colors"
                 >
                   <Send size={12} />
                 </button>
@@ -409,15 +409,15 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
         onClick={() => setOpen((o) => !o)}
         className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium shadow-lg transition-all ${
           open
-            ? 'bg-indigo-600 text-white'
-            : 'bg-gray-900/90 text-gray-300 hover:bg-gray-800 border border-gray-700'
+            ? 'bg-indigo-600 text-gray-900'
+            : 'bg-white/90 text-gray-700 hover:bg-gray-100 border border-gray-200'
         }`}
         style={{ backdropFilter: 'blur(8px)' }}
       >
         {open ? <X size={13} /> : <MessageSquare size={13} />}
         <span>Chat</span>
         {!open && totalUnread > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-indigo-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-indigo-500 text-gray-900 text-[10px] font-bold rounded-full flex items-center justify-center px-1">
             {totalUnread > 99 ? '99+' : totalUnread}
           </span>
         )}

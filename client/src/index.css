@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0d0d0d; }
-::-webkit-scrollbar-thumb { background: #2f2f2f; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #404040; }
+::-webkit-scrollbar-track { background: #f3f4f6; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
 
 /* Dark map placeholder — replaces Leaflet's default light-gray tile background.
    Use :where() to stay at base specificity so nothing else is affected,
    OR simply import index.css AFTER leaflet.css (see main.tsx). */
-.leaflet-container.leaflet-container { background: #050505; }
+.leaflet-container.leaflet-container { background: transparent; }
 .leaflet-control-zoom { display: none !important; }
 .leaflet-control-attribution { font-size: 9px !important; opacity: 0.3 !important; }

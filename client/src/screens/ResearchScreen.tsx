@@ -33,16 +33,16 @@ export default function ResearchScreen() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">Research</h1>
+        <h1 className="text-xl font-bold text-gray-900">Research</h1>
         <button
           onClick={() => setShowStart(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded text-sm transition-colors"
+          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-gray-900 px-3 py-2 rounded text-sm transition-colors"
         >
           <Plus size={14} /> Start Research
         </button>
       </div>
 
-      <p className="text-xs text-gray-400 bg-gray-900 border border-gray-800 rounded p-3">
+      <p className="text-xs text-gray-600 bg-white border border-gray-200 rounded p-3">
         Research improves the quality of your produced resources. Higher quality means better demand and higher prices.
         Quality is benchmarked against the city median — being above average gives you a demand bonus of up to 100%.
       </p>
@@ -50,7 +50,7 @@ export default function ResearchScreen() {
       {isLoading && <p className="text-gray-500 text-sm animate-pulse">Loading…</p>}
 
       {!isLoading && projects.length === 0 && (
-        <div className="text-center py-12 text-gray-400 border border-dashed border-gray-800 rounded-lg">
+        <div className="text-center py-12 text-gray-600 border border-dashed border-gray-200 rounded-lg">
           <p className="text-4xl mb-3">🔬</p>
           <p className="text-sm">No research projects started yet.</p>
         </div>
@@ -58,14 +58,14 @@ export default function ResearchScreen() {
 
       <div className="space-y-3">
         {projects.map((p) => (
-          <div key={p.resource_type} className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <div key={p.resource_type} className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="text-white font-semibold capitalize text-sm">{p.resource_type}</h3>
-                <p className="text-gray-400 text-xs mt-0.5">Level {p.level} · {p.workers} workers · {fmtMoney(p.budget_per_tick)}/tick</p>
+                <h3 className="text-gray-900 font-semibold capitalize text-sm">{p.resource_type}</h3>
+                <p className="text-gray-600 text-xs mt-0.5">Level {p.level} · {p.workers} workers · {fmtMoney(p.budget_per_tick)}/tick</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-xs px-2 py-0.5 rounded ${p.is_active ? 'text-emerald-400 bg-emerald-900/20' : 'text-gray-500 bg-gray-800'}`}>
+                <span className={`text-xs px-2 py-0.5 rounded ${p.is_active ? 'text-emerald-400 bg-emerald-900/20' : 'text-gray-500 bg-gray-100'}`}>
                   {p.is_active ? 'Active' : 'Paused'}
                 </span>
                 <button
@@ -80,11 +80,11 @@ export default function ResearchScreen() {
 
             {/* Progress bar */}
             <div className="space-y-1">
-              <div className="flex justify-between text-xs text-gray-400">
+              <div className="flex justify-between text-xs text-gray-600">
                 <span>Progress to Lv{p.level + 1}</span>
                 <span className="font-mono">{(p.progress * 100).toFixed(1)}%</span>
               </div>
-              <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full transition-all duration-500"
                   style={{ width: `${p.progress * 100}%` }}
@@ -105,7 +105,7 @@ export default function ResearchScreen() {
         >
           <Field label="Resource Type">
             <select
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+              className="w-full bg-gray-100 border border-gray-200 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-indigo-500"
               value={form.resource_type}
               onChange={(e) => setForm((f) => ({ ...f, resource_type: e.target.value }))}
             >

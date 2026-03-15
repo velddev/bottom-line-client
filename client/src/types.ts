@@ -250,20 +250,6 @@ export interface ListTilesResponse {
   tile_size_meters: number;
 }
 
-export interface RoadTileInfo {
-  world_x: number;
-  world_z: number;
-  road_type: 'straight' | 'crossroad';
-  rotation: number;
-}
-
-export interface RoadNetworkResponse {
-  tiles: RoadTileInfo[];
-  world_size: number;
-  game_grid: number;
-  block_size: number;
-}
-
 export interface MarketShareDataPoint {
   player_id: string;
   player_name: string;

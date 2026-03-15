@@ -11,7 +11,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending:  'text-amber-400 bg-amber-900/20',
   accepted: 'text-emerald-400 bg-emerald-900/20',
   rejected: 'text-rose-400 bg-rose-900/20',
-  cancelled:'text-gray-500 bg-gray-800',
+  cancelled:'text-gray-500 bg-gray-100',
 };
 
 export default function AgreementsScreen() {
@@ -60,11 +60,11 @@ export default function AgreementsScreen() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-white">Trade Agreements</h1>
+        <h1 className="text-xl font-bold text-gray-900">Trade Agreements</h1>
         {tab === 'creator' && (
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded text-sm transition-colors"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-gray-900 px-3 py-2 rounded text-sm transition-colors"
           >
             <Plus size={14} /> New Agreement
           </button>
@@ -72,12 +72,12 @@ export default function AgreementsScreen() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border border-gray-800 rounded w-fit p-0.5 bg-gray-900">
+      <div className="flex gap-1 border border-gray-200 rounded w-fit p-0.5 bg-white">
         {(['creator', 'buyer'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded text-sm capitalize transition-colors ${tab === t ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}
+            className={`px-4 py-1.5 rounded text-sm capitalize transition-colors ${tab === t ? 'bg-indigo-600 text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
           >
             As {t}
           </button>
@@ -87,17 +87,17 @@ export default function AgreementsScreen() {
       {isLoading && <p className="text-gray-500 text-sm animate-pulse">Loading…</p>}
 
       {!isLoading && agreements.length === 0 && (
-        <div className="text-center py-12 text-gray-400 border border-dashed border-gray-800 rounded-lg">
+        <div className="text-center py-12 text-gray-600 border border-dashed border-gray-200 rounded-lg">
           <p className="text-4xl mb-3">🤝</p>
           <p className="text-sm">No agreements {tab === 'creator' ? 'created' : 'received'} yet.</p>
         </div>
       )}
 
       {agreements.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-gray-400 border-b border-gray-800">
+              <tr className="text-gray-600 border-b border-gray-200">
                 {['ID', 'Resource', 'Discount', 'Status', 'Flags', 'Expires', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 font-medium uppercase tracking-wider">{h}</th>
                 ))}
@@ -112,15 +112,15 @@ export default function AgreementsScreen() {
                 ].filter(Boolean);
 
                 return (
-                  <tr key={a.agreement_id} className="border-b border-gray-800/50 hover:bg-gray-800/20">
-                    <td className="px-3 py-2.5 text-gray-400 font-mono">{a.agreement_id.slice(0, 8)}…</td>
-                    <td className="px-3 py-2.5 text-white capitalize">{a.resource_type}</td>
+                  <tr key={a.agreement_id} className="border-b border-gray-200 hover:bg-gray-100/20">
+                    <td className="px-3 py-2.5 text-gray-600 font-mono">{a.agreement_id.slice(0, 8)}…</td>
+                    <td className="px-3 py-2.5 text-gray-900 capitalize">{a.resource_type}</td>
                     <td className="px-3 py-2.5 text-emerald-400 font-mono">{fmtPct(a.discount_rate)}</td>
                     <td className="px-3 py-2.5">
-                      <span className={`px-1.5 py-0.5 rounded ${STATUS_COLORS[a.status] ?? 'text-gray-400'}`}>{a.status}</span>
+                      <span className={`px-1.5 py-0.5 rounded ${STATUS_COLORS[a.status] ?? 'text-gray-600'}`}>{a.status}</span>
                     </td>
-                    <td className="px-3 py-2.5 text-gray-400">{flags.join(', ') || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-400">{a.expires_at_tick ? `t${a.expires_at_tick}` : '∞'}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{flags.join(', ') || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{a.expires_at_tick ? `t${a.expires_at_tick}` : '∞'}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {tab === 'buyer' && a.status === 'pending' && (
@@ -183,7 +183,7 @@ export default function AgreementsScreen() {
               { key: 'disallow_white_labeling', label: 'Disallow white-labeling' },
               { key: 'require_msrp',            label: 'Require MSRP price' },
             ].map(({ key, label }) => (
-              <label key={key} className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+              <label key={key} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
                 <input
                   type="checkbox"
                   className="accent-indigo-500"

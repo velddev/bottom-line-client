@@ -48,7 +48,7 @@ function StatusBadge({ status }: { status: string }) {
     status === 'UnderConstruction' ? 'bg-amber-900/40 text-amber-400' :
     status === 'Paused'            ? 'bg-yellow-900/40 text-yellow-400' :
     status === 'MissingResources'  ? 'bg-rose-900/40 text-rose-400' :
-                                     'bg-gray-800 text-gray-400';
+                                     'bg-gray-100 text-gray-600';
   return <span className={`px-2 py-0.5 rounded text-xs ${cls}`}>{LABELS[status] ?? status}</span>;
 }
 
@@ -96,9 +96,9 @@ function ConfigureModal({
           onChange={(e) => setForm((f) => ({ ...f, workers_assigned: parseInt(e.target.value) || 0 }))} />
       </Field>
       {selectedRecipe && (
-        <div className="bg-gray-800 rounded p-3 text-xs space-y-1">
-          <p className="text-gray-300">Output: <span className="text-white">{selectedRecipe.output_min}–{selectedRecipe.output_max} {selectedRecipe.output_type}</span></p>
-          <p className="text-gray-300">Needs: {selectedRecipe.ingredients.map((i) => `${i.quantity}× ${i.resource_type}`).join(', ') || 'none'}</p>
+        <div className="bg-gray-100 rounded p-3 text-xs space-y-1">
+          <p className="text-gray-700">Output: <span className="text-gray-900">{selectedRecipe.output_min}–{selectedRecipe.output_max} {selectedRecipe.output_type}</span></p>
+          <p className="text-gray-700">Needs: {selectedRecipe.ingredients.map((i) => `${i.quantity}× ${i.resource_type}`).join(', ') || 'none'}</p>
         </div>
       )}
       {mut.isError && <p className="text-rose-400 text-xs">{(mut.error as Error).message}</p>}
@@ -112,19 +112,19 @@ function InventoryModal({ buildingId, buildingName, onClose }: { buildingId: str
   return (
     <Modal title={`Inventory — ${buildingName}`} onClose={onClose}>
       {!data && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
-      {data && data.items.length === 0 && <p className="text-gray-400 text-xs">Empty</p>}
+      {data && data.items.length === 0 && <p className="text-gray-600 text-xs">Empty</p>}
       {data && data.items.length > 0 && (
         <table className="w-full text-xs">
-          <thead><tr className="text-gray-500 border-b border-gray-700">
+          <thead><tr className="text-gray-500 border-b border-gray-200">
             {['Resource', 'Qty', 'Quality', 'Brand'].map((h) => (
               <th key={h} className="text-left py-1.5 pr-3 font-medium">{h}</th>
             ))}
           </tr></thead>
           <tbody>{data.items.map((item, i) => (
-            <tr key={i} className="border-b border-gray-800">
-              <td className="py-1.5 pr-3 text-white capitalize">{item.resource_type}</td>
-              <td className="py-1.5 pr-3 font-mono text-gray-300">{item.quantity.toFixed(1)}</td>
-              <td className="py-1.5 pr-3 font-mono text-gray-300">{item.quality.toFixed(2)}</td>
+            <tr key={i} className="border-b border-gray-200">
+              <td className="py-1.5 pr-3 text-gray-900 capitalize">{item.resource_type}</td>
+              <td className="py-1.5 pr-3 font-mono text-gray-700">{item.quantity.toFixed(1)}</td>
+              <td className="py-1.5 pr-3 font-mono text-gray-700">{item.quality.toFixed(2)}</td>
               <td className="py-1.5 text-gray-500">{item.brand_id || '—'}</td>
             </tr>
           ))}</tbody>
@@ -358,7 +358,7 @@ export default function TilesScreen() {
 
   return (
     <>
-    <div className="flex-1 min-h-0 relative" style={{ backgroundColor: '#030712' }}>
+    <div className="flex-1 min-h-0 relative" style={{ backgroundColor: '#f3f4f6' }}>
       {/* Full-bleed 3D city map */}
       <div
         className="absolute inset-0"
@@ -445,7 +445,7 @@ export default function TilesScreen() {
             }
             onClose={() => { setSelectedTile(null); setShowBuildForm(false); }}
             subheader={
-              <div className="text-xs text-gray-400 flex items-center gap-2">
+              <div className="text-xs text-gray-600 flex items-center gap-2">
                 <span className="truncate">{selectedTile.owner_name || 'Unowned'}</span>
                 {hasBuilding && <StatusBadge status={selectedTile.building_status} />}
                 {hasBuilding && selectedTile.building_status === 'UnderConstruction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
@@ -460,15 +460,15 @@ export default function TilesScreen() {
               isMine && hasBuilding && !isGovBuilding ? (
                 <div className="flex gap-2">
                   <button onClick={() => setConfigTarget(selectedTile)}
-                    className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
+                    className="flex-1 flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-1.5 rounded transition-colors">
                     <Settings size={12} /> Config
                   </button>
                   <button onClick={() => setInvTarget(selectedTile)}
-                    className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
+                    className="flex-1 flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-1.5 rounded transition-colors">
                     <Package size={12} /> Stock
                   </button>
                   <button onClick={() => setSellTarget(selectedTile)}
-                    className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
+                    className="flex-1 flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-1.5 rounded transition-colors">
                     <Tag size={12} /> Sell
                   </button>
                 </div>
@@ -478,7 +478,7 @@ export default function TilesScreen() {
             {/* Purchase */}
             {selectedTile.is_for_sale && auth && (
               <button disabled={isPurchasing} onClick={handlePurchase}
-                className="w-full bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 text-white text-xs font-semibold py-2 rounded transition-colors">
+                className="w-full bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 text-gray-900 text-xs font-semibold py-2 rounded transition-colors">
                 {isPurchasing ? 'Buying…' : `Buy for ${fmtMoney(selectedTile.purchase_price)}`}
               </button>
             )}
@@ -487,15 +487,15 @@ export default function TilesScreen() {
             {isMine && !hasBuilding && (
               !showBuildForm ? (
                 <button onClick={() => setShowBuildForm(true)}
-                  className="w-full text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-2 rounded transition-colors">
+                  className="w-full text-xs bg-indigo-700 hover:bg-indigo-600 text-gray-900 py-2 rounded transition-colors">
                   ⚒️ Build here
                 </button>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-gray-400 text-xs font-semibold">New building</p>
+                  <p className="text-gray-600 text-xs font-semibold">New building</p>
                   <select value={buildForm.building_type}
                     onChange={(e) => setBuildForm((f) => ({ ...f, building_type: e.target.value }))}
-                    className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5">
+                    className="w-full bg-gray-100 border border-gray-200 text-gray-900 text-xs rounded px-2 py-1.5">
                     {BUILDING_TYPES.map((t) => (
                       <option key={t} value={t}>{BUILDING_ICONS[t]} {t.charAt(0).toUpperCase() + t.slice(1)}</option>
                     ))}
@@ -507,14 +507,14 @@ export default function TilesScreen() {
                   </select>
                   <input placeholder="Building name" value={buildForm.name}
                     onChange={(e) => setBuildForm((f) => ({ ...f, name: e.target.value }))}
-                    className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5 placeholder-gray-600" />
+                    className="w-full bg-gray-100 border border-gray-200 text-gray-900 text-xs rounded px-2 py-1.5 placeholder-gray-400" />
                   <div className="flex gap-2">
                     <button disabled={buildMut.isPending || !buildForm.name.trim()} onClick={() => buildMut.mutate()}
-                      className="flex-1 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs py-1.5 rounded">
+                      className="flex-1 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-gray-900 text-xs py-1.5 rounded">
                       {buildMut.isPending ? 'Starting…' : 'Build'}
                     </button>
                     <button onClick={() => setShowBuildForm(false)}
-                      className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded">Cancel</button>
+                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-1.5 rounded">Cancel</button>
                   </div>
                 </div>
               )
@@ -531,8 +531,8 @@ export default function TilesScreen() {
 
             {isMine && hasBuilding && !isGovBuilding && activeTab === 'info' && (
               <div className="space-y-2 text-xs">
-                <p className="text-gray-300">Type: <span className="text-white capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
-                <p className="text-gray-300 flex items-center gap-2">
+                <p className="text-gray-700">Type: <span className="text-gray-900 capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
+                <p className="text-gray-700 flex items-center gap-2">
                   Status: <StatusBadge status={selectedTile.building_status} />
                   {selectedTile.building_status === 'UnderConstruction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
                     <span className="text-gray-500">ready in <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} /></span>

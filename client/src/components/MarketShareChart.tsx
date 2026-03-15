@@ -50,15 +50,15 @@ export default function MarketShareChart({ cityId, historyTicks = 60 }: Props) {
   });
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold text-white">
+        <h2 className="text-sm font-semibold text-gray-900">
           🛒 Citizen Market Share
         </h2>
         <select
           value={resourceType}
           onChange={(e) => setResourceType(e.target.value)}
-          className="bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1"
+          className="bg-gray-100 border border-gray-200 text-gray-900 text-xs rounded px-2 py-1"
         >
           {RESOURCE_TYPES.map((r) => (
             <option key={r} value={r}>{r}</option>
@@ -79,7 +79,7 @@ export default function MarketShareChart({ cityId, historyTicks = 60 }: Props) {
       {chartData.length > 0 && (
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis dataKey="tick" tick={{ fill: '#6b7280', fontSize: 10 }} />
             <YAxis
               tick={{ fill: '#6b7280', fontSize: 10 }}
@@ -87,7 +87,7 @@ export default function MarketShareChart({ cityId, historyTicks = 60 }: Props) {
               tickFormatter={(v) => `${v}%`}
             />
             <Tooltip
-              contentStyle={{ background: '#111827', border: '1px solid #374151', fontSize: 11 }}
+              contentStyle={{ background: '#ffffff', border: '1px solid #e5e7eb', fontSize: 11 }}
               formatter={(value, name) => [`${value}%`, name]}
             />
             <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
