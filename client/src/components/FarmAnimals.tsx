@@ -340,35 +340,45 @@ export default function FarmAnimals({ tiles, buildings }: Props) {
     }
   }, [tiles]);
 
-  // Identify cattle farms: use buildings prop for known buildings, fetch others via API
+  // Stable lookup of own building output types (avoids re-running cattle detection on React Query refetches)
+  const prevBuildingsKey = useRef('');
+  const [outputByOwnBuilding, setOutputByOwnBuilding] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    const key = buildings.map(b => `${b.building_id}:${b.output_type ?? ''}`).sort().join(',');
+    if (key !== prevBuildingsKey.current) {
+      prevBuildingsKey.current = key;
+      const map = new Map<string, string>();
+      for (const b of buildings) {
+        if (b.output_type) map.set(b.building_id, b.output_type.toLowerCase());
+      }
+      setOutputByOwnBuilding(map);
+    }
+  }, [buildings]);
+
+  // Identify cattle farms: use own buildings lookup, fetch others via API
   const prevCattleKey = useRef('');
   useEffect(() => {
     if (fieldTiles.length === 0) { setCattleTiles([]); return; }
 
     let cancelled = false;
     (async () => {
-      // Build lookup from own buildings data
-      const outputByBuildingId = new Map<string, string>();
-      for (const b of buildings) {
-        if (b.output_type) outputByBuildingId.set(b.building_id, b.output_type.toLowerCase());
-      }
+      const combined = new Map(outputByOwnBuilding);
 
       // For field tiles not in our buildings, fetch via API
-      const unknownTiles = fieldTiles.filter(t => !outputByBuildingId.has(t.building_id));
+      const unknownTiles = fieldTiles.filter(t => !combined.has(t.building_id));
       if (unknownTiles.length > 0) {
         const details = await Promise.all(
           unknownTiles.map(t => getBuilding(t.building_id).catch(() => null))
         );
         details.forEach((b) => {
           if (b?.building_id && b.output_type) {
-            outputByBuildingId.set(b.building_id, b.output_type.toLowerCase());
+            combined.set(b.building_id, b.output_type.toLowerCase());
           }
         });
       }
 
       if (cancelled) return;
-      const result = fieldTiles.filter(t => outputByBuildingId.get(t.building_id) === 'cattle');
-      // Only update state if the cattle tile set actually changed
+      const result = fieldTiles.filter(t => combined.get(t.building_id) === 'cattle');
       const key = result.map(t => t.tile_id).sort().join(',');
       if (key !== prevCattleKey.current) {
         prevCattleKey.current = key;
@@ -376,7 +386,7 @@ export default function FarmAnimals({ tiles, buildings }: Props) {
       }
     })();
     return () => { cancelled = true; };
-  }, [fieldTiles, buildings]);
+  }, [fieldTiles, outputByOwnBuilding]);
 
   const cattleTileIds = useMemo(
     () => new Set(cattleTiles.map((t) => t.tile_id)),

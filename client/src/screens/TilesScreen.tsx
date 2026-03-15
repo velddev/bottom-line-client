@@ -240,8 +240,11 @@ export default function TilesScreen() {
             && existing.building_status === updated.building_status
             && existing.building_id === updated.building_id
             && existing.owner_player_id === updated.owner_player_id
+            && existing.owner_name === updated.owner_name
             && existing.is_for_sale === updated.is_for_sale
+            && existing.purchase_price === updated.purchase_price
             && existing.building_name === updated.building_name
+            && existing.building_type === updated.building_type
           ) return;
 
           tileCache.current.set(key, updated);
