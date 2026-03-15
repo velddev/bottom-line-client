@@ -93,7 +93,7 @@ function DecoInstances({
         _tempMatrix.scale(new THREE.Vector3(p.scale, p.scale, p.scale));
         _tempMatrix.setPosition(
           p.wx - cx * p.scale,
-          -bounds.min.y * p.scale,
+          -bounds.min.y * p.scale + 0.06,
           p.wz - cz * p.scale,
         );
         mesh.setMatrixAt(i, _tempMatrix);
@@ -128,23 +128,16 @@ function DecoInstances({
 
 // Preload
 useGLTF.preload('/models/buildings/farm/grass.glb');
-useGLTF.preload('/models/buildings/farm/patch-grass.glb');
 
 export default function TileDecorations() {
   // Grass tufts (~25% of tiles)
   const grassPlacements = useMemo(() => computeDecorations(0.25, 42), []);
-  // Ground patches (~12% of tiles)
-  const patchPlacements = useMemo(() => computeDecorations(0.12, 137), []);
 
   return (
     <group>
       <DecoInstances
         modelPath="/models/buildings/farm/grass.glb"
         placements={grassPlacements}
-      />
-      <DecoInstances
-        modelPath="/models/buildings/farm/patch-grass.glb"
-        placements={patchPlacements}
       />
     </group>
   );

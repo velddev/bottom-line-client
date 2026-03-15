@@ -22,6 +22,9 @@ import BuildingMeshes from '../components/BuildingMeshes';
 import TileTooltip3D from '../components/TileTooltip3D';
 import RoadNetwork3D from '../components/RoadNetwork3D';
 import TileDecorations from '../components/TileDecorations';
+import MapBorder from '../components/MapBorder';
+import FarmAnimals from '../components/FarmAnimals';
+import TileSelector3D from '../components/TileSelector3D';
 import CompanyList from '../components/CompanyList';
 import { tileToWorld } from '../components/cityGrid';
 
@@ -303,10 +306,42 @@ export default function TilesScreen() {
 
   // Camera focus — only triggered by company list clicks, not map tile clicks
   const [focusTile, setFocusTile] = useState<TileInfo | null>(null);
+  const initialFocusDone = useRef(false);
+  const [snapCamera, setSnapCamera] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
   const focusWorldPos = useMemo<[number, number] | null>(() => {
     if (!focusTile) return null;
     return tileToWorld(focusTile.grid_x, focusTile.grid_y);
   }, [focusTile?.tile_id]);
+
+  // On first load, center on a player-owned tile (if any)
+  useEffect(() => {
+    if (initialFocusDone.current || tiles.size === 0 || !auth?.player_id) return;
+    initialFocusDone.current = true;
+    let found = false;
+    for (const tile of tiles.values()) {
+      if (tile.owner_player_id === auth.player_id && tile.building_id) {
+        setFocusTile(tile);
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      for (const tile of tiles.values()) {
+        if (tile.owner_player_id === auth.player_id) {
+          setFocusTile(tile);
+          found = true;
+          break;
+        }
+      }
+    }
+    // After initial focus, disable snap for subsequent focuses
+    if (found) {
+      requestAnimationFrame(() => setSnapCamera(false));
+    }
+    // Reveal map after a brief delay for models to render
+    setTimeout(() => setMapReady(true), 200);
+  }, [tiles, auth?.player_id]);
 
   const handleCompanyListSelect = useCallback((tile: TileInfo) => {
     setSelectedTile(tile);
@@ -315,10 +350,16 @@ export default function TilesScreen() {
 
   return (
     <>
-    <div className="flex-1 min-h-0 relative">
+    <div className="flex-1 min-h-0 relative" style={{ backgroundColor: '#030712' }}>
       {/* Full-bleed 3D city map */}
-      <div className="absolute inset-0">
-        <CityScene3D focusWorldPos={focusWorldPos}>
+      <div
+        className="absolute inset-0"
+        style={{
+          opacity: mapReady ? 1 : 0,
+          transition: 'opacity 0.5s ease-in',
+        }}
+      >
+        <CityScene3D focusWorldPos={focusWorldPos} snapNextFocus={snapCamera}>
           <TileGrid3D
             tiles={tiles}
             myPlayerId={auth?.player_id ?? ''}
@@ -333,6 +374,11 @@ export default function TilesScreen() {
           />
           <RoadNetwork3D />
           <TileDecorations />
+          <MapBorder />
+          <FarmAnimals tiles={tiles} />
+          {selectedTile && (
+            <TileSelector3D gridX={selectedTile.grid_x} gridY={selectedTile.grid_y} />
+          )}
           <TileTooltip3D
             hoveredTile={hoveredTile}
             selectedTile={selectedTile}
@@ -340,13 +386,24 @@ export default function TilesScreen() {
         </CityScene3D>
       </div>
 
-      {/* Company list — left panel */}
-      <CompanyList
-        tiles={tiles}
-        myPlayerId={auth?.player_id ?? ''}
-        onSelectTile={handleCompanyListSelect}
-        selectedTileId={selectedTile?.tile_id}
-      />
+      {/* Company list — left panel (slides in with map) */}
+      <div
+        className="absolute inset-0 z-[1000] pointer-events-none"
+        style={{
+          opacity: mapReady ? 1 : 0,
+          transform: mapReady ? 'translateX(0)' : 'translateX(-1rem)',
+          transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
+        }}
+      >
+        <div className="pointer-events-auto">
+          <CompanyList
+            tiles={tiles}
+            myPlayerId={auth?.player_id ?? ''}
+            onSelectTile={handleCompanyListSelect}
+            selectedTileId={selectedTile?.tile_id}
+          />
+        </div>
+      </div>
 
       {/* Flash toast (top-center) */}
       {flash && (

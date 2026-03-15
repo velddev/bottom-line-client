@@ -7,6 +7,8 @@ import { WORLD_SIZE } from './cityGrid';
 interface CityScene3DProps {
   children?: React.ReactNode;
   focusWorldPos?: [number, number] | null;
+  /** If true, the next focusWorldPos change will snap instantly (no animation). */
+  snapNextFocus?: boolean;
 }
 
 function IsometricCamera() {
@@ -96,7 +98,7 @@ function KeyboardControls({ controlsRef }: { controlsRef: React.RefObject<any> }
 
 /** Smoothly pans camera to a world position when focusWorldPos changes.
  *  If far away (>30 units), snaps most of the way and animates the last bit. */
-function CameraFocus({ controlsRef, focusWorldPos }: { controlsRef: React.RefObject<any>; focusWorldPos?: [number, number] | null }) {
+function CameraFocus({ controlsRef, focusWorldPos, snap }: { controlsRef: React.RefObject<any>; focusWorldPos?: [number, number] | null; snap?: boolean }) {
   const { camera } = useThree();
   const animating = useRef(false);
   const targetPos = useRef(new THREE.Vector3());
@@ -111,20 +113,27 @@ function CameraFocus({ controlsRef, focusWorldPos }: { controlsRef: React.RefObj
     const dest = new THREE.Vector3(focusWorldPos[0] + 0.5, 0, focusWorldPos[1] + 0.5);
     const controls = controlsRef.current;
     const target = controls.target as THREE.Vector3;
+    const offset = new THREE.Vector3().subVectors(camera.position, target);
+
+    if (snap) {
+      // Instant snap — no animation
+      target.copy(dest);
+      camera.position.copy(dest).add(offset);
+      return;
+    }
+
     const dist = target.distanceTo(dest);
 
     if (dist > 30) {
-      // Snap to ~8 units away from destination, then animate the rest
       const dir = new THREE.Vector3().subVectors(dest, target).normalize();
       const snapTo = dest.clone().sub(dir.multiplyScalar(8));
-      const offset = new THREE.Vector3().subVectors(camera.position, target);
       target.copy(snapTo);
       camera.position.copy(snapTo).add(offset);
     }
 
     targetPos.current.copy(dest);
     animating.current = true;
-  }, [focusWorldPos, controlsRef]);
+  }, [focusWorldPos, controlsRef, snap]);
 
   useFrame((_, delta) => {
     if (!animating.current || !controlsRef.current) return;
@@ -172,7 +181,7 @@ function GridGround() {
 const ISO_ANGLE = Math.PI / 6;
 const ISO_DISTANCE = 140;
 
-export default function CityScene3D({ children, focusWorldPos }: CityScene3DProps) {
+export default function CityScene3D({ children, focusWorldPos, snapNextFocus }: CityScene3DProps) {
   const controlsRef = useRef<any>(null);
 
   const cameraPosition = useMemo(() => {
@@ -195,7 +204,7 @@ export default function CityScene3D({ children, focusWorldPos }: CityScene3DProp
       orthographic
       camera={{
         position: cameraPosition,
-        zoom: 15,
+        zoom: 8,
         near: 0.1,
         far: 1000,
       }}
@@ -205,7 +214,7 @@ export default function CityScene3D({ children, focusWorldPos }: CityScene3DProp
     >
       <IsometricCamera />
       <KeyboardControls controlsRef={controlsRef} />
-      <CameraFocus controlsRef={controlsRef} focusWorldPos={focusWorldPos} />
+      <CameraFocus controlsRef={controlsRef} focusWorldPos={focusWorldPos} snap={snapNextFocus} />
 
       {/* Sky color */}
       <color attach="background" args={['#87CEEB']} />
@@ -232,9 +241,7 @@ export default function CityScene3D({ children, focusWorldPos }: CityScene3DProp
       <MapControls
         ref={controlsRef}
         target={cameraTarget}
-        enableRotate={true}
-        maxPolarAngle={Math.PI / 3}
-        minPolarAngle={Math.PI / 6}
+        enableRotate={false}
         enableDamping
         dampingFactor={0.1}
         minZoom={2}
