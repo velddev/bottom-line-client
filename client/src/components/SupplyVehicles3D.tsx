@@ -5,9 +5,9 @@ import * as THREE from 'three';
 import { tileToWorld, BLOCK_SIZE, ROAD_WIDTH, GAME_GRID } from './cityGrid';
 import type { SupplyRoute } from '../hooks/useAllPlayerSupplyLinks';
 
-const CARS_PER_LINK   = 2;
+const CARS_PER_LINK   = 1;
 const VEHICLE_SPEED   = 1;   // world-units per second (same for every vehicle)
-const DWELL_TIME      = 2.0; // seconds parked at destination road edge
+const DWELL_TIME      = 3.5; // seconds parked at destination road edge
 const LANE_OFFSET     = 0.25; // metres from road centre to lane centre
 
 const CAR_Y         = 0.05;

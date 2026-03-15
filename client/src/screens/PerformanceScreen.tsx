@@ -145,10 +145,10 @@ export default function PerformanceScreen() {
   if (error)     return <div className="text-rose-400 text-sm">Failed to load performance data.</div>;
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col gap-4 overflow-hidden">
 
       {/* Header */}
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between shrink-0">
         <div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Income Statement</h1>
           <p className="text-xs text-gray-500 mt-0.5">Last {snapshots.length} days · refreshes every 15 s</p>
@@ -173,13 +173,13 @@ export default function PerformanceScreen() {
       )}
 
       {snapshots.length > 0 && (
-        <div className="flex gap-6 items-start">
+        <div className="flex gap-6 flex-1 min-h-0 overflow-hidden">
 
           {/* ── Left: P&L + ledger ─────────────────────────────────────── */}
-          <div className="min-w-0 flex-1 space-y-6">
+          <div className="min-w-0 flex-1 flex flex-col gap-8 min-h-0 overflow-hidden">
 
-            {/* Income statement table */}
-            <div className="bg-gray-200 border border-gray-200 rounded-lg p-5">
+            {/* Income statement table — no box */}
+            <div className="shrink-0">
               <table className="w-full">
                 <tbody>
                   <SectionLabel label="Revenue" />
@@ -205,14 +205,15 @@ export default function PerformanceScreen() {
               </table>
             </div>
 
-            {/* Day ledger */}
-            <div className="bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
-              <div className="px-5 py-3 border-b border-gray-200">
+            {/* Day ledger — scrollable */}
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div className="shrink-0 pb-2 border-b border-gray-300">
+                <div className="border-t border-gray-300 mb-4" />
                 <h2 className="text-xs font-semibold tracking-widest uppercase text-gray-500">Day Ledger</h2>
               </div>
-              <div className="overflow-x-auto">
+              <div className="overflow-y-auto flex-1 min-h-0">
                 <table className="w-full text-xs border-collapse">
-                  <thead>
+                  <thead className="sticky top-0 bg-gray-100">
                     <tr className="border-b border-gray-200 text-gray-500 uppercase tracking-wider text-[10px]">
                       <th className="text-left py-2 px-3 font-medium">Day</th>
                       <th className="text-right py-2 px-3 font-medium">Revenue</th>
@@ -244,12 +245,12 @@ export default function PerformanceScreen() {
 
           {/* ── Right: Charts ────────────────────────────────────────────── */}
           {chartData.length > 0 && (
-            <div className="w-[640px] shrink-0 space-y-4">
+            <div className="w-[640px] shrink-0 space-y-4 overflow-y-auto">
 
               {/* Balance */}
-              <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
-                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-500 mb-3">Balance</p>
-                <ResponsiveContainer width="100%" height={130}>
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-500">Balance</p>
+                <ResponsiveContainer width="100%" height={260}>
                   <AreaChart data={chartData} margin={{ top: 2, right: 4, bottom: 0, left: 0 }}>
                     <defs>
                       <linearGradient id="balGrad" x1="0" y1="0" x2="0" y2="1">
@@ -267,9 +268,9 @@ export default function PerformanceScreen() {
               </div>
 
               {/* Revenue vs Expenses */}
-              <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
-                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-500 mb-3">Revenue vs Expenses</p>
-                <ResponsiveContainer width="100%" height={130}>
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-500">Revenue vs Expenses</p>
+                <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={chartData} margin={{ top: 2, right: 4, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
                     <XAxis dataKey="tick" tick={{ fill: C.tick, fontSize: 9 }} />
@@ -282,9 +283,9 @@ export default function PerformanceScreen() {
               </div>
 
               {/* Net Profit */}
-              <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
-                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-500 mb-3">Net Profit per Day</p>
-                <ResponsiveContainer width="100%" height={130}>
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold tracking-widest uppercase text-gray-500">Net Profit per Day</p>
+                <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={chartData} margin={{ top: 2, right: 4, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
                     <XAxis dataKey="tick" tick={{ fill: C.tick, fontSize: 9 }} />

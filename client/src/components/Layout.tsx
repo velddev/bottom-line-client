@@ -47,8 +47,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { auth, logout } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
-  const isMapPage  = location.pathname === '/map';
-  const isChatPage = location.pathname === '/chat';
+  const isMapPage         = location.pathname === '/map';
+  const isChatPage        = location.pathname === '/chat';
+  const isPerformancePage = location.pathname === '/performance';
 
   const { nextTickAt } = useTickRefresh();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -132,7 +133,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* ── Page content ────────────────────────────────────────────────────── */}
-      <main className={`flex-1 min-h-0 ${(isMapPage || isChatPage) ? 'overflow-hidden flex flex-col' : 'overflow-y-auto p-6'}`}>
+      <main className={`flex-1 min-h-0 ${(isMapPage || isChatPage) ? 'overflow-hidden flex flex-col' : isPerformancePage ? 'overflow-hidden flex flex-col p-6' : 'overflow-y-auto p-6'}`}>
         {children}
       </main>
 

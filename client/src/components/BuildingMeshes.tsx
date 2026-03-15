@@ -22,9 +22,9 @@ const MODEL_MAP: Record<string, ModelMapping> = {
   landmark:            { path: '/models/buildings/commercial/building-skyscraper-a.glb',  scale: 0.5, yOffset: 0 },
   bank:                { path: '/models/buildings/commercial/building-d.glb',             scale: 0.5, yOffset: 0 },
   // Residential tiers — government-built citizen housing
-  residentiallow:      { path: '/models/buildings/suburban/building-type-a.glb',          scale: 0.5, yOffset: 0 },
-  residentialmedium:   { path: '/models/buildings/commercial/building-c.glb',             scale: 0.5, yOffset: 0 },
-  residentialhigh:     { path: '/models/buildings/commercial/building-skyscraper-b.glb',  scale: 0.5, yOffset: 0 },
+  residential_low:      { path: '/models/buildings/suburban/building-type-a.glb',          scale: 0.5, yOffset: 0 },
+  residential_medium:   { path: '/models/buildings/commercial/building-c.glb',             scale: 0.5, yOffset: 0 },
+  residential_high:     { path: '/models/buildings/commercial/building-skyscraper-b.glb',  scale: 0.5, yOffset: 0 },
 };
 
 // Preload all models
