@@ -26,6 +26,7 @@ import MapBorder from '../components/MapBorder';
 import FarmAnimals from '../components/FarmAnimals';
 import TileSelector3D from '../components/TileSelector3D';
 import CompanyList from '../components/CompanyList';
+import Panel from '../components/Panel';
 import UnifiedChatPanel from '../components/UnifiedChatPanel';
 import { tileToWorld } from '../components/cityGrid';
 
@@ -429,121 +430,115 @@ export default function TilesScreen() {
       )}
 
         {selectedTile && (
-          <div className="absolute top-3 right-3 w-80 max-h-[calc(100%-1.5rem)] z-[1000] bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg flex flex-col overflow-hidden shadow-2xl">
-            {/* Panel header */}
-            <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-              <h2 className="text-white font-semibold text-sm">
-                {hasBuilding
-                  ? `${BUILDING_ICONS[selectedTile.building_type?.toLowerCase() ?? ''] ?? '🏢'} ${selectedTile.building_name}`
-                  : `Tile (${selectedTile.grid_x}, ${selectedTile.grid_y})`}
-              </h2>
-              <button onClick={() => { setSelectedTile(null); setShowBuildForm(false); }}
-                className="text-gray-500 hover:text-gray-300 text-lg leading-none">×</button>
-            </div>
-
-            {/* Status / owner row */}
-            <div className="px-4 py-2 border-b border-gray-700/50 text-xs text-gray-400 flex items-center gap-2">
-              <span className="truncate">{selectedTile.owner_name || 'Unowned'}</span>
-              {hasBuilding && <StatusBadge status={selectedTile.building_status} />}
-              {hasBuilding && selectedTile.building_status === 'UnderConstruction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
-                <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} />
-              )}
-              {selectedTile.is_for_sale && (
-                <span className="text-cyan-400 shrink-0">{fmtMoney(selectedTile.purchase_price)}</span>
-              )}
-            </div>
-
-            {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* Purchase */}
-              {selectedTile.is_for_sale && auth && (
-                <button disabled={isPurchasing} onClick={handlePurchase}
-                  className="w-full bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 text-white text-xs font-semibold py-2 rounded transition-colors">
-                  {isPurchasing ? 'Buying…' : `Buy for ${fmtMoney(selectedTile.purchase_price)}`}
-                </button>
-              )}
-
-              {/* Build on vacant tile */}
-              {isMine && !hasBuilding && (
-                !showBuildForm ? (
-                  <button onClick={() => setShowBuildForm(true)}
-                    className="w-full text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-2 rounded transition-colors">
-                    ⚒️ Build here
+          <Panel
+            className="absolute top-3 right-3 w-80 max-h-[calc(100%-1.5rem)] z-[1000]"
+            title={
+              hasBuilding
+                ? `${BUILDING_ICONS[selectedTile.building_type?.toLowerCase() ?? ''] ?? '🏢'} ${selectedTile.building_name}`
+                : `Tile (${selectedTile.grid_x}, ${selectedTile.grid_y})`
+            }
+            onClose={() => { setSelectedTile(null); setShowBuildForm(false); }}
+            subheader={
+              <div className="text-xs text-gray-400 flex items-center gap-2">
+                <span className="truncate">{selectedTile.owner_name || 'Unowned'}</span>
+                {hasBuilding && <StatusBadge status={selectedTile.building_status} />}
+                {hasBuilding && selectedTile.building_status === 'UnderConstruction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
+                  <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} />
+                )}
+                {selectedTile.is_for_sale && (
+                  <span className="text-cyan-400 shrink-0">{fmtMoney(selectedTile.purchase_price)}</span>
+                )}
+              </div>
+            }
+            footer={
+              isMine && hasBuilding && !isGovBuilding ? (
+                <div className="flex gap-2">
+                  <button onClick={() => setConfigTarget(selectedTile)}
+                    className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
+                    <Settings size={12} /> Config
                   </button>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-gray-400 text-xs font-semibold">New building</p>
-                    <select value={buildForm.building_type}
-                      onChange={(e) => setBuildForm((f) => ({ ...f, building_type: e.target.value }))}
-                      className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5">
-                      {BUILDING_TYPES.map((t) => (
-                        <option key={t} value={t}>{BUILDING_ICONS[t]} {t.charAt(0).toUpperCase() + t.slice(1)}</option>
-                      ))}
-                      <optgroup label="Residential">
-                        {(['residential_low', 'residential_medium', 'residential_high'] as const).map((t) => (
-                          <option key={t} value={t}>{BUILDING_ICONS[t]} {t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
-                        ))}
-                      </optgroup>
-                    </select>
-                    <input placeholder="Building name" value={buildForm.name}
-                      onChange={(e) => setBuildForm((f) => ({ ...f, name: e.target.value }))}
-                      className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5 placeholder-gray-600" />
-                    <div className="flex gap-2">
-                      <button disabled={buildMut.isPending || !buildForm.name.trim()} onClick={() => buildMut.mutate()}
-                        className="flex-1 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs py-1.5 rounded">
-                        {buildMut.isPending ? 'Starting…' : 'Build'}
-                      </button>
-                      <button onClick={() => setShowBuildForm(false)}
-                        className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded">Cancel</button>
-                    </div>
-                  </div>
-                )
-              )}
-
-              {/* Building supply section */}
-              {isMine && hasBuilding && !isGovBuilding && (
-                <SupplySection
-                  buildingId={selectedTile.building_id}
-                  buildingType={selectedTile.building_type?.toLowerCase() ?? ''}
-                  cityId={cityId}
-                />
-              )}
-
-              {isMine && hasBuilding && !isGovBuilding && activeTab === 'info' && (
-                <div className="space-y-2 text-xs">
-                  <p className="text-gray-400">Type: <span className="text-white capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
-                  <p className="text-gray-400 flex items-center gap-2">
-                    Status: <StatusBadge status={selectedTile.building_status} />
-                    {selectedTile.building_status === 'UnderConstruction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
-                      <span className="text-gray-500">ready in <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} /></span>
-                    )}
-                  </p>
+                  <button onClick={() => setInvTarget(selectedTile)}
+                    className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
+                    <Package size={12} /> Stock
+                  </button>
+                  <button onClick={() => setSellTarget(selectedTile)}
+                    className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
+                    <Tag size={12} /> Sell
+                  </button>
                 </div>
-              )}
+              ) : undefined
+            }
+          >
+            {/* Purchase */}
+            {selectedTile.is_for_sale && auth && (
+              <button disabled={isPurchasing} onClick={handlePurchase}
+                className="w-full bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 text-white text-xs font-semibold py-2 rounded transition-colors">
+                {isPurchasing ? 'Buying…' : `Buy for ${fmtMoney(selectedTile.purchase_price)}`}
+              </button>
+            )}
 
-              {/* Government landmark — politics panel */}
-              {isLandmark && <PoliticsPanel />}
-              {isBank     && <BankPanel />}
-            </div>
+            {/* Build on vacant tile */}
+            {isMine && !hasBuilding && (
+              !showBuildForm ? (
+                <button onClick={() => setShowBuildForm(true)}
+                  className="w-full text-xs bg-indigo-700 hover:bg-indigo-600 text-white py-2 rounded transition-colors">
+                  ⚒️ Build here
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-gray-400 text-xs font-semibold">New building</p>
+                  <select value={buildForm.building_type}
+                    onChange={(e) => setBuildForm((f) => ({ ...f, building_type: e.target.value }))}
+                    className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5">
+                    {BUILDING_TYPES.map((t) => (
+                      <option key={t} value={t}>{BUILDING_ICONS[t]} {t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                    ))}
+                    <optgroup label="Residential">
+                      {(['residential_low', 'residential_medium', 'residential_high'] as const).map((t) => (
+                        <option key={t} value={t}>{BUILDING_ICONS[t]} {t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  <input placeholder="Building name" value={buildForm.name}
+                    onChange={(e) => setBuildForm((f) => ({ ...f, name: e.target.value }))}
+                    className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1.5 placeholder-gray-600" />
+                  <div className="flex gap-2">
+                    <button disabled={buildMut.isPending || !buildForm.name.trim()} onClick={() => buildMut.mutate()}
+                      className="flex-1 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs py-1.5 rounded">
+                      {buildMut.isPending ? 'Starting…' : 'Build'}
+                    </button>
+                    <button onClick={() => setShowBuildForm(false)}
+                      className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded">Cancel</button>
+                  </div>
+                </div>
+              )
+            )}
 
-            {/* Action bar for own non-landmark buildings */}
+            {/* Building supply section */}
             {isMine && hasBuilding && !isGovBuilding && (
-              <div className="border-t border-gray-700 px-4 py-2 flex gap-2">
-                <button onClick={() => setConfigTarget(selectedTile)}
-                  className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
-                  <Settings size={12} /> Config
-                </button>
-                <button onClick={() => setInvTarget(selectedTile)}
-                  className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
-                  <Package size={12} /> Stock
-                </button>
-                <button onClick={() => setSellTarget(selectedTile)}
-                  className="flex-1 flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-1.5 rounded transition-colors">
-                  <Tag size={12} /> Sell
-                </button>
+              <SupplySection
+                buildingId={selectedTile.building_id}
+                buildingType={selectedTile.building_type?.toLowerCase() ?? ''}
+                cityId={cityId}
+              />
+            )}
+
+            {isMine && hasBuilding && !isGovBuilding && activeTab === 'info' && (
+              <div className="space-y-2 text-xs">
+                <p className="text-gray-400">Type: <span className="text-white capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
+                <p className="text-gray-400 flex items-center gap-2">
+                  Status: <StatusBadge status={selectedTile.building_status} />
+                  {selectedTile.building_status === 'UnderConstruction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
+                    <span className="text-gray-500">ready in <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} /></span>
+                  )}
+                </p>
               </div>
             )}
-          </div>
+
+            {/* Government landmark — politics panel */}
+            {isLandmark && <PoliticsPanel />}
+            {isBank     && <BankPanel />}
+          </Panel>
         )}
     </div>
 

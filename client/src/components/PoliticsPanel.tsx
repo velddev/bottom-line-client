@@ -5,6 +5,7 @@ import { getGovernment, getElection, runForElection, enactPolicy } from '../api'
 import { useAuth } from '../auth';
 import { fmtPct, fmtMoney } from '../types';
 import Modal, { Field, Input } from './Modal';
+import Panel from './Panel';
 
 function TaxBar({ label, value }: { label: string; value: number }) {
   return (
