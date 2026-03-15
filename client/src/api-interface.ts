@@ -4,7 +4,7 @@ import type {
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
   SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
-  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation,
+  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, RoadNetworkResponse,
 } from './types';
 
 export interface IApiService {
@@ -51,6 +51,7 @@ export interface IApiService {
   listTiles(city_id: string, min_x: number, min_y: number, max_x: number, max_y: number): Promise<ListTilesResponse>;
   getTile(tile_id: string): Promise<TileInfo>;
   purchaseTile(tile_id: string): Promise<{ tile_id: string; new_balance: number }>;
+  getRoadNetwork(): Promise<RoadNetworkResponse>;
   getSupplyLinks(buildingId: string): Promise<{ links: SupplyLinkInfo[] }>;
   addSupplyLink(buildingId: string, resourceType: string, supplierBuildingId: string): Promise<{ supply_link_id: string }>;
   removeSupplyLink(linkId: string): Promise<{ success: boolean }>;

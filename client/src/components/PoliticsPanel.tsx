@@ -76,11 +76,12 @@ export default function PoliticsPanel() {
 
   return (
     <div className="space-y-4">
-      {/* Government panel */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800">
-          <h2 className="text-xs font-semibold text-white">🏛️ Government</h2>
-          {isRuler && (
+      {/* Government card */}
+      <Panel
+        variant="card"
+        title="🏛️ Government"
+        headerActions={
+          isRuler ? (
             <button
               onClick={() => {
                 setPolicyForm({
@@ -95,43 +96,43 @@ export default function PoliticsPanel() {
             >
               <Settings size={11} /> Set Policy
             </button>
-          )}
-        </div>
-        <div className="p-3 space-y-3">
-          {govLoading && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
-          {gov && (
-            <>
-              <div>
-                <p className="text-gray-500 text-xs mb-0.5">Current Ruler</p>
-                <p className="text-white text-sm font-semibold">{gov.ruling_player_name || 'AI Government'}</p>
-                {isRuler && <span className="text-indigo-400 text-xs">← You</span>}
-                <p className="text-gray-600 text-xs">Term: t{gov.term_start_tick} – t{gov.term_end_tick}</p>
-              </div>
+          ) : undefined
+        }
+      >
+        {govLoading && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
+        {gov && (
+          <>
+            <div>
+              <p className="text-gray-500 text-xs mb-0.5">Current Ruler</p>
+              <p className="text-white text-sm font-semibold">{gov.ruling_player_name || 'AI Government'}</p>
+              {isRuler && <span className="text-indigo-400 text-xs">← You</span>}
+              <p className="text-gray-600 text-xs">Term: t{gov.term_start_tick} – t{gov.term_end_tick}</p>
+            </div>
 
-              <div className="space-y-2">
-                <p className="text-gray-500 text-xs uppercase tracking-wider">Tax Rates</p>
-                <TaxBar label="Consumer Tax"  value={gov.consumer_tax_rate}  />
-                <TaxBar label="Profit Tax"    value={gov.profit_tax_rate}    />
-                <TaxBar label="Land Tax"      value={gov.land_tax_rate}      />
-                <TaxBar label="Employee Tax"  value={gov.employee_tax_rate}  />
-              </div>
+            <div className="space-y-2">
+              <p className="text-gray-500 text-xs uppercase tracking-wider">Tax Rates</p>
+              <TaxBar label="Consumer Tax"  value={gov.consumer_tax_rate}  />
+              <TaxBar label="Profit Tax"    value={gov.profit_tax_rate}    />
+              <TaxBar label="Land Tax"      value={gov.land_tax_rate}      />
+              <TaxBar label="Employee Tax"  value={gov.employee_tax_rate}  />
+            </div>
 
-              <div className="space-y-2">
-                <p className="text-gray-500 text-xs uppercase tracking-wider">Approval Ratings</p>
-                <ApprovalBar label="City"     value={gov.approval_city}     color="text-blue-400"    />
-                <ApprovalBar label="People"   value={gov.approval_people}   color="text-emerald-400" />
-                <ApprovalBar label="Business" value={gov.approval_business} color="text-amber-400"   />
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+            <div className="space-y-2">
+              <p className="text-gray-500 text-xs uppercase tracking-wider">Approval Ratings</p>
+              <ApprovalBar label="City"     value={gov.approval_city}     color="text-blue-400"    />
+              <ApprovalBar label="People"   value={gov.approval_people}   color="text-emerald-400" />
+              <ApprovalBar label="Business" value={gov.approval_business} color="text-amber-400"   />
+            </div>
+          </>
+        )}
+      </Panel>
 
-      {/* Election panel */}
-      <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800">
-          <h2 className="text-xs font-semibold text-white">🗳️ Election</h2>
-          {election && election.status === 'open' && !isCandidate && (
+      {/* Election card */}
+      <Panel
+        variant="card"
+        title="🗳️ Election"
+        headerActions={
+          election && election.status === 'open' && !isCandidate ? (
             <button
               onClick={() => runMut.mutate()}
               disabled={runMut.isPending}
@@ -139,9 +140,10 @@ export default function PoliticsPanel() {
             >
               <Vote size={11} /> Run
             </button>
-          )}
-        </div>
-        <div className="p-3">
+          ) : undefined
+        }
+        bodyClassName="p-3"
+      >
           {elecLoading && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
           {election && (
             <>
@@ -191,8 +193,7 @@ export default function PoliticsPanel() {
           )}
           {runMut.isError  && <p className="text-rose-400 text-xs mt-2">{(runMut.error as Error).message}</p>}
           {runMut.data     && <p className="text-emerald-400 text-xs mt-2">{runMut.data.message}</p>}
-        </div>
-      </div>
+      </Panel>
 
       {/* Policy modal (ruler only) */}
       {showPolicy && (
