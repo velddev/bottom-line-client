@@ -15,7 +15,6 @@ const NAV = [
   { to: '/research',     label: 'Research'     },
   { to: '/marketing',    label: 'Marketing'    },
   { to: '/map',          label: 'City Map'     },
-  { to: '/chat',         label: 'Chat'         },
 ];
 
 function TickCountdown({ nextTickAt }: { nextTickAt: number }) {
