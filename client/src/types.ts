@@ -232,6 +232,12 @@ export interface TileInfo {
   building_name: string;
   building_type: string;
   building_status: string;
+  building_player_id: string;
+  building_player_name: string;
+  building_level: number;
+  construction_ticks_remaining: number;
+  population_capacity: number;    // residential buildings only
+  is_government_port: boolean;
 }
 
 export interface ListTilesResponse {

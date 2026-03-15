@@ -1099,19 +1099,25 @@ message ListTilesRequest {
 }
 
 message TileInfo {
-  string         tile_id                  = 1;
-  string         city_id                  = 2;
-  int32          grid_x                   = 3;
-  int32          grid_y                   = 4;
-  string         owner_player_id          = 5;  // empty = government
-  string         owner_name               = 6;
-  bool           is_reserved_for_citizens = 7;
-  bool           is_for_sale              = 8;
-  int64          purchase_price           = 9;
-  string         building_id              = 10; // empty = no building
-  string         building_name            = 11;
-  BuildingType   building_type            = 12;
-  BuildingStatus building_status          = 13;
+  string         tile_id                      = 1;
+  string         city_id                      = 2;
+  int32          grid_x                       = 3;
+  int32          grid_y                       = 4;
+  string         owner_player_id              = 5;  // empty = government
+  string         owner_name                   = 6;
+  bool           is_reserved_for_citizens     = 7;
+  bool           is_for_sale                  = 8;
+  int64          purchase_price               = 9;
+  string         building_id                  = 10; // empty = no building
+  string         building_name                = 11;
+  BuildingType   building_type                = 12;
+  BuildingStatus building_status              = 13;
+  string         building_player_id           = 14; // player who owns the building
+  string         building_player_name         = 15;
+  int32          building_level               = 16;
+  int32          construction_ticks_remaining = 17;
+  int32          population_capacity          = 18; // residential buildings only
+  bool           is_government_port           = 19;
 }
 
 message ListTilesResponse {

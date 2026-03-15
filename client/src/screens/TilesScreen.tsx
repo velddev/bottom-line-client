@@ -217,19 +217,25 @@ export default function TilesScreen() {
         if (evt.tileChanged) {
           const tc = evt.tileChanged;
           const updated: TileInfo = {
-            tile_id:                 tc.tileId       ?? '',
-            city_id:                 tc.cityId       ?? '',
-            grid_x:                  tc.gridX        ?? 0,
-            grid_y:                  tc.gridY        ?? 0,
-            owner_player_id:         tc.ownerPlayerId ?? '',
-            owner_name:              tc.ownerName    ?? '',
-            is_for_sale:             tc.isForSale    ?? false,
-            purchase_price:          tc.purchasePrice ?? 0,
-            building_id:             tc.buildingId   ?? '',
-            building_name:           tc.buildingName ?? '',
-            building_type:           tc.buildingType ?? '',
-            building_status:         tc.buildingStatus ?? '',
-            is_reserved_for_citizens: false,
+            tile_id:                      tc.tileId       ?? '',
+            city_id:                      tc.cityId       ?? '',
+            grid_x:                       tc.gridX        ?? 0,
+            grid_y:                       tc.gridY        ?? 0,
+            owner_player_id:              tc.ownerPlayerId ?? '',
+            owner_name:                   tc.ownerName    ?? '',
+            is_for_sale:                  tc.isForSale    ?? false,
+            purchase_price:               tc.purchasePrice ?? 0,
+            building_id:                  tc.buildingId   ?? '',
+            building_name:                tc.buildingName ?? '',
+            building_type:                tc.buildingType ?? '',
+            building_status:              tc.buildingStatus ?? '',
+            is_reserved_for_citizens:     tc.isReservedForCitizens ?? false,
+            building_player_id:           tc.buildingPlayerId ?? '',
+            building_player_name:         tc.buildingPlayerName ?? '',
+            building_level:               tc.buildingLevel ?? 0,
+            construction_ticks_remaining: tc.constructionTicksRemaining ?? 0,
+            population_capacity:          tc.populationCapacity ?? 0,
+            is_government_port:           tc.isGovernmentPort ?? false,
           };
           tileCache.current.set(`${updated.grid_x}_${updated.grid_y}`, updated);
           setTiles(new Map(tileCache.current));
