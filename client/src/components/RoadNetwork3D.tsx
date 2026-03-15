@@ -2,7 +2,7 @@ import { useMemo, useRef, useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
-import { computeRoadPlacements, type RoadPlacement } from './cityGrid';
+import { computeRoadPlacements, type RoadPlacement, WORLD_SIZE, CHUNKS_PER_AXIS } from './cityGrid';
 
 const ROAD_MODELS = {
   straight: '/models/roads/road-straight.glb',
@@ -11,7 +11,8 @@ const ROAD_MODELS = {
 
 Object.values(ROAD_MODELS).forEach((url) => useGLTF.preload(url));
 
-// Extract first mesh geometry & material from a GLTF scene
+const CHUNK_WORLD = WORLD_SIZE / CHUNKS_PER_AXIS;
+
 function extractMesh(scene: THREE.Group): { geometry: THREE.BufferGeometry; material: THREE.Material } | null {
   let found: { geometry: THREE.BufferGeometry; material: THREE.Material } | null = null;
   scene.traverse((child) => {
@@ -22,7 +23,21 @@ function extractMesh(scene: THREE.Group): { geometry: THREE.BufferGeometry; mate
   return found;
 }
 
-function RoadInstancedMesh({ placements, modelUrl }: { placements: RoadPlacement[]; modelUrl: string }) {
+/** Bucket road placements into chunks by world position */
+function chunkRoads(placements: RoadPlacement[]): Map<string, RoadPlacement[]> {
+  const chunks = new Map<string, RoadPlacement[]>();
+  for (const p of placements) {
+    const cx = Math.min(Math.floor(p.x / CHUNK_WORLD), CHUNKS_PER_AXIS - 1);
+    const cz = Math.min(Math.floor(p.z / CHUNK_WORLD), CHUNKS_PER_AXIS - 1);
+    const key = `${cx}_${cz}`;
+    let arr = chunks.get(key);
+    if (!arr) { arr = []; chunks.set(key, arr); }
+    arr.push(p);
+  }
+  return chunks;
+}
+
+function RoadChunk({ placements, modelUrl }: { placements: RoadPlacement[]; modelUrl: string }) {
   const { scene } = useGLTF(modelUrl);
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const meshData = useMemo(() => extractMesh(scene), [scene]);
@@ -60,11 +75,32 @@ function RoadInstancedMesh({ placements, modelUrl }: { placements: RoadPlacement
 
 export default function RoadNetwork3D() {
   const { straights, crossroads } = useMemo(() => computeRoadPlacements(), []);
+  const straightChunks = useMemo(() => chunkRoads(straights), [straights]);
+  const crossroadChunks = useMemo(() => chunkRoads(crossroads), [crossroads]);
+
+  const chunkKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const k of straightChunks.keys()) keys.add(k);
+    for (const k of crossroadChunks.keys()) keys.add(k);
+    return Array.from(keys);
+  }, [straightChunks, crossroadChunks]);
 
   return (
     <group>
-      <RoadInstancedMesh placements={straights} modelUrl={ROAD_MODELS.straight} />
-      <RoadInstancedMesh placements={crossroads} modelUrl={ROAD_MODELS.crossroad} />
+      {chunkKeys.map(key => {
+        const sp = straightChunks.get(key);
+        const cp = crossroadChunks.get(key);
+        return (
+          <group key={key}>
+            {sp && sp.length > 0 && (
+              <RoadChunk placements={sp} modelUrl={ROAD_MODELS.straight} />
+            )}
+            {cp && cp.length > 0 && (
+              <RoadChunk placements={cp} modelUrl={ROAD_MODELS.crossroad} />
+            )}
+          </group>
+        );
+      })}
     </group>
   );
 }

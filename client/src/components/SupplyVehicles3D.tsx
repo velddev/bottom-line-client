@@ -56,6 +56,7 @@ for (let c = 0; c < Y_CYCLES; c++) {
   if (c < Y_CYCLES - 1) Z_ROAD_CENTERS.push(c * (Y_CYCLE + 2) + Y_CYCLE + 1 + 0.5);
 }
 
+<<<<<<< HEAD
 function nearest(centers: number[], value: number): number {
   let best = centers[0], bestDist = Math.abs(centers[0] - value);
   for (const c of centers) {
