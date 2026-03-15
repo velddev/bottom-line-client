@@ -216,6 +216,9 @@ export default function TilesScreen() {
         const evt = JSON.parse(e.data as string);
         if (evt.tileChanged) {
           const tc = evt.tileChanged;
+          const key = `${tc.gridX ?? 0}_${tc.gridY ?? 0}`;
+          const existing = tileCache.current.get(key);
+
           const updated: TileInfo = {
             tile_id:                      tc.tileId       ?? '',
             city_id:                      tc.cityId       ?? '',
@@ -237,7 +240,20 @@ export default function TilesScreen() {
             population_capacity:          tc.populationCapacity ?? 0,
             is_government_port:           tc.isGovernmentPort ?? false,
           };
-          tileCache.current.set(`${updated.grid_x}_${updated.grid_y}`, updated);
+
+          // Skip update if tile data hasn't changed
+          if (existing
+            && existing.building_status === updated.building_status
+            && existing.building_id === updated.building_id
+            && existing.owner_player_id === updated.owner_player_id
+            && existing.owner_name === updated.owner_name
+            && existing.is_for_sale === updated.is_for_sale
+            && existing.purchase_price === updated.purchase_price
+            && existing.building_name === updated.building_name
+            && existing.building_type === updated.building_type
+          ) return;
+
+          tileCache.current.set(key, updated);
           setTiles(new Map(tileCache.current));
         }
       } catch { /* ignore parse errors */ }
@@ -383,7 +399,7 @@ export default function TilesScreen() {
           <RoadNetwork3D />
           <TileDecorations />
           <MapBorder />
-          <FarmAnimals tiles={tiles} />
+          <FarmAnimals tiles={tiles} buildings={myBuildings} />
           {selectedTile && (
             <TileSelector3D gridX={selectedTile.grid_x} gridY={selectedTile.grid_y} />
           )}

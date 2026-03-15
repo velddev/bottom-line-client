@@ -50,6 +50,7 @@ function RoadInstancedMesh({ placements, modelUrl }: { placements: RoadPlacement
       ref={meshRef}
       args={[meshData.geometry, meshData.material, placements.length]}
       receiveShadow
+      frustumCulled={false}
     />
   );
 }

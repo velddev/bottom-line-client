@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
-import { getBuilding, listRecipes } from '../api';
-import type { TileInfo } from '../types';
+import { getBuilding } from '../api';
+import type { TileInfo, BuildingStatus } from '../types';
 import { tileToWorld } from './cityGrid';
 
 const COW_MODEL = '/models/animals/animal-cow.glb';
@@ -41,6 +41,7 @@ interface CowState {
 
 interface Props {
   tiles: Map<string, TileInfo>;
+  buildings: BuildingStatus[];
 }
 
 function mulberry32(seed: number) {
@@ -321,45 +322,71 @@ function CattleCows({ cattleTiles, cowScene, cowAnimations }: {
 
 /* ── Main component ───────────────────────────────────────────── */
 
-export default function FarmAnimals({ tiles }: Props) {
+export default function FarmAnimals({ tiles, buildings }: Props) {
   const { scene: cowScene, animations: cowAnimations } = useGLTF(COW_MODEL) as any;
   const [cattleTiles, setCattleTiles] = useState<TileInfo[]>([]);
 
-  // All field tiles (for grass)
-  const fieldTiles = useMemo(
-    () => Array.from(tiles.values()).filter(
+  // All field tiles (for grass) — stabilized to prevent unnecessary re-renders
+  const prevFieldKey = useRef('');
+  const [fieldTiles, setFieldTiles] = useState<TileInfo[]>([]);
+  useEffect(() => {
+    const fields = Array.from(tiles.values()).filter(
       (t) => t.building_type?.toLowerCase() === 'field' && t.building_id
-    ),
-    [tiles]
-  );
+    );
+    const key = fields.map(t => t.building_id).sort().join(',');
+    if (key !== prevFieldKey.current) {
+      prevFieldKey.current = key;
+      setFieldTiles(fields);
+    }
+  }, [tiles]);
 
-  // Identify cattle farms
+  // Stable lookup of own building output types (avoids re-running cattle detection on React Query refetches)
+  const prevBuildingsKey = useRef('');
+  const [outputByOwnBuilding, setOutputByOwnBuilding] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    const key = buildings.map(b => `${b.building_id}:${b.output_type ?? ''}`).sort().join(',');
+    if (key !== prevBuildingsKey.current) {
+      prevBuildingsKey.current = key;
+      const map = new Map<string, string>();
+      for (const b of buildings) {
+        if (b.output_type) map.set(b.building_id, b.output_type.toLowerCase());
+      }
+      setOutputByOwnBuilding(map);
+    }
+  }, [buildings]);
+
+  // Identify cattle farms: use own buildings lookup, fetch others via API
+  const prevCattleKey = useRef('');
   useEffect(() => {
     if (fieldTiles.length === 0) { setCattleTiles([]); return; }
 
     let cancelled = false;
     (async () => {
-      const recipesResp = await listRecipes().catch(() => null);
-      const cattleRecipeIds = new Set(
-        (recipesResp?.recipes ?? [])
-          .filter((r) => r.output_type === 'Cattle')
-          .map((r) => r.recipe_id)
-      );
+      const combined = new Map(outputByOwnBuilding);
 
-      const details = await Promise.all(
-        fieldTiles.map((t) => getBuilding(t.building_id).catch(() => null))
-      );
-      const results: TileInfo[] = [];
-      for (let i = 0; i < details.length; i++) {
-        const b = details[i];
-        if (b?.active_recipe && cattleRecipeIds.has(b.active_recipe)) {
-          results.push(fieldTiles[i]);
-        }
+      // For field tiles not in our buildings, fetch via API
+      const unknownTiles = fieldTiles.filter(t => !combined.has(t.building_id));
+      if (unknownTiles.length > 0) {
+        const details = await Promise.all(
+          unknownTiles.map(t => getBuilding(t.building_id).catch(() => null))
+        );
+        details.forEach((b) => {
+          if (b?.building_id && b.output_type) {
+            combined.set(b.building_id, b.output_type.toLowerCase());
+          }
+        });
       }
-      if (!cancelled) setCattleTiles(results);
+
+      if (cancelled) return;
+      const result = fieldTiles.filter(t => combined.get(t.building_id) === 'cattle');
+      const key = result.map(t => t.tile_id).sort().join(',');
+      if (key !== prevCattleKey.current) {
+        prevCattleKey.current = key;
+        setCattleTiles(result);
+      }
     })();
     return () => { cancelled = true; };
-  }, [fieldTiles]);
+  }, [fieldTiles, outputByOwnBuilding]);
 
   const cattleTileIds = useMemo(
     () => new Set(cattleTiles.map((t) => t.tile_id)),
