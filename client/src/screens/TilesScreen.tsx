@@ -350,6 +350,9 @@ export default function TilesScreen() {
         ? Math.max(0, selectedTile.construction_ready_at_tick - currentTick)
         : 0);
 
+  // Production ticks remaining (from myBuildings data)
+  const productionTicksRemaining = selectedBldInfo?.ticks_to_ready ?? 0;
+
   // Camera focus — only triggered by company list clicks, not map tile clicks
   const [focusTile, setFocusTile] = useState<TileInfo | null>(null);
   const initialFocusDone = useRef(false);
@@ -483,6 +486,9 @@ export default function TilesScreen() {
                 {hasBuilding && selectedTile.building_status === 'UnderConstruction' && constructionTicksRemaining > 0 && (
                   <EtaCountdown ticks={constructionTicksRemaining} nextTickAt={nextTickAt} />
                 )}
+                {hasBuilding && selectedTile.building_status === 'Producing' && productionTicksRemaining > 0 && (
+                  <EtaCountdown ticks={productionTicksRemaining} nextTickAt={nextTickAt} className="text-emerald-500 text-xs font-mono" />
+                )}
                 {selectedTile.is_for_sale && (
                   <span className="text-cyan-400 shrink-0">{fmtMoney(selectedTile.purchase_price)}</span>
                 )}
@@ -564,6 +570,9 @@ export default function TilesScreen() {
                   Status: <StatusBadge status={selectedTile.building_status} />
                   {selectedTile.building_status === 'UnderConstruction' && constructionTicksRemaining > 0 && (
                     <span className="text-gray-500">ready in <EtaCountdown ticks={constructionTicksRemaining} nextTickAt={nextTickAt} /></span>
+                  )}
+                  {selectedTile.building_status === 'Producing' && productionTicksRemaining > 0 && (
+                    <span className="text-gray-500">done in <EtaCountdown ticks={productionTicksRemaining} nextTickAt={nextTickAt} className="text-emerald-500 text-xs font-mono" /></span>
                   )}
                 </p>
               </div>

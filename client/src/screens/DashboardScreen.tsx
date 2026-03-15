@@ -226,6 +226,11 @@ export default function DashboardScreen() {
                           (<EtaCountdown ticks={b.construction_ticks_remaining} nextTickAt={nextTickAt} />)
                         </span>
                       )}
+                      {b.status === 'producing' && b.ticks_to_ready > 0 && (
+                        <span className="ml-1 text-gray-500 text-xs">
+                          (<EtaCountdown ticks={b.ticks_to_ready} nextTickAt={nextTickAt} />)
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-2 text-gray-600">
                       {b.population_capacity > 0
