@@ -1,4 +1,5 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '../auth';
@@ -14,13 +15,39 @@ const NAV = [
   { to: '/map',        label: 'City Map'    },
 ];
 
+function TickCountdown({ nextTickAt }: { nextTickAt: number }) {
+  const [secsLeft, setSecsLeft] = useState(() =>
+    Math.max(0, Math.ceil((nextTickAt - Date.now()) / 1000))
+  );
+
+  useEffect(() => {
+    const update = () =>
+      setSecsLeft(Math.max(0, Math.ceil((nextTickAt - Date.now()) / 1000)));
+    update();
+    const id = setInterval(update, 500);
+    return () => clearInterval(id);
+  }, [nextTickAt]);
+
+  const urgent = secsLeft <= 5;
+  return (
+    <span
+      title="Next tick"
+      className={`font-mono text-xs tabular-nums transition-colors ${
+        urgent ? 'text-amber-400' : 'text-gray-500'
+      }`}
+    >
+      ⏱ {String(Math.floor(secsLeft / 60)).padStart(2, '0')}:{String(secsLeft % 60).padStart(2, '0')}
+    </span>
+  );
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { auth, logout } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
   const isMapPage = location.pathname === '/map';
 
-  useTickRefresh();
+  const { nextTickAt } = useTickRefresh();
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -71,8 +98,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        {/* Right: city info + balance + logout */}
+        {/* Right: tick timer + city info + balance + logout */}
         <div className="flex items-center gap-4 shrink-0 text-xs">
+          <TickCountdown nextTickAt={nextTickAt} />
           {city && (
             <span className="text-gray-500 hidden sm:block">
               {city.name}
