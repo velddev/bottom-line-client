@@ -7,7 +7,7 @@ import {
   constructBuilding, configureBuilding, listRecipes, getInventory,
   listBuildings,
 } from '../api';
-import type { TileInfo, RecipeInfo, BuildingStatus } from '../types';
+import type { TileInfo, RecipeInfo, BuildingStatus, CityInfo } from '../types';
 import { BUILDING_ICONS, BUILDING_TYPES, fmtMoney } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
@@ -145,9 +145,10 @@ export default function TilesScreen() {
   const { data: myBuildingsData } = useQuery({ queryKey: ['buildings'], queryFn: listBuildings, staleTime: 60_000, enabled: !!auth });
   const myBuildings = (myBuildingsData?.buildings ?? []) as BuildingStatus[];
   const supplyRoutes = useAllPlayerSupplyLinks(myBuildings);
-  const [citiesData, setCitiesData] = useState<{ cities: { city_id: string }[] } | null>(null);
+  const [citiesData, setCitiesData] = useState<{ cities: CityInfo[] } | null>(null);
   useEffect(() => { listCities().then(setCitiesData).catch(() => {}); }, []);
   const cityId = citiesData?.cities?.[0]?.city_id ?? '';
+  const currentTick = citiesData?.cities?.[0]?.current_tick ?? 0;
 
   // Tile data cache — shared across SSE + chunk loading
   const tileCache = useRef<Map<string, TileInfo>>(new Map());
@@ -319,6 +320,13 @@ export default function TilesScreen() {
   const isBank = selectedTile?.building_type?.toLowerCase() === 'bank';
   const isGovBuilding = isLandmark || isBank;
 
+  // Remaining construction ticks — prefer myBuildings data, fall back to tile data
+  const constructionTicksRemaining =
+    selectedBldInfo?.construction_ticks_remaining
+    ?? (selectedTile?.construction_ready_at_tick && currentTick
+        ? Math.max(0, selectedTile.construction_ready_at_tick - currentTick)
+        : 0);
+
   // Camera focus — only triggered by company list clicks, not map tile clicks
   const [focusTile, setFocusTile] = useState<TileInfo | null>(null);
   const initialFocusDone = useRef(false);
@@ -449,8 +457,8 @@ export default function TilesScreen() {
               <div className="text-xs text-gray-600 flex items-center gap-2">
                 <span className="truncate">{selectedTile.owner_name || 'Unowned'}</span>
                 {hasBuilding && <StatusBadge status={selectedTile.building_status} />}
-                {hasBuilding && selectedTile.building_status === 'UnderConstruction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
-                  <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} />
+                {hasBuilding && selectedTile.building_status === 'UnderConstruction' && constructionTicksRemaining > 0 && (
+                  <EtaCountdown ticks={constructionTicksRemaining} nextTickAt={nextTickAt} />
                 )}
                 {selectedTile.is_for_sale && (
                   <span className="text-cyan-400 shrink-0">{fmtMoney(selectedTile.purchase_price)}</span>
@@ -531,8 +539,8 @@ export default function TilesScreen() {
                 <p className="text-gray-700">Type: <span className="text-gray-900 capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
                 <p className="text-gray-700 flex items-center gap-2">
                   Status: <StatusBadge status={selectedTile.building_status} />
-                  {selectedTile.building_status === 'UnderConstruction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
-                    <span className="text-gray-500">ready in <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} /></span>
+                  {selectedTile.building_status === 'UnderConstruction' && constructionTicksRemaining > 0 && (
+                    <span className="text-gray-500">ready in <EtaCountdown ticks={constructionTicksRemaining} nextTickAt={nextTickAt} /></span>
                   )}
                 </p>
               </div>
