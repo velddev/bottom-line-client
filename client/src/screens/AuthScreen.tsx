@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getProfile, useApi } from '../api';
 import { useAuth } from '../auth';
-import { isDiscordActivity, getDiscordActivityCode } from '../discord-activity';
+import { detectAuthStrategy } from '../auth/detect-strategy';
+import type { AuthStrategy } from '../auth/auth-strategy';
 
 type Step =
   | { kind: 'idle' }
@@ -9,9 +10,10 @@ type Step =
   | { kind: 'exchanging' }          // exchanging code with server
   | { kind: 'manual' };             // manual credential entry (returning players)
 
-export default function AuthScreen() {
+export default function AuthScreen({ strategyOverride }: { strategyOverride?: AuthStrategy } = {}) {
   const { login } = useAuth();
   const api = useApi();
+  const strategy = useMemo(() => strategyOverride ?? detectAuthStrategy(), [strategyOverride]);
 
   const [step, setStep] = useState<Step>({ kind: 'idle' });
   const [error, setError] = useState<string | null>(null);
@@ -21,49 +23,6 @@ export default function AuthScreen() {
   const [manualApiKey, setManualApiKey]       = useState('');
   const [manualCityId, setManualCityId]       = useState('');
   const [manualUsername, setManualUsername]   = useState('');
-
-  // ── Discord Activity auto-login ───────────────────────────────────────────
-  // When running inside Discord's Activity iframe, skip the login UI and
-  // authenticate directly via the Embedded App SDK.
-  useEffect(() => {
-    if (!isDiscordActivity()) return;
-
-    let cancelled = false;
-    setStep({ kind: 'exchanging' });
-
-    (async () => {
-      try {
-        const { methods } = await api.getAuthMethods();
-        const discord = methods.find((m) => m.provider === 'discord');
-        if (!discord) throw new Error('Discord login is not configured on this server.');
-
-        const code = await getDiscordActivityCode(discord.client_id);
-        if (cancelled) return;
-
-        // The redirect URI must be registered in the Discord Developer Portal
-        // for this application: https://discord.com/games/<application_id>
-        const redirectUri = `https://discord.com/games/${discord.client_id}`;
-        const result = await api.exchangeOAuthCode('DISCORD', code, redirectUri);
-        localStorage.setItem('api_key', result.api_key);
-        const profile = await getProfile();
-        if (cancelled) return;
-
-        login({
-          player_id: result.player_id,
-          api_key:   result.api_key,
-          city_id:   profile.city_id,
-          username:  profile.username,
-        });
-      } catch (err) {
-        if (!cancelled) {
-          setError((err as Error).message);
-          setStep({ kind: 'idle' });
-        }
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [api, login]);
 
   // Exchange code with server and log in
   const exchangeAndLogin = async (code: string, redirectUri: string) => {
@@ -85,14 +44,51 @@ export default function AuthScreen() {
     }
   };
 
-  // Listen for the ventured://auth deep-link code from Electron main process
+  // ── Auto-login (Discord Activity) ──────────────────────────────────────────
   useEffect(() => {
-    if (!window.electronAPI?.onDiscordAuth) return;
-    const stop = window.electronAPI.onDiscordAuth(({ code }) => {
-      exchangeAndLogin(code, 'https://api.ventured.gg/v1/auth/callback');
+    if (!strategy.autoLogin) return;
+
+    let cancelled = false;
+    setStep({ kind: 'exchanging' });
+
+    (async () => {
+      try {
+        const { methods } = await api.getAuthMethods();
+        const discord = methods.find((m) => m.provider === 'discord');
+        if (!discord) throw new Error('Discord login is not configured on this server.');
+
+        const oauthResult = await strategy.startOAuth(discord.client_id);
+        if (cancelled || !oauthResult) return;
+
+        const result = await api.exchangeOAuthCode('DISCORD', oauthResult.code, oauthResult.redirectUri);
+        localStorage.setItem('api_key', result.api_key);
+        const profile = await getProfile();
+        if (cancelled) return;
+
+        login({
+          player_id: result.player_id,
+          api_key:   result.api_key,
+          city_id:   profile.city_id,
+          username:  profile.username,
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setError((err as Error).message);
+          setStep({ kind: 'idle' });
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [strategy, api, login]);
+
+  // ── Async code listener (Electron deep-link) ──────────────────────────────
+  useEffect(() => {
+    if (!strategy.onCodeReceived) return;
+    return strategy.onCodeReceived((code, redirectUri) => {
+      exchangeAndLogin(code, redirectUri);
     });
-    return stop;
-  }, []);
+  }, [strategy]);
 
   // ── Step: idle — show main login button ──────────────────────────────────
   if (step.kind === 'idle') {
@@ -103,12 +99,12 @@ export default function AuthScreen() {
         const discord = methods.find((m) => m.provider === 'discord');
         if (!discord) { setError('Discord login is not configured on this server.'); return; }
 
-        const result = await api.openDiscordOAuth(discord.client_id);
-        if (result.code) {
-          // Web popup path: code returned directly — exchange immediately
+        const result = await strategy.startOAuth(discord.client_id);
+        if (result) {
+          // Synchronous path (web popup, Discord Activity): code available now
           await exchangeAndLogin(result.code, result.redirectUri);
         } else {
-          // Electron deep-link path: code arrives later via IPC
+          // Async path (Electron deep-link): code arrives via onCodeReceived
           setStep({ kind: 'waiting-for-code' });
         }
       } catch (err) {
