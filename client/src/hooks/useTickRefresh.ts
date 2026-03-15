@@ -26,7 +26,7 @@ export function useTickRefresh() {
     es.onmessage = (e) => {
       try {
         const evt = JSON.parse(e.data as string);
-        if (evt.tickCompleted) {
+        if (evt.tick_completed) {
           setNextTickAt(Date.now() + TICK_INTERVAL_MS);
           queryClient.invalidateQueries({ queryKey: ['buildings'] });
           queryClient.invalidateQueries({ queryKey: ['city'] });
