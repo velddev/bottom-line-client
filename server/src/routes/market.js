@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { stubs, rpc } from '../grpc-client.js';
-import { getApiKey, handle } from '../util.js';
+import { getApiKey, handle, toProtoEnum } from '../util.js';
 
 const router = Router();
 
 router.get('/offerings', handle(async (req) => {
   const { city_id = '', resource_type = '' } = req.query;
-  return rpc(stubs.market, 'ListOfferings', { city_id, resource_type }, getApiKey(req));
+  return rpc(stubs.market, 'ListOfferings', {
+    city_id,
+    resource_type: toProtoEnum('resource_type', resource_type),
+  }, getApiKey(req));
 }));
 
 router.delete('/offerings/:id', handle(async (req) => {
@@ -20,9 +23,11 @@ router.post('/purchase', handle(async (req) => {
 
 router.get('/share', handle(async (req) => {
   const { city_id = '', resource_type = '', history_ticks = 20 } = req.query;
-  return rpc(stubs.market, 'GetMarketShare',
-    { city_id, resource_type, history_ticks: parseInt(history_ticks, 10) },
-    getApiKey(req));
+  return rpc(stubs.market, 'GetMarketShare', {
+    city_id,
+    resource_type: toProtoEnum('resource_type', resource_type),
+    history_ticks: parseInt(history_ticks, 10),
+  }, getApiKey(req));
 }));
 
 export default router;

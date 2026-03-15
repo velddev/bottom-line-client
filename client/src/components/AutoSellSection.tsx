@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAutoSellConfigs, setAutoSellConfig } from '../api';
 import type { AutoSellConfigInfo } from '../types';
 
-const ALL_RESOURCES = ['Food', 'Grain', 'Water', 'AnimalFeed', 'Cattle', 'Meat', 'Leather'];
-const CONSUMER_GOODS = ['Food', 'Meat', 'Leather'];
+const ALL_RESOURCES = ['food', 'grain', 'water', 'animal_feed', 'cattle', 'meat', 'leather'];
+const CONSUMER_GOODS = ['food', 'meat', 'leather'];
 
 function AutoSellRow({
   buildingId,

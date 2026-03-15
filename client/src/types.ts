@@ -30,6 +30,8 @@ export interface BuildingStatus {
   tile_id: string;       // empty = not placed on a tile
   tile_grid_x: number;
   tile_grid_y: number;
+  construction_ticks_remaining: number; // > 0 only when status === 'under_construction'
+  output_type: string;   // normalized resource type string, e.g. 'cattle', 'grain', '' if no recipe
 }
 
 export interface RecipeInfo {
@@ -263,6 +265,23 @@ export interface GetBuildingSalesResponse {
   ticks: SalesTick[];
 }
 
+export interface CompanyTickSnapshot {
+  tick: number;
+  store_revenue_cents: number;
+  supply_line_sales_cents: number;
+  consumer_tax_cents: number;
+  land_tax_cents: number;
+  supply_purchases_cents: number;
+  marketing_spend_cents: number;
+  research_spend_cents: number;
+  loan_interest_cents: number;
+  total_revenue_cents: number;
+  total_expenses_cents: number;
+  net_profit_cents: number;
+  balance_before_tick: number;
+  balance_after_tick: number;
+}
+
 // ─── UI helpers ───────────────────────────────────────────────────────────
 
 export const BUILDING_TYPES = ['factory', 'field', 'store', 'warehouse'] as const;
@@ -271,13 +290,13 @@ export const BUILDING_ICONS: Record<string, string> = {
 };
 
 export const RESOURCE_COLORS: Record<string, string> = {
-  grain:  'text-yellow-400',
-  water:  'text-blue-400',
-  feed:   'text-lime-400',
-  cattle: 'text-orange-400',
-  meat:   'text-red-400',
-  leather:'text-amber-500',
-  food:   'text-green-400',
+  grain:       'text-yellow-400',
+  water:       'text-blue-400',
+  animal_feed: 'text-lime-400',
+  cattle:      'text-orange-400',
+  meat:        'text-red-400',
+  leather:     'text-amber-500',
+  food:        'text-green-400',
 };
 
 export function resourceColor(r: string): string {

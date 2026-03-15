@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { getMarketShare } from '../api';
 
-const RESOURCE_TYPES = ['Food', 'Grain', 'Water', 'AnimalFeed', 'Cattle', 'Meat', 'Leather'];
+const RESOURCE_TYPES = ['food', 'grain', 'water', 'animal_feed', 'cattle', 'meat', 'leather'];
 
 const PALETTE = [
   '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
@@ -19,7 +19,7 @@ interface Props {
 }
 
 export default function MarketShareChart({ cityId, historyTicks = 20 }: Props) {
-  const [resourceType, setResourceType] = useState('Food');
+  const [resourceType, setResourceType] = useState('food');
 
   const { data, isLoading } = useQuery({
     queryKey: ['market-share', cityId, resourceType, historyTicks],

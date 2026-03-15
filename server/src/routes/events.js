@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { stubs, makeMeta } from '../grpc-client.js';
+import { normalizeResponse } from '../util.js';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.get('/stream', (req, res) => {
   const stream = stubs.events.Subscribe({ city_id: cityId }, makeMeta(apiKey));
 
   stream.on('data', (event) => {
-    res.write(`data: ${JSON.stringify(event)}\n\n`);
+    res.write(`data: ${JSON.stringify(normalizeResponse(event))}\n\n`);
   });
 
   stream.on('error', (err) => {

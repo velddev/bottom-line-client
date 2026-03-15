@@ -5,7 +5,7 @@ import { listBrands, createBrand, getBrandValue, createCampaign, pauseCampaign }
 import { type BrandSummary, fmtPct } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 
-const RESOURCES = ['grain', 'water', 'feed', 'cattle', 'meat', 'leather', 'food'];
+const RESOURCES = ['grain', 'water', 'animal_feed', 'cattle', 'meat', 'leather', 'food'];
 
 export default function MarketingScreen() {
   const qc = useQueryClient();

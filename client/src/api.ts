@@ -4,6 +4,7 @@ import type {
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
   SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
+  CompanyTickSnapshot,
 } from './types';
 
 const BASE = '/api';
@@ -48,6 +49,9 @@ export const getProfile = () =>
 
 export const getInventory = (building_id?: string) =>
   get<{ items: { building_id: string; building_name: string; resource_type: string; quantity: number; quality: number; brand_id: string }[] }>('/player/inventory', building_id ? { building_id } : {});
+
+export const getCompanyHistory = (limit = 60) =>
+  get<{ snapshots: CompanyTickSnapshot[] }>('/player/performance', { limit: String(limit) });
 
 // ─── Buildings ────────────────────────────────────────────────────────────
 

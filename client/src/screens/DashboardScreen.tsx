@@ -4,10 +4,12 @@ import { fmtMoney, fmtPct } from '../types';
 import { useAuth } from '../auth';
 import { Building2, FlaskConical, Package } from 'lucide-react';
 import MarketShareChart from '../components/MarketShareChart';
+import EtaCountdown from '../components/EtaCountdown';
+import { useTickRefresh } from '../hooks/useTickRefresh';
 
 const RESOURCE_ICONS: Record<string, string> = {
-  Water: '💧', Grain: '🌾', AnimalFeed: '🌿', Cattle: '🐄',
-  Meat: '🥩', Leather: '🪨', Food: '🍞',
+  water: '💧', grain: '🌾', animal_feed: '🌿', cattle: '🐄',
+  meat: '🥩', leather: '🪨', food: '🍞',
 };
 
 function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
@@ -21,15 +23,16 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  Producing: 'Producing', active: 'Producing',
-  UnderConstruction: 'Building', constructing: 'Building',
-  Idle: 'Idle', idle: 'Idle',
-  Paused: 'Paused',
-  MissingResources: '⚠️ Missing Resources',
+  producing:          'Producing',
+  under_construction: 'Building',
+  idle:               'Idle',
+  paused:             'Paused',
+  missing_resources:  '⚠️ Missing Resources',
 };
 
 export default function DashboardScreen() {
   const { auth } = useAuth();
+  const { nextTickAt } = useTickRefresh();
   const { data: profile, isLoading } = useQuery({ queryKey: ['profile'], queryFn: getProfile });
   const { data: buildingsResp } = useQuery({ queryKey: ['buildings'], queryFn: listBuildings });
   const { data: researchResp } = useQuery({ queryKey: ['research'], queryFn: listResearch });
@@ -164,12 +167,17 @@ export default function DashboardScreen() {
                     <td className="px-4 py-2 text-gray-400 capitalize">{b.building_type}</td>
                     <td className="px-4 py-2">
                       <span className={`px-1.5 py-0.5 rounded text-xs ${
-                        (b.status === 'Producing' || b.status === 'active')                ? 'bg-emerald-900/40 text-emerald-400' :
-                        (b.status === 'UnderConstruction' || b.status === 'constructing')  ? 'bg-amber-900/40 text-amber-400' :
-                        b.status === 'Paused'                                              ? 'bg-yellow-900/40 text-yellow-400' :
-                        b.status === 'MissingResources'                                    ? 'bg-rose-900/40 text-rose-400' :
-                                                                                             'bg-gray-800 text-gray-500'
+                        b.status === 'producing'          ? 'bg-emerald-900/40 text-emerald-400' :
+                        b.status === 'under_construction' ? 'bg-amber-900/40 text-amber-400' :
+                        b.status === 'paused'             ? 'bg-yellow-900/40 text-yellow-400' :
+                        b.status === 'missing_resources'  ? 'bg-rose-900/40 text-rose-400' :
+                                                            'bg-gray-800 text-gray-500'
                       }`}>{STATUS_LABEL[b.status] ?? b.status}</span>
+                      {b.status === 'under_construction' && b.construction_ticks_remaining > 0 && (
+                        <span className="ml-1 text-gray-500 text-xs">
+                          (<EtaCountdown ticks={b.construction_ticks_remaining} nextTickAt={nextTickAt} />)
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-2 text-gray-400">{b.active_recipe || '—'}</td>
                     <td className="px-4 py-2 text-gray-300">{b.workers}</td>

@@ -18,4 +18,9 @@ router.get('/inventory', handle(async (req) => {
   return rpc(stubs.player, 'GetInventory', { building_id }, getApiKey(req));
 }));
 
+router.get('/performance', handle(async (req) => {
+  const limit = Number(req.query.limit) || 60;
+  return rpc(stubs.player, 'GetCompanyHistory', { limit }, getApiKey(req));
+}));
+
 export default router;

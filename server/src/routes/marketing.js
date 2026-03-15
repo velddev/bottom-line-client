@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { stubs, rpc } from '../grpc-client.js';
-import { getApiKey, handle } from '../util.js';
+import { getApiKey, handle, toProtoEnum } from '../util.js';
 
 const router = Router();
 
@@ -10,7 +10,10 @@ router.get('/brands', handle(async (req) => {
 
 router.post('/brands', handle(async (req) => {
   const { name, resource_type } = req.body;
-  return rpc(stubs.marketing, 'CreateBrand', { name, resource_type }, getApiKey(req));
+  return rpc(stubs.marketing, 'CreateBrand', {
+    name,
+    resource_type: toProtoEnum('resource_type', resource_type),
+  }, getApiKey(req));
 }));
 
 router.get('/brands/:id/value', handle(async (req) => {

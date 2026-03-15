@@ -16,13 +16,15 @@ import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
 import BankPanel from '../components/BankPanel';
 import SupplySection from '../components/SupplySection';
+import EtaCountdown from '../components/EtaCountdown';
+import { useTickRefresh } from '../hooks/useTickRefresh';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 const CHUNK_SIZE = 20;
 const MIN_TILE_ZOOM = 14;
 const MIN_MARKER_ZOOM = 16;
 
-const WARNING_STATUSES = new Set(['MissingResources', 'Paused']);
+const WARNING_STATUSES = new Set(['missing_resources', 'paused']);
 
 function tileColor(tile: TileInfo, myPlayerId: string): string {
   if (tile.owner_player_id === myPlayerId) {
@@ -62,16 +64,18 @@ function boundsToGrid(bounds: LatLngBounds, meta: TileMeta) {
 
 function StatusBadge({ status }: { status: string }) {
   const LABELS: Record<string, string> = {
-    Producing: 'Producing', Idle: 'Idle',
-    UnderConstruction: 'Building…', Paused: 'Paused',
-    MissingResources: '⚠️ Missing',
+    producing:          'Producing',
+    idle:               'Idle',
+    under_construction: 'Building…',
+    paused:             'Paused',
+    missing_resources:  '⚠️ Missing',
   };
   const cls =
-    status === 'Producing'         ? 'bg-emerald-900/40 text-emerald-400' :
-    status === 'UnderConstruction' ? 'bg-amber-900/40 text-amber-400' :
-    status === 'Paused'            ? 'bg-yellow-900/40 text-yellow-400' :
-    status === 'MissingResources'  ? 'bg-rose-900/40 text-rose-400' :
-                                     'bg-gray-800 text-gray-400';
+    status === 'producing'          ? 'bg-emerald-900/40 text-emerald-400' :
+    status === 'under_construction' ? 'bg-amber-900/40 text-amber-400' :
+    status === 'paused'             ? 'bg-yellow-900/40 text-yellow-400' :
+    status === 'missing_resources'  ? 'bg-rose-900/40 text-rose-400' :
+                                      'bg-gray-800 text-gray-400';
   return <span className={`px-2 py-0.5 rounded text-xs ${cls}`}>{LABELS[status] ?? status}</span>;
 }
 
@@ -165,14 +169,23 @@ const SUPPLY_LINE_COLORS: Record<string, string> = {
   grain:       '#fbbf24', // amber-400
   water:       '#38bdf8', // sky-400
   animal_feed: '#a3e635', // lime-400
-  feed:        '#a3e635',
   cattle:      '#fb923c', // orange-400
   meat:        '#f87171', // red-400
   leather:     '#d97706', // amber-600
   food:        '#4ade80', // green-400
 };
 
-// ── Animated supply-line overlay ───────────────────────────────────────────────
+/** output_type → icon override (e.g. a cattle field shows 🐄 instead of 🌾). */
+const RECIPE_ICONS: Record<string, string> = {
+  cattle:      '🐄',
+  grain:       '🌾',
+  water:       '💧',
+  animal_feed: '🌿',
+  meat:        '🥩',
+  leather:     '🧥',
+  food:        '🍱',
+};
+
 
 /** Compute points along a quadratic bezier arc from `from` to `to`, arching leftward. */
 function arcPoints(
@@ -250,8 +263,10 @@ function SupplyLineLayer({ meta }: { meta: TileMeta }) {
       const from = gridToLatLon(cx + 0.5, cy + 0.5, meta);
       const to   = gridToLatLon(sx + 0.5, sy + 0.5, meta);
       const color = SUPPLY_LINE_COLORS[rt?.toLowerCase()] ?? '#9ca3af';
+      const dist  = Math.abs(cx - sx) + Math.abs(cy - sy);
+      const pts   = dist <= 1 ? [[from.lat, from.lon], [to.lat, to.lon]] as [number, number][] : arcPoints(from, to);
       const line = L.polyline(
-        arcPoints(from, to),
+        pts,
         { color, weight: 2.5, opacity: 0.9, dashArray: '10 6', dashOffset: '0', interactive: false },
       ).addTo(layer);
       linesRef.current.push(line);
@@ -288,11 +303,11 @@ function SupplyLineLayer({ meta }: { meta: TileMeta }) {
 
 
 function TileLayer_({
-  cityId, meta, myPlayerId, selectedTile, onSelect, apiKey,
+  cityId, meta, myPlayerId, selectedTile, onSelect, apiKey, buildings,
 }: {
   cityId: string; meta: TileMeta; myPlayerId: string;
   selectedTile: TileInfo | null; onSelect: (t: TileInfo | null) => void;
-  apiKey: string;
+  apiKey: string; buildings: BuildingStatus[];
 }) {
   const map = useMap();
   const cacheRef    = useRef<Map<string, TileInfo>>(new Map());
@@ -303,8 +318,8 @@ function TileLayer_({
   const rendererRef    = useRef<L.Canvas | null>(null);
   const redrawRef      = useRef<(() => void) | null>(null);
   const fetchMissingRef = useRef<(() => void) | null>(null);
-  const stateRef = useRef({ selectedTile, onSelect, meta, cityId, myPlayerId });
-  useEffect(() => { stateRef.current = { selectedTile, onSelect, meta, cityId, myPlayerId }; });
+  const stateRef = useRef({ selectedTile, onSelect, meta, cityId, myPlayerId, buildings });
+  useEffect(() => { stateRef.current = { selectedTile, onSelect, meta, cityId, myPlayerId, buildings }; });
 
   // SSE subscription for live tile updates + 60s fallback full refresh
   useEffect(() => {
@@ -317,21 +332,21 @@ function TileLayer_({
     es.onmessage = (e) => {
       try {
         const evt = JSON.parse(e.data as string);
-        if (evt.tileChanged) {
-          const tc = evt.tileChanged;
+        if (evt.tile_changed) {
+          const tc = evt.tile_changed;
           const updated: TileInfo = {
-            tile_id:                 tc.tileId       ?? '',
-            city_id:                 tc.cityId       ?? '',
-            grid_x:                  tc.gridX        ?? 0,
-            grid_y:                  tc.gridY        ?? 0,
-            owner_player_id:         tc.ownerPlayerId ?? '',
-            owner_name:              tc.ownerName    ?? '',
-            is_for_sale:             tc.isForSale    ?? false,
-            purchase_price:          tc.purchasePrice ?? 0,
-            building_id:             tc.buildingId   ?? '',
-            building_name:           tc.buildingName ?? '',
-            building_type:           tc.buildingType ?? '',
-            building_status:         tc.buildingStatus ?? '',
+            tile_id:                  tc.tile_id        ?? '',
+            city_id:                  tc.city_id        ?? '',
+            grid_x:                   tc.grid_x         ?? 0,
+            grid_y:                   tc.grid_y         ?? 0,
+            owner_player_id:          tc.owner_player_id ?? '',
+            owner_name:               tc.owner_name     ?? '',
+            is_for_sale:              tc.is_for_sale    ?? false,
+            purchase_price:           tc.purchase_price ?? 0,
+            building_id:              tc.building_id    ?? '',
+            building_name:            tc.building_name  ?? '',
+            building_type:            tc.building_type  ?? '',
+            building_status:          tc.building_status ?? '',
             is_reserved_for_citizens: false,
           };
           cacheRef.current.set(`${updated.grid_x}_${updated.grid_y}`, updated);
@@ -355,7 +370,8 @@ function TileLayer_({
     const renderer    = rendererRef.current;
     if (!tileLayer || !markerLayer || !renderer) return;
 
-    const { meta, selectedTile, myPlayerId } = stateRef.current;
+    const { meta, selectedTile, myPlayerId, buildings } = stateRef.current;
+    const buildingByTile = new Map(buildings.map(b => [b.building_id, b.output_type ?? '']));
     const zoom = map.getZoom();
 
     tileLayer.clearLayers();
@@ -387,18 +403,22 @@ function TileLayer_({
         ).addTo(tileLayer);
 
         if (zoom >= MIN_MARKER_ZOOM && tile.building_id && tile.building_type) {
-          const emoji = BUILDING_ICONS[tile.building_type.toLowerCase()] ?? '🏢';
+          const recipe = buildingByTile.get(tile.building_id) ?? '';
+          const emoji = RECIPE_ICONS[recipe] ?? BUILDING_ICONS[tile.building_type.toLowerCase()] ?? '🏢';
           const isWarning = tile.owner_player_id === myPlayerId && WARNING_STATUSES.has(tile.building_status);
           const centerLat = (sw.lat + ne.lat) / 2;
           const centerLon = (sw.lon + ne.lon) / 2;
+          // Scale icon with zoom: 12px at zoom 16, up to 32px at zoom 20+
+          const fs = Math.round(Math.min(12 + (zoom - MIN_MARKER_ZOOM) * 5, 32));
+          const sz = Math.round(fs * 1.2);
           L.marker([centerLat, centerLon], {
             icon: L.divIcon({
               html: isWarning
-                ? `<div style="font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;gap:1px"><span>${emoji}</span><span>⚠️</span></div>`
-                : `<span style="font-size:12px;line-height:1;display:block;text-align:center">${emoji}</span>`,
+                ? `<div style="font-size:${fs}px;line-height:1;display:flex;align-items:center;justify-content:center;gap:1px"><span>${emoji}</span><span>⚠️</span></div>`
+                : `<span style="font-size:${fs}px;line-height:1;display:block;text-align:center">${emoji}</span>`,
               className: '',
-              iconSize: isWarning ? [24, 14] : [14, 14],
-              iconAnchor: isWarning ? [12, 7] : [7, 7],
+              iconSize: isWarning ? [sz * 2, sz] : [sz, sz],
+              iconAnchor: isWarning ? [sz, Math.round(sz / 2)] : [Math.round(sz / 2), Math.round(sz / 2)],
             }),
             interactive: false,
           }).addTo(markerLayer);
@@ -489,6 +509,8 @@ function TileLayer_({
   }, [map, fetchMissing]); // eslint-disable-line
 
   useEffect(() => { redraw(); }, [selectedTile, redraw]);
+  // Re-render icons when buildings data changes (e.g. recipe configured)
+  useEffect(() => { redrawRef.current?.(); }, [buildings]);
 
   return null;
 }
@@ -558,8 +580,14 @@ export default function TilesScreen() {
   const centerLat = meta.tile_origin_lat + (meta.tile_grid_rows * meta.tile_size_meters) / 111_000 / 2;
   const centerLon = meta.tile_origin_lon + (meta.tile_grid_cols * meta.tile_size_meters) / 67_600 / 2;
 
+  const { nextTickAt } = useTickRefresh();
+  const { data: myBuildingsData } = useQuery({ queryKey: ['buildings'], queryFn: listBuildings, staleTime: 60_000, enabled: !!auth });
+  const myBuildings = (myBuildingsData?.buildings ?? []) as BuildingStatus[];
   const isMine = !!selectedTile && selectedTile.owner_player_id === auth?.player_id;
   const hasBuilding = !!selectedTile?.building_id;
+  const selectedBldInfo = hasBuilding
+    ? myBuildings.find((b) => b.building_id === selectedTile!.building_id)
+    : undefined;
   const isLandmark = selectedTile?.building_type?.toLowerCase() === 'landmark';
   const isBank = selectedTile?.building_type?.toLowerCase() === 'bank';
   const isGovBuilding = isLandmark || isBank;
@@ -581,6 +609,7 @@ export default function TilesScreen() {
             myPlayerId={auth?.player_id ?? ''}
             selectedTile={selectedTile} onSelect={setSelectedTile}
             apiKey={auth?.api_key ?? ''}
+            buildings={myBuildings}
           />
         )}
         {cityId && <SupplyLineLayer meta={meta} />}
@@ -611,6 +640,9 @@ export default function TilesScreen() {
             <div className="px-4 py-2 border-b border-gray-700/50 text-xs text-gray-400 flex items-center gap-2">
               <span className="truncate">{selectedTile.owner_name || 'Unowned'}</span>
               {hasBuilding && <StatusBadge status={selectedTile.building_status} />}
+              {hasBuilding && selectedTile.building_status === 'under_construction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
+                <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} />
+              )}
               {selectedTile.is_for_sale && (
                 <span className="text-cyan-400 shrink-0">{fmtMoney(selectedTile.purchase_price)}</span>
               )}
@@ -683,7 +715,12 @@ export default function TilesScreen() {
               {isMine && hasBuilding && !isGovBuilding && activeTab === 'info' && (
                 <div className="space-y-2 text-xs">
                   <p className="text-gray-400">Type: <span className="text-white capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
-                  <p className="text-gray-400">Status: <StatusBadge status={selectedTile.building_status} /></p>
+                  <p className="text-gray-400 flex items-center gap-2">
+                    Status: <StatusBadge status={selectedTile.building_status} />
+                    {selectedTile.building_status === 'under_construction' && selectedBldInfo && selectedBldInfo.construction_ticks_remaining > 0 && (
+                      <span className="text-gray-500">ready in <EtaCountdown ticks={selectedBldInfo.construction_ticks_remaining} nextTickAt={nextTickAt} /></span>
+                    )}
+                  </p>
                 </div>
               )}
 

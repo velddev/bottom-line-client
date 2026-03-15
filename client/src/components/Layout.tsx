@@ -8,11 +8,12 @@ import { fmtMoney } from '../types';
 import { useTickRefresh } from '../hooks/useTickRefresh';
 
 const NAV = [
-  { to: '/dashboard',  label: 'Dashboard'   },
-  { to: '/agreements', label: 'Agreements'  },
-  { to: '/research',   label: 'Research'    },
-  { to: '/marketing',  label: 'Marketing'   },
-  { to: '/map',        label: 'City Map'    },
+  { to: '/dashboard',    label: 'Dashboard'    },
+  { to: '/performance',  label: 'Performance'  },
+  { to: '/agreements',   label: 'Agreements'   },
+  { to: '/research',     label: 'Research'     },
+  { to: '/marketing',    label: 'Marketing'    },
+  { to: '/map',          label: 'City Map'     },
 ];
 
 function TickCountdown({ nextTickAt }: { nextTickAt: number }) {
