@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MessageSquare, Send, Radio, ChevronDown, X, Users } from 'lucide-react';
-import { getChatMessages, sendChatMessage } from '../api';
+import { getChatMessages, sendChatMessage, findPlayerByHandle } from '../api';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import type { ChatMessage, ChatMessageEvent, GameEvent } from '../types';
@@ -62,24 +62,6 @@ function renderWithMentions(content: string, myUsername: string): React.ReactNod
       </mark>
     );
   });
-}
-
-// ── Typing indicator ──────────────────────────────────────────────────────────
-function TypingIndicator({ users }: { users: string[] }) {
-  if (users.length === 0) return null;
-  const label = users.length === 1
-    ? `${users[0]} is typing`
-    : `${users.length} people are typing`;
-  return (
-    <div className="flex items-center gap-1.5 text-[10px] text-gray-500 self-start px-1 py-0.5">
-      <span className="flex gap-0.5 items-end">
-        <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-        <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-        <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-      </span>
-      <span>{label}</span>
-    </div>
-  );
 }
 
 // ── Chat bubble ───────────────────────────────────────────────────────────────
@@ -165,7 +147,11 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
   const [input, setInput] = useState('');
   const [events, setEvents] = useState<GameEvent[]>([]);
   const [connected, setConnected] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [newDmHandle, setNewDmHandle] = useState('');
+  const [showNewDm, setShowNewDm] = useState(false);
+  const [dmLookupError, setDmLookupError] = useState('');
+  const [dmLookupPending, setDmLookupPending] = useState(false);
+  const newDmRef = useRef<HTMLInputElement>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const eventsListRef = useRef<HTMLDivElement>(null);
@@ -267,6 +253,11 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
     }
   }, [events.length, activeTab, open]);
 
+  // Auto-focus new DM input when shown
+  useEffect(() => {
+    if (showNewDm) newDmRef.current?.focus();
+  }, [showNewDm]);
+
   // ── Send ───────────────────────────────────────────────────────────────────
   const sendMut = useMutation({
     mutationFn: () => sendChatMessage(input.trim(), activeDmId ?? undefined),
@@ -305,6 +296,28 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
       delete next[`dm:${playerId}`];
       return next;
     });
+  };
+
+  const handleNewDmSubmit = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    const handle = newDmHandle.trim().replace(/^@/, '');
+    if (!handle) { setShowNewDm(false); return; }
+    setDmLookupPending(true);
+    setDmLookupError('');
+    try {
+      const result = await findPlayerByHandle(handle);
+      if (result.found) {
+        openDmTab(result.player_id, result.username);
+        setNewDmHandle('');
+        setShowNewDm(false);
+      } else {
+        setDmLookupError(`"@${handle}" not found`);
+      }
+    } catch {
+      setDmLookupError('Lookup failed');
+    } finally {
+      setDmLookupPending(false);
+    }
   };
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -378,6 +391,34 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
               );
             })}
 
+            {/* + new DM */}
+            {showNewDm ? (
+              <div className="ml-1 flex flex-col">
+                <input
+                  ref={newDmRef}
+                  type="text"
+                  value={newDmHandle}
+                  onChange={(e) => { setNewDmHandle(e.target.value); setDmLookupError(''); }}
+                  onKeyDown={handleNewDmSubmit}
+                  onBlur={() => { if (!dmLookupPending) { setShowNewDm(false); setNewDmHandle(''); setDmLookupError(''); } }}
+                  placeholder="@handle"
+                  disabled={dmLookupPending}
+                  className="w-24 bg-transparent border-b border-gray-300 focus:border-indigo-400 text-xs text-gray-900 placeholder-gray-500 focus:outline-none px-1 py-1.5 disabled:opacity-50"
+                />
+                {dmLookupError && (
+                  <span className="text-xs text-red-500 mt-0.5 whitespace-nowrap">{dmLookupError}</span>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowNewDm(true)}
+                className="px-2 py-2 text-gray-600 hover:text-gray-800 transition-colors shrink-0 text-sm leading-none"
+                title="New DM"
+              >
+                +
+              </button>
+            )}
+
             <button
               onClick={() => setOpen(false)}
               className="ml-auto px-3 py-2 text-gray-600 hover:text-gray-700 transition-colors shrink-0"
@@ -423,7 +464,6 @@ export default function UnifiedChatPanel({ cityId, apiKey }: { cityId: string; a
                     onClickName={openDmTab}
                   />
                 ))}
-                <TypingIndicator users={typingUsers} />
                 <div ref={bottomRef} />
               </div>
 

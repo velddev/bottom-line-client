@@ -2,22 +2,47 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, MessageSquare, Users } from 'lucide-react';
 import {
-  getChatMessages, sendChatMessage, listDmConversations, subscribeToEvents,
+  getChatMessages, sendChatMessage, listDmConversations, subscribeToEvents, findPlayerByHandle,
 } from '../api';
 import { useAuth } from '../auth';
 import type { ChatMessage, ChatMessageEvent } from '../types';
 
-function ChatBubble({ msg, myId }: { msg: ChatMessage; myId: string }) {
+// ── Mention-aware content renderer ───────────────────────────────────────────
+function renderWithMentions(content: string, myUsername: string): React.ReactNode {
+  const parts = content.split(/(@\S+)/g);
+  return parts.map((part, i) => {
+    if (!part.startsWith('@')) return part;
+    const handle = part.slice(1);
+    const isMe = handle.toLowerCase() === myUsername.toLowerCase();
+    return (
+      <mark
+        key={i}
+        className={isMe
+          ? 'bg-amber-400/30 text-amber-600 dark:text-amber-400 not-italic rounded px-0.5'
+          : 'bg-transparent text-indigo-500 dark:text-indigo-400 not-italic'}
+      >
+        {part}
+      </mark>
+    );
+  });
+}
+
+function ChatBubble({ msg, myId, myUsername }: { msg: ChatMessage; myId: string; myUsername: string }) {
   const isMe = msg.from_player_id === myId;
+  const isMentioned = !isMe && msg.content.toLowerCase().includes(`@${myUsername.toLowerCase()}`);
   return (
     <div className={`flex flex-col max-w-[80%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}>
       {!isMe && (
         <span className="text-[10px] text-gray-600 mb-0.5 px-1">{msg.from_player_name}</span>
       )}
       <div className={`rounded-2xl px-3 py-1.5 text-sm ${
-        isMe ? 'bg-indigo-600 text-gray-900 rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+        isMe
+          ? 'bg-indigo-600 text-gray-900 rounded-br-sm'
+          : isMentioned
+            ? 'bg-amber-400/15 text-gray-800 ring-1 ring-amber-400/50 rounded-bl-sm'
+            : 'bg-gray-100 text-gray-800 rounded-bl-sm'
       }`}>
-        {msg.content}
+        {renderWithMentions(msg.content, myUsername)}
       </div>
       <span className="text-[10px] text-gray-700 mt-0.5 px-1">Day {msg.sent_at_tick}</span>
     </div>
@@ -31,7 +56,12 @@ export default function ChatScreen() {
   const [dmPartner, setDmPartner] = useState<{ id: string; name: string } | null>(null);
   const [input, setInput] = useState('');
   const [dmInput, setDmInput] = useState('');
+  const [newDmHandle, setNewDmHandle] = useState('');
+  const [showNewDm, setShowNewDm] = useState(false);
+  const [dmLookupError, setDmLookupError] = useState('');
+  const [dmLookupPending, setDmLookupPending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const newDmRef = useRef<HTMLInputElement>(null);
 
   // Public city chat
   const { data: cityChat } = useQuery({
@@ -126,8 +156,59 @@ export default function ChatScreen() {
         </button>
 
         <div className="mt-2">
-          <p className="text-xs text-gray-600 uppercase tracking-widest px-2 mb-1">Direct Messages</p>
-          {(conversations?.conversations ?? []).length === 0 && (
+          <div className="flex items-center justify-between px-2 mb-1">
+            <p className="text-xs text-gray-600 uppercase tracking-widest">Direct Messages</p>
+            <button
+              onClick={() => { setShowNewDm(true); setTimeout(() => newDmRef.current?.focus(), 0); }}
+              className="text-gray-500 hover:text-gray-800 transition-colors text-sm leading-none"
+              title="New DM"
+            >
+              +
+            </button>
+          </div>
+          {showNewDm && (
+            <div>
+              <input
+                ref={newDmRef}
+                type="text"
+                value={newDmHandle}
+                onChange={(e) => { setNewDmHandle(e.target.value); setDmLookupError(''); }}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter') {
+                    const handle = newDmHandle.trim().replace(/^@/, '');
+                    if (!handle) { setShowNewDm(false); return; }
+                    setDmLookupPending(true);
+                    setDmLookupError('');
+                    try {
+                      const result = await findPlayerByHandle(handle);
+                      if (result.found) {
+                        setTab('dm');
+                        setDmPartner({ id: result.player_id, name: result.username });
+                        setNewDmHandle('');
+                        setShowNewDm(false);
+                      } else {
+                        setDmLookupError(`Player "@${handle}" not found.`);
+                      }
+                    } catch {
+                      setDmLookupError('Lookup failed. Try again.');
+                    } finally {
+                      setDmLookupPending(false);
+                    }
+                  } else if (e.key === 'Escape') {
+                    setNewDmHandle(''); setShowNewDm(false); setDmLookupError('');
+                  }
+                }}
+                onBlur={() => { if (!dmLookupPending) { setNewDmHandle(''); setShowNewDm(false); setDmLookupError(''); } }}
+                placeholder="@handle"
+                disabled={dmLookupPending}
+                className="w-full bg-gray-100 border border-gray-300 focus:border-indigo-400 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 placeholder-gray-500 focus:outline-none mb-1 disabled:opacity-50"
+              />
+              {dmLookupError && (
+                <p className="text-xs text-red-500 px-1 mb-1">{dmLookupError}</p>
+              )}
+            </div>
+          )}
+          {(conversations?.conversations ?? []).length === 0 && !showNewDm && (
             <p className="text-xs text-gray-700 px-2">No conversations yet.</p>
           )}
           {(conversations?.conversations ?? []).map((c) => (
@@ -171,7 +252,7 @@ export default function ChatScreen() {
             </p>
           )}
           {messages.map((m) => (
-            <ChatBubble key={m.message_id} msg={m} myId={auth?.player_id ?? ''} />
+            <ChatBubble key={m.message_id} msg={m} myId={auth?.player_id ?? ''} myUsername={auth?.username ?? ''} />
           ))}
           <div ref={messagesEndRef} />
         </div>

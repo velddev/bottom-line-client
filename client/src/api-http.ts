@@ -201,6 +201,10 @@ export function createHttpApi(): IApiService {
     listDmConversations: () =>
       get<{ conversations: DmConversation[] }>(`/chat/conversations`),
 
+    findPlayerByHandle: (handle) =>
+      get<{ found: boolean; player_id: string; username: string; city_id: string }>(
+        '/player/lookup', { handle }),
+
     // ─── Events ─────────────────────────────────────────────────────────────
     subscribeToEvents: (cityId, apiKey, onEvent, onConnect, onDisconnect) => {
       const params = new URLSearchParams({ city_id: cityId, api_key: apiKey });

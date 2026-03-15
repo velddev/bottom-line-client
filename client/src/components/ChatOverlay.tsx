@@ -5,17 +5,42 @@ import { getChatMessages, sendChatMessage, listDmConversations, subscribeToEvent
 import { useAuth } from '../auth';
 import type { ChatMessage, ChatMessageEvent, DmConversation } from '../types';
 
-function Bubble({ msg, myId }: { msg: ChatMessage; myId: string }) {
+// ── Mention-aware content renderer ───────────────────────────────────────────
+function renderWithMentions(content: string, myUsername: string): React.ReactNode {
+  const parts = content.split(/(@\S+)/g);
+  return parts.map((part, i) => {
+    if (!part.startsWith('@')) return part;
+    const handle = part.slice(1);
+    const isMe = handle.toLowerCase() === myUsername.toLowerCase();
+    return (
+      <mark
+        key={i}
+        className={isMe
+          ? 'bg-amber-400/30 text-amber-600 dark:text-amber-400 not-italic rounded px-0.5'
+          : 'bg-transparent text-indigo-500 dark:text-indigo-400 not-italic'}
+      >
+        {part}
+      </mark>
+    );
+  });
+}
+
+function Bubble({ msg, myId, myUsername }: { msg: ChatMessage; myId: string; myUsername: string }) {
   const isMe = msg.from_player_id === myId;
+  const isMentioned = !isMe && msg.content.toLowerCase().includes(`@${myUsername.toLowerCase()}`);
   return (
     <div className={`flex flex-col max-w-[85%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}>
       {!isMe && (
         <span className="text-[10px] text-gray-500 mb-0.5 px-1">{msg.from_player_name}</span>
       )}
       <div className={`rounded-xl px-2.5 py-1 text-xs leading-snug ${
-        isMe ? 'bg-indigo-600 text-gray-900 rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'
+        isMe
+          ? 'bg-indigo-600 text-gray-900 rounded-br-none'
+          : isMentioned
+            ? 'bg-amber-400/15 text-gray-800 ring-1 ring-amber-400/50 rounded-bl-none'
+            : 'bg-gray-200 text-gray-800 rounded-bl-none'
       }`}>
-        {msg.content}
+        {renderWithMentions(msg.content, myUsername)}
       </div>
     </div>
   );
@@ -205,7 +230,7 @@ export default function ChatOverlay() {
                 </p>
               )}
               {activeMessages.map((m) => (
-                <Bubble key={m.message_id} msg={m} myId={auth?.player_id ?? ''} />
+                <Bubble key={m.message_id} msg={m} myId={auth?.player_id ?? ''} myUsername={auth?.username ?? ''} />
               ))}
               <div ref={bottomRef} />
             </div>

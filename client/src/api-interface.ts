@@ -62,6 +62,7 @@ export interface IApiService {
   sendChatMessage(content: string, to_player_id?: string): Promise<{ success: boolean; message: string }>;
   getChatMessages(city_id: string, to_player_id?: string, limit?: number, before_id?: string): Promise<{ messages: ChatMessage[] }>;
   listDmConversations(): Promise<{ conversations: DmConversation[] }>;
+  findPlayerByHandle(handle: string): Promise<{ found: boolean; player_id: string; username: string; city_id: string }>;
   subscribeToEvents(
     cityId: string,
     apiKey: string,

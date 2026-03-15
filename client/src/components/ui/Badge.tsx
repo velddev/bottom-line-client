@@ -20,12 +20,12 @@ export interface BadgeProps {
 
 const VARIANT: Record<BadgeVariant, string> = {
   default:  'bg-gray-200 text-gray-600',
-  success:  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
-  warning:  'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
-  danger:   'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400',
-  paused:   'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400',
-  info:     'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400',
-  research: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400',
+  success:  'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400',
+  warning:  'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400',
+  danger:   'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400',
+  paused:   'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/40 dark:text-yellow-400',
+  info:     'bg-sky-100 text-sky-600 dark:bg-indigo-900/40 dark:text-indigo-400',
+  research: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400',
   outline:  'border border-gray-300 text-gray-600',
 };
 

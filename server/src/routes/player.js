@@ -23,4 +23,9 @@ router.get('/performance', handle(async (req) => {
   return rpc(stubs.player, 'GetCompanyHistory', { limit }, getApiKey(req));
 }));
 
+router.get('/lookup', handle(async (req) => {
+  const { handle } = req.query;
+  return rpc(stubs.player, 'FindPlayerByHandle', { handle: handle ?? '' }, getApiKey(req));
+}));
+
 export default router;

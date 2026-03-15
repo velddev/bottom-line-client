@@ -864,6 +864,9 @@ service PlayerService {
   }
   rpc GetCompanyHistory   (GetCompanyHistoryRequest)   returns (GetCompanyHistoryResponse) {
   }
+  // Look up a player by their username/handle. Used for starting DMs or checking if a player exists.
+  rpc FindPlayerByHandle  (FindPlayerByHandleRequest)  returns (FindPlayerByHandleResponse) {
+  }
 }
 
 message RegisterRequest {
@@ -942,6 +945,19 @@ message CompanyTickSnapshot {
 
 message GetCompanyHistoryResponse {
   repeated CompanyTickSnapshot snapshots = 1;
+}
+
+// ── Player Lookup ────────────────────────────────────────────────────────────
+
+message FindPlayerByHandleRequest {
+  string handle = 1; // username to search for (case-insensitive)
+}
+
+message FindPlayerByHandleResponse {
+  bool   found     = 1;
+  string player_id = 2; // empty when not found
+  string username  = 3; // normalised username
+  string city_id   = 4; // city the player lives in
 }
 
 

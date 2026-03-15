@@ -76,6 +76,7 @@ export const getBuildingSales: IApiService['getBuildingSales'] = (...args) => ap
 export const sendChatMessage: IApiService['sendChatMessage'] = (...args) => api.sendChatMessage(...args);
 export const getChatMessages: IApiService['getChatMessages'] = (...args) => api.getChatMessages(...args);
 export const listDmConversations: IApiService['listDmConversations'] = () => api.listDmConversations();
+export const findPlayerByHandle: IApiService['findPlayerByHandle'] = (...args) => api.findPlayerByHandle(...args);
 export const subscribeToEvents: IApiService['subscribeToEvents'] = (...args) => api.subscribeToEvents(...args);
 
 // ─── HTTP-only helpers (browser dev / no IPC equivalent needed) ──────────────

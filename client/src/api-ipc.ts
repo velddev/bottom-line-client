@@ -218,6 +218,10 @@ export function createIpcApi(): IApiService {
     listDmConversations: () =>
       invoke<{ conversations: DmConversation[] }>('api:listDmConversations', { apiKey: apiKey() }),
 
+    findPlayerByHandle: (handle) =>
+      invoke<{ found: boolean; player_id: string; username: string; city_id: string }>(
+        'api:findPlayerByHandle', { handle, apiKey: apiKey() }),
+
     // ─── Events ─────────────────────────────────────────────────────────────
     subscribeToEvents: (cityId, apiKey, onEvent, onConnect, onDisconnect) => {
       window.electronAPI!.invoke('api:subscribeEvents', { cityId, apiKey }).then(() => {
