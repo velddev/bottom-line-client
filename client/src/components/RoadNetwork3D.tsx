@@ -1,27 +1,19 @@
 import { useMemo, useRef, useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { computeRoadPlacements, type RoadPlacement, WORLD_SIZE, CHUNKS_PER_AXIS } from './cityGrid';
 
-const ROAD_MODELS = {
-  straight: '/models/roads/road-straight.glb',
-  crossroad: '/models/roads/road-crossroad.glb',
-};
-
-Object.values(ROAD_MODELS).forEach((url) => useGLTF.preload(url));
-
 const CHUNK_WORLD = WORLD_SIZE / CHUNKS_PER_AXIS;
 
-function extractMesh(scene: THREE.Group): { geometry: THREE.BufferGeometry; material: THREE.Material } | null {
-  let found: { geometry: THREE.BufferGeometry; material: THREE.Material } | null = null;
-  scene.traverse((child) => {
-    if (!found && child instanceof THREE.Mesh) {
-      found = { geometry: child.geometry, material: child.material as THREE.Material };
-    }
-  });
-  return found;
-}
+// Simple procedural road geometry: flat plane, 2 tris each (was 44/116 from GLTF)
+const ROAD_COLOR = '#4a4f5c';
+const roadGeometry = new THREE.PlaneGeometry(1, 1);
+roadGeometry.rotateX(-Math.PI / 2); // lay flat
+const roadMaterial = new THREE.MeshStandardMaterial({
+  color: ROAD_COLOR,
+  roughness: 0.9,
+  metalness: 0.0,
+});
 
 /** Bucket road placements into chunks by world position */
 function chunkRoads(placements: RoadPlacement[]): Map<string, RoadPlacement[]> {
@@ -37,23 +29,17 @@ function chunkRoads(placements: RoadPlacement[]): Map<string, RoadPlacement[]> {
   return chunks;
 }
 
-function RoadChunk({ placements, modelUrl, type }: { placements: RoadPlacement[]; modelUrl: string; type: string }) {
-  const { scene } = useGLTF(modelUrl);
+function RoadChunk({ placements, type }: { placements: RoadPlacement[]; type: string }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
-  const meshData = useMemo(() => extractMesh(scene), [scene]);
   const { invalidate } = useThree();
 
   useEffect(() => {
     if (!meshRef.current || placements.length === 0) return;
 
-    const rotM = new THREE.Matrix4();
-    const posM = new THREE.Matrix4();
     const mat = new THREE.Matrix4();
 
     placements.forEach((p, i) => {
-      rotM.makeRotationY(p.rotation);
-      posM.makeTranslation(p.x + 0.5, 0.001, p.z + 0.5);
-      mat.multiplyMatrices(posM, rotM);
+      mat.makeTranslation(p.x + 0.5, 0.001, p.z + 0.5);
       meshRef.current!.setMatrixAt(i, mat);
     });
 
@@ -62,13 +48,13 @@ function RoadChunk({ placements, modelUrl, type }: { placements: RoadPlacement[]
     invalidate();
   }, [placements, invalidate]);
 
-  if (!meshData || placements.length === 0) return null;
+  if (placements.length === 0) return null;
 
   return (
     <instancedMesh
       name={`Road-${type}`}
       ref={meshRef}
-      args={[meshData.geometry, meshData.material, placements.length]}
+      args={[roadGeometry, roadMaterial, placements.length]}
       receiveShadow
     />
   );
@@ -76,32 +62,16 @@ function RoadChunk({ placements, modelUrl, type }: { placements: RoadPlacement[]
 
 export default function RoadNetwork3D() {
   const { straights, crossroads } = useMemo(() => computeRoadPlacements(), []);
-  const straightChunks = useMemo(() => chunkRoads(straights), [straights]);
-  const crossroadChunks = useMemo(() => chunkRoads(crossroads), [crossroads]);
 
-  const chunkKeys = useMemo(() => {
-    const keys = new Set<string>();
-    for (const k of straightChunks.keys()) keys.add(k);
-    for (const k of crossroadChunks.keys()) keys.add(k);
-    return Array.from(keys);
-  }, [straightChunks, crossroadChunks]);
+  // Merge all road placements and chunk them together (same geometry now)
+  const allRoads = useMemo(() => [...straights, ...crossroads], [straights, crossroads]);
+  const chunks = useMemo(() => chunkRoads(allRoads), [allRoads]);
 
   return (
     <group>
-      {chunkKeys.map(key => {
-        const sp = straightChunks.get(key);
-        const cp = crossroadChunks.get(key);
-        return (
-          <group key={key}>
-            {sp && sp.length > 0 && (
-              <RoadChunk placements={sp} modelUrl={ROAD_MODELS.straight} type="straight" />
-            )}
-            {cp && cp.length > 0 && (
-              <RoadChunk placements={cp} modelUrl={ROAD_MODELS.crossroad} type="crossroad" />
-            )}
-          </group>
-        );
-      })}
+      {Array.from(chunks.entries()).map(([key, placements]) => (
+        <RoadChunk key={key} placements={placements} type="road" />
+      ))}
     </group>
   );
 }
