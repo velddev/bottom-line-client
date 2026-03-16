@@ -52,11 +52,33 @@ function extractMeshParts(scene: THREE.Group): MeshPart[] {
   return results;
 }
 
-/** Clone a material and configure it for the depth-reveal pass */
+/** Clone a material and configure it for the depth-reveal pass.
+ *  - FrontSide only (no inside-out back faces)
+ *  - depthFunc: Greater (strict) so it only renders where the building is
+ *    truly BEHIND other geometry, not where it's already visible
+ *  - polygonOffset: -1 prevents z-fighting at the visible/occluded boundary
+ *  - Screen-door dithering for a dissolve look */
 function makeRevealMaterial(original: THREE.Material): THREE.Material {
   const mat = original.clone();
-  mat.depthFunc = THREE.GreaterEqualDepth;
+  mat.side = THREE.FrontSide;
+  mat.depthFunc = THREE.GreaterDepth;
   mat.depthWrite = false;
+  mat.polygonOffset = true;
+  mat.polygonOffsetFactor = -1;
+  mat.polygonOffsetUnits = -1;
+  mat.customProgramCacheKey = () => 'building-reveal-dither';
+  mat.needsUpdate = true;
+
+  mat.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      `// Screen-door dithering for occluded reveal
+      float igNoise = fract(52.9829189 * fract(0.06711056 * gl_FragCoord.x + 0.00583715 * gl_FragCoord.y));
+      if (igNoise > 0.5) discard;
+      #include <dithering_fragment>`,
+    );
+  };
+
   return mat;
 }
 
