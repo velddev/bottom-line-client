@@ -50,14 +50,14 @@ export default function BuildConfirmDialog({
           {needsPurchase && (
             <div className="flex justify-between text-xs">
               <span className="text-gray-600">Land cost</span>
-              <span className="text-cyan-600 font-semibold">{fmtMoney(tile.purchase_price)}</span>
+              <span className="text-cyan-400 font-semibold">{fmtMoney(tile.purchase_price)}</span>
             </div>
           )}
 
           {!needsPurchase && (
             <div className="flex justify-between text-xs">
               <span className="text-gray-600">Land cost</span>
-              <span className="text-emerald-600 font-semibold">Owned ✓</span>
+              <span className="text-emerald-400 font-semibold">Owned ✓</span>
             </div>
           )}
 

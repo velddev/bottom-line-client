@@ -682,7 +682,7 @@ export default function TilesScreen() {
 
         {/* Placement mode hint */}
         {activeBuildType && !placementTarget && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1001] bg-indigo-900/90 text-indigo-200 text-xs px-4 py-2 rounded-lg border border-indigo-600 shadow-xl">
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1001] bg-gray-200 text-gray-700 text-xs px-4 py-2 rounded-lg border border-gray-300 shadow-xl">
             Click a highlighted tile to place your building · <span className="text-indigo-400">ESC</span> to cancel
           </div>
         )}
