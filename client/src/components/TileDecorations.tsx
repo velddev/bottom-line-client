@@ -1,7 +1,8 @@
 import { useRef, useEffect, useMemo } from 'react';
+import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
-import { tileToWorld, GAME_GRID } from './cityGrid';
+import { tileToWorld, GAME_GRID, RENDER_CHUNK, CHUNKS_PER_AXIS } from './cityGrid';
 
 // Seeded PRNG for deterministic decoration placement
 function mulberry32(seed: number) {
@@ -18,11 +19,13 @@ const _tempMatrix = new THREE.Matrix4();
 interface DecoPlacement {
   wx: number;
   wz: number;
+  gx: number;
+  gy: number;
   rotation: number;
   scale: number;
 }
 
-// Pre-compute decoration placements
+// Pre-compute decoration placements with grid coordinates for chunking
 function computeDecorations(density: number, seed: number): DecoPlacement[] {
   const rng = mulberry32(seed);
   const placements: DecoPlacement[] = [];
@@ -34,12 +37,27 @@ function computeDecorations(density: number, seed: number): DecoPlacement[] {
       placements.push({
         wx: wx + 0.15 + rng() * 0.7,
         wz: wz + 0.15 + rng() * 0.7,
+        gx, gy,
         rotation: rng() * Math.PI * 2,
         scale: 0.25 + rng() * 0.35,
       });
     }
   }
   return placements;
+}
+
+// Group placements into chunks
+function chunkPlacements(placements: DecoPlacement[]): Map<string, DecoPlacement[]> {
+  const chunks = new Map<string, DecoPlacement[]>();
+  for (const p of placements) {
+    const cx = Math.floor(p.gx / RENDER_CHUNK);
+    const cy = Math.floor(p.gy / RENDER_CHUNK);
+    const key = `${cx}_${cy}`;
+    let arr = chunks.get(key);
+    if (!arr) { arr = []; chunks.set(key, arr); }
+    arr.push(p);
+  }
+  return chunks;
 }
 
 /** Extract all meshes with baked transforms */
@@ -57,26 +75,17 @@ function extractMeshes(scene: THREE.Group) {
   return results;
 }
 
-function DecoInstances({
-  modelPath,
+function DecoChunk({
+  parts,
+  bounds,
   placements,
 }: {
-  modelPath: string;
+  parts: ReturnType<typeof extractMeshes>;
+  bounds: THREE.Box3;
   placements: DecoPlacement[];
 }) {
   const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
-  const { scene } = useGLTF(modelPath);
-  const parts = useMemo(() => extractMeshes(scene), [scene]);
-
-  // Compute bounding box for centering
-  const bounds = useMemo(() => {
-    const box = new THREE.Box3();
-    parts.forEach(p => {
-      p.geometry.computeBoundingBox();
-      box.union(p.geometry.boundingBox!);
-    });
-    return box;
-  }, [parts]);
+  const { invalidate } = useThree();
 
   useEffect(() => {
     if (parts.length === 0) return;
@@ -99,30 +108,25 @@ function DecoInstances({
         mesh.setMatrixAt(i, _tempMatrix);
       });
 
-      for (let i = placements.length; i < mesh.count; i++) {
-        _tempMatrix.makeScale(0, 0, 0);
-        mesh.setMatrixAt(i, _tempMatrix);
-      }
-
       mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
     });
-  }, [placements, parts, bounds]);
+    invalidate();
+  }, [placements, parts, bounds, invalidate]);
 
   if (parts.length === 0 || placements.length === 0) return null;
 
-  const count = Math.max(placements.length, 1);
-
   return (
-    <group>
+    <>
       {parts.map((part, idx) => (
         <instancedMesh
+          name="Decoration"
           key={idx}
           ref={el => { meshRefs.current[idx] = el; }}
-          args={[part.geometry, part.material, count]}
-          frustumCulled={false}
+          args={[part.geometry, part.material, placements.length]}
         />
       ))}
-    </group>
+    </>
   );
 }
 
@@ -130,15 +134,45 @@ function DecoInstances({
 useGLTF.preload('/models/buildings/farm/grass.glb');
 
 export default function TileDecorations() {
-  // Grass tufts (~25% of tiles)
+  const { scene } = useGLTF('/models/buildings/farm/grass.glb');
+  const parts = useMemo(() => extractMeshes(scene), [scene]);
+
+  const bounds = useMemo(() => {
+    const box = new THREE.Box3();
+    parts.forEach(p => {
+      p.geometry.computeBoundingBox();
+      box.union(p.geometry.boundingBox!);
+    });
+    return box;
+  }, [parts]);
+
   const grassPlacements = useMemo(() => computeDecorations(0.25, 42), []);
+  const chunks = useMemo(() => chunkPlacements(grassPlacements), [grassPlacements]);
+
+  const chunkKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (let cy = 0; cy < CHUNKS_PER_AXIS; cy++) {
+      for (let cx = 0; cx < CHUNKS_PER_AXIS; cx++) {
+        keys.push(`${cx}_${cy}`);
+      }
+    }
+    return keys;
+  }, []);
 
   return (
     <group>
-      <DecoInstances
-        modelPath="/models/buildings/farm/grass.glb"
-        placements={grassPlacements}
-      />
+      {chunkKeys.map(key => {
+        const placements = chunks.get(key);
+        if (!placements || placements.length === 0) return null;
+        return (
+          <DecoChunk
+            key={key}
+            parts={parts}
+            bounds={bounds}
+            placements={placements}
+          />
+        );
+      })}
     </group>
   );
 }

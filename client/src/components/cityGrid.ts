@@ -9,6 +9,8 @@ export const GAME_GRID = 120;       // 120×120 game tiles
 export const BLOCK_SIZE = 5;        // X: tiles per city block
 export const ROAD_WIDTH = 1;        // road width (always 1)
 export const BLOCKS_PER_AXIS = GAME_GRID / BLOCK_SIZE; // 24
+export const RENDER_CHUNK = 20;     // tiles per render chunk axis
+export const CHUNKS_PER_AXIS = GAME_GRID / RENDER_CHUNK; // 6
 
 // Y cycle: 10 game tiles → 3 for-sale + 7 government
 const Y_CYCLE = 10;
@@ -120,4 +122,20 @@ export function computeRoadPlacements(): {
   }
 
   return { straights, crossroads };
+}
+
+/** Split a full tiles Map into chunk-keyed sub-arrays by grid position. */
+export function splitTilesIntoChunks(
+  tiles: Map<string, import('../types').TileInfo>,
+): Map<string, import('../types').TileInfo[]> {
+  const chunks = new Map<string, import('../types').TileInfo[]>();
+  for (const tile of tiles.values()) {
+    const cx = Math.floor(tile.grid_x / RENDER_CHUNK);
+    const cy = Math.floor(tile.grid_y / RENDER_CHUNK);
+    const key = `${cx}_${cy}`;
+    let arr = chunks.get(key);
+    if (!arr) { arr = []; chunks.set(key, arr); }
+    arr.push(tile);
+  }
+  return chunks;
 }

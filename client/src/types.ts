@@ -271,6 +271,8 @@ export interface TileInfo {
   construction_ready_at_tick: number;
   population_capacity: number;    // residential buildings only
   is_government_port: boolean;
+  active_recipe: string;          // recipe id currently in use (empty if none)
+  output_type: string;            // resource this building produces (empty if no recipe)
 }
 
 export interface ListTilesResponse {

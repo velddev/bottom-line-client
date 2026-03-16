@@ -1,7 +1,7 @@
 import { useRef, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import type { TileInfo } from '../types';
 import { tileToWorld } from './cityGrid';
 import {
@@ -31,15 +31,19 @@ interface CutoutUniforms {
   uSelectedScreenMin: { value: THREE.Vector2 };
   uSelectedScreenMax: { value: THREE.Vector2 };
   uCutoutProgress:    { value: number };
+  uCompanyActive:     { value: number };
 }
 
 const CUTOUT_VERTEX_PREAMBLE = /* glsl */ `
   uniform vec3  uSelectedPos;
   uniform float uHasSelection;
+  attribute float aCompanyOwned;
   varying float vBlocking;
+  varying float vCompanyOwned;
 `;
 
 const CUTOUT_VERTEX_BODY = /* glsl */ `
+  vCompanyOwned = aCompanyOwned;
   vBlocking = 0.0;
   if (uHasSelection > 0.5) {
     vec3 iPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
@@ -56,12 +60,21 @@ const CUTOUT_FRAG_PREAMBLE = /* glsl */ `
   uniform vec2  uSelectedScreenMin;
   uniform vec2  uSelectedScreenMax;
   uniform float uCutoutProgress;
+  uniform float uCompanyActive;
   varying float vBlocking;
+  varying float vCompanyOwned;
 `;
 
-// Capsule-shaped signed distance field in screen space.
-// Fully discard inside, dithered gradient at the border, animated by progress.
+// Company mode: dither-discard all non-owned buildings.
+// Selected-building mode: capsule SDF dissolve for blocking buildings.
 const CUTOUT_FRAG_BODY = /* glsl */ `
+  // Company highlight: dissolve all non-owned buildings
+  if (uCompanyActive > 0.5 && vCompanyOwned < 0.5) {
+    float igNoise = fract(52.9829189 * fract(0.06711056 * gl_FragCoord.x + 0.00583715 * gl_FragCoord.y));
+    if (igNoise > 0.3) discard;
+  }
+
+  // Selected-building capsule cutout
   if (vBlocking > 0.5 && uCutoutProgress > 0.01) {
     vec2 center = (uSelectedScreenMin + uSelectedScreenMax) * 0.5;
     float w = uSelectedScreenMax.x - uSelectedScreenMin.x;
@@ -93,6 +106,7 @@ function injectCutoutShader(original: THREE.Material, uniforms: CutoutUniforms):
     shader.uniforms.uSelectedScreenMin = uniforms.uSelectedScreenMin;
     shader.uniforms.uSelectedScreenMax = uniforms.uSelectedScreenMax;
     shader.uniforms.uCutoutProgress    = uniforms.uCutoutProgress;
+    shader.uniforms.uCompanyActive     = uniforms.uCompanyActive;
 
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
@@ -141,42 +155,52 @@ interface BuildingMeshesProps {
   tiles: Map<string, TileInfo>;
   myPlayerId: string;
   selectedTile?: TileInfo | null;
+  highlightedPlayerIds?: Set<string>;
 }
 
 function BuildingVariantGLB({
   variant,
   buildings,
   cutoutUniforms,
+  highlightedPlayerIds,
 }: {
   variant: ModelVariant;
   buildings: TileInfo[];
   cutoutUniforms: CutoutUniforms;
+  highlightedPlayerIds?: Set<string>;
 }) {
   const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
   const { scene } = useGLTF(variant.path);
+  const { invalidate } = useThree();
 
   const meshParts = useMemo(() => extractMeshes(scene), [scene]);
 
+  // Clone geometries so each component instance has independent attribute storage
+  // (useGLTF caches the model, so shared geometries would overwrite each other's aCompanyOwned)
+  const clonedParts = useMemo(() =>
+    meshParts.map(part => ({ ...part, geometry: part.geometry.clone() })),
+  [meshParts]);
+
   const processedMaterials = useMemo(() => {
-    return meshParts.map(part => {
+    return clonedParts.map(part => {
       if (Array.isArray(part.material)) {
         return part.material.map(m => injectCutoutShader(m, cutoutUniforms));
       }
       return injectCutoutShader(part.material, cutoutUniforms);
     });
-  }, [meshParts, cutoutUniforms]);
+  }, [clonedParts, cutoutUniforms]);
 
   const bounds = useMemo(() => {
     const box = new THREE.Box3();
-    meshParts.forEach(p => {
+    clonedParts.forEach(p => {
       p.geometry.computeBoundingBox();
       box.union(p.geometry.boundingBox!);
     });
     return box;
-  }, [meshParts]);
+  }, [clonedParts]);
 
   useEffect(() => {
-    if (meshParts.length === 0) return;
+    if (clonedParts.length === 0) return;
 
     const modelWidth = bounds.max.x - bounds.min.x;
     const modelDepth = bounds.max.z - bounds.min.z;
@@ -185,6 +209,13 @@ function BuildingVariantGLB({
 
     const cx = (bounds.max.x + bounds.min.x) / 2;
     const cz = (bounds.max.z + bounds.min.z) / 2;
+
+    const maxCount = Math.max(buildings.length, 1);
+    const ownedData = new Float32Array(maxCount);
+    const hasHighlight = highlightedPlayerIds && highlightedPlayerIds.size > 0;
+    buildings.forEach((tile, i) => {
+      ownedData[i] = (hasHighlight && highlightedPlayerIds.has(tile.owner_player_id)) ? 1.0 : 0.0;
+    });
 
     meshRefs.current.forEach(mesh => {
       if (!mesh) return;
@@ -217,17 +248,29 @@ function BuildingVariantGLB({
         mesh.setMatrixAt(i, _tempMatrix);
       }
 
-      mesh.instanceMatrix.needsUpdate = true;
-    });
-  }, [buildings, variant, meshParts, bounds]);
+      // Set per-instance company-owned attribute for shader
+      const existingAttr = mesh.geometry.getAttribute('aCompanyOwned') as THREE.InstancedBufferAttribute | undefined;
+      if (existingAttr && existingAttr.count === maxCount) {
+        existingAttr.set(ownedData);
+        existingAttr.needsUpdate = true;
+      } else {
+        mesh.geometry.setAttribute('aCompanyOwned',
+          new THREE.InstancedBufferAttribute(ownedData, 1));
+      }
 
-  if (meshParts.length === 0) return null;
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    });
+    invalidate();
+  }, [buildings, variant, clonedParts, bounds, highlightedPlayerIds, invalidate]);
+
+  if (clonedParts.length === 0) return null;
 
   const maxCount = Math.max(buildings.length, 1);
 
   return (
     <group>
-      {meshParts.map((part, idx) => (
+      {clonedParts.map((part, idx) => (
         <instancedMesh
           key={idx}
           ref={el => { meshRefs.current[idx] = el; }}
@@ -243,14 +286,23 @@ function BuildingVariantGLB({
 
 // ── Main component ─────────────────────────────────────────────────────
 
-export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesProps) {
+export default function BuildingMeshes({ tiles, selectedTile, highlightedPlayerIds }: BuildingMeshesProps) {
+  const { invalidate } = useThree();
+
   const cutoutUniforms = useMemo<CutoutUniforms>(() => ({
     uSelectedPos:       { value: new THREE.Vector3(0, 0, 0) },
     uHasSelection:      { value: 0 },
     uSelectedScreenMin: { value: new THREE.Vector2(0, 0) },
     uSelectedScreenMax: { value: new THREE.Vector2(0, 0) },
     uCutoutProgress:    { value: 0 },
+    uCompanyActive:     { value: 0 },
   }), []);
+
+  // Update company highlight uniform
+  useEffect(() => {
+    cutoutUniforms.uCompanyActive.value = (highlightedPlayerIds && highlightedPlayerIds.size > 0) ? 1.0 : 0.0;
+    invalidate();
+  }, [highlightedPlayerIds, cutoutUniforms, invalidate]);
 
   // Animation state — persists across renders
   const lastWxRef = useRef(0);
@@ -258,8 +310,11 @@ export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesPr
   const progressRef = useRef(0);
   const lastBuildingIdRef = useRef<string | null>(null);
 
+  // Trigger re-render when selection changes (needed for demand frameloop)
+  useEffect(() => { invalidate(); }, [selectedTile, invalidate]);
+
   // Animate the cutout capsule in/out and project the bounding box
-  useFrame(({ camera, size }, delta) => {
+  useFrame(({ camera, size, gl }, delta) => {
     const hasSelection = !!selectedTile?.building_id;
     const currentId = selectedTile?.building_id ?? null;
 
@@ -284,6 +339,9 @@ export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesPr
     progressRef.current += (target - progressRef.current) * speed;
     if (Math.abs(progressRef.current - target) < 0.01) progressRef.current = target;
 
+    // Keep rendering while cutout animation is in progress
+    if (progressRef.current !== target) invalidate();
+
     cutoutUniforms.uCutoutProgress.value = progressRef.current;
     cutoutUniforms.uHasSelection.value = progressRef.current > 0.01 ? 1.0 : 0.0;
 
@@ -292,6 +350,7 @@ export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesPr
       const wx = lastWxRef.current;
       const wz = lastWzRef.current;
       const BUILDING_HEIGHT = 4.0;
+      const dpr = gl.getPixelRatio();
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
       for (let i = 0; i < 8; i++) {
         _projVec.set(
@@ -299,14 +358,14 @@ export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesPr
           i & 2 ? BUILDING_HEIGHT : 0,
           i & 4 ? wz + 1 : wz,
         ).project(camera);
-        const sx = (_projVec.x * 0.5 + 0.5) * size.width;
-        const sy = (_projVec.y * 0.5 + 0.5) * size.height;
+        const sx = (_projVec.x * 0.5 + 0.5) * size.width * dpr;
+        const sy = (_projVec.y * 0.5 + 0.5) * size.height * dpr;
         minX = Math.min(minX, sx);
         maxX = Math.max(maxX, sx);
         minY = Math.min(minY, sy);
         maxY = Math.max(maxY, sy);
       }
-      const PAD = 10;
+      const PAD = 10 * dpr;
       cutoutUniforms.uSelectedScreenMin.value.set(minX - PAD, minY - PAD);
       cutoutUniforms.uSelectedScreenMax.value.set(maxX + PAD, maxY + PAD);
     }
@@ -337,6 +396,7 @@ export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesPr
             variant={group.variant}
             buildings={group.tiles}
             cutoutUniforms={cutoutUniforms}
+            highlightedPlayerIds={highlightedPlayerIds}
           />
         );
       })}

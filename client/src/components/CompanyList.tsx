@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { ChevronDown, ChevronRight, Building2, Users, Layers } from 'lucide-react';
+import { ChevronDown, ChevronRight, Building2, Users, Layers, Eye, EyeOff } from 'lucide-react';
 import type { TileInfo } from '../types';
 import { BUILDING_ICONS } from '../types';
 import Panel from './Panel';
@@ -8,7 +8,9 @@ interface CompanyListProps {
   tiles: Map<string, TileInfo>;
   myPlayerId: string;
   onSelectTile: (tile: TileInfo) => void;
+  onToggleCompanyVisibility?: (playerId: string) => void;
   selectedTileId?: string;
+  visibleCompanyIds?: Set<string>;
 }
 
 interface ListGroup {
@@ -33,7 +35,7 @@ function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedTileId }: CompanyListProps) {
+export default function CompanyList({ tiles, myPlayerId, onSelectTile, onToggleCompanyVisibility, selectedTileId, visibleCompanyIds }: CompanyListProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [panelOpen, setPanelOpen] = useState(true);
   const [groupMode, setGroupMode] = useState<GroupMode>('company');
@@ -155,19 +157,37 @@ export default function CompanyList({ tiles, myPlayerId, onSelectTile, selectedT
           return (
             <div key={group.id}>
               {/* Group header */}
-              <button
-                onClick={() => toggle(group.id)}
-                className="w-full flex items-center gap-1.5 px-3 py-2 text-xs hover:bg-gray-100/60 transition-colors border-b border-gray-200"
-              >
-                {isOpen
-                  ? <ChevronDown size={12} className="text-gray-500 shrink-0" />
-                  : <ChevronRight size={12} className="text-gray-500 shrink-0" />}
-                {group.icon && <span className="shrink-0">{group.icon}</span>}
-                <span className={`font-medium truncate ${group.highlight ? 'text-emerald-400' : 'text-gray-700'}`}>
-                  {group.label}
-                </span>
-                <span className="text-gray-600 ml-auto shrink-0">{group.buildings.length}</span>
-              </button>
+              <div className={`flex items-center border-b border-gray-200 ${
+                visibleCompanyIds?.has(group.id) ? 'bg-indigo-900/30' : ''
+              }`}>
+                <button
+                  onClick={() => toggle(group.id)}
+                  className="flex-1 flex items-center gap-1.5 px-3 py-2 text-xs hover:bg-gray-100/60 transition-colors"
+                >
+                  {isOpen
+                    ? <ChevronDown size={12} className="text-gray-500 shrink-0" />
+                    : <ChevronRight size={12} className="text-gray-500 shrink-0" />}
+                  {group.icon && <span className="shrink-0">{group.icon}</span>}
+                  <span className={`font-medium truncate ${group.highlight ? 'text-emerald-400' : 'text-gray-700'}`}>
+                    {group.label}
+                  </span>
+                  <span className="text-gray-600 ml-auto shrink-0">{group.buildings.length}</span>
+                </button>
+                {groupMode === 'company' && onToggleCompanyVisibility && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleCompanyVisibility(group.id);
+                    }}
+                    className="px-2 py-2 text-gray-500 hover:text-gray-300 transition-colors shrink-0"
+                    title={visibleCompanyIds?.has(group.id) ? 'Hide buildings' : 'Show buildings'}
+                  >
+                    {visibleCompanyIds?.has(group.id)
+                      ? <Eye size={14} />
+                      : <EyeOff size={14} className="opacity-40" />}
+                  </button>
+                )}
+              </div>
 
               {/* Building list */}
               {isOpen && (

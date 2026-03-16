@@ -1,10 +1,15 @@
-import { useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useRef, useEffect, useMemo, useState } from 'react';
+import { useThree, useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { tileToWorld } from './cityGrid';
 
 const SELECTOR_MODEL = '/models/selection/selection-a.glb';
+
+const ANIM_FPS = 30;
+const PULSE_DURATION = 600; // single grow+shrink in 600ms
+const PAUSE_DURATION = 1500; // rest for 1.5s
+const CYCLE = PULSE_DURATION + PAUSE_DURATION;
 
 interface Props {
   gridX: number;
@@ -37,16 +42,30 @@ export default function TileSelector3D({ gridX, gridY }: Props) {
 
   const [wx, wz] = useMemo(() => tileToWorld(gridX, gridY), [gridX, gridY]);
 
-  useFrame(({ clock }) => {
+  const { invalidate } = useThree();
+
+  // Drive animation at ~30 FPS during pulse, idle during pause
+  useEffect(() => {
+    const id = setInterval(() => {
+      const phase = performance.now() % CYCLE;
+      if (phase < PULSE_DURATION) invalidate();
+    }, 1000 / ANIM_FPS);
+    return () => clearInterval(id);
+  }, [invalidate]);
+
+  useFrame(() => {
     if (!meshRef.current) return;
-    const t = clock.getElapsedTime();
-    // Gentle pulse: scale between 0.95 and 1.05, slower speed
-    const pulse = 1.0 + Math.sin(t * 1.5) * 0.05;
+    const phase = performance.now() % CYCLE;
+    // One full grow + shrink using half-sine (0→1→0)
+    const pulse = phase < PULSE_DURATION
+      ? 1.0 + Math.sin((phase / PULSE_DURATION) * Math.PI) * 0.05
+      : 1.0;
     meshRef.current.scale.set(pulse, pulse, pulse);
   });
 
   return (
     <mesh
+      name="TileSelector"
       ref={meshRef}
       geometry={geo}
       material={mat}
