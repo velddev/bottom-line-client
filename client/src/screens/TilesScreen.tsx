@@ -31,6 +31,11 @@ import UnifiedChatPanel from '../components/UnifiedChatPanel';
 import SupplyVehicles3D from '../components/SupplyVehicles3D';
 import { useAllPlayerSupplyLinks } from '../hooks/useAllPlayerSupplyLinks';
 import { tileToWorld } from '../components/cityGrid';
+import BuildToolbar from '../components/BuildToolbar';
+import BuildConfirmDialog from '../components/BuildConfirmDialog';
+import PlacementOverlay3D from '../components/PlacementOverlay3D';
+import type { BuildingCategory } from '../utils/tilePlacement';
+import { getRecommendedTiles, canBuildOnTile } from '../utils/tilePlacement';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 const CHUNK_SIZE = 20;
@@ -331,6 +336,78 @@ export default function TilesScreen() {
   const [configTarget, setConfigTarget] = useState<TileInfo | null>(null);
   const [invTarget, setInvTarget] = useState<TileInfo | null>(null);
 
+  // ── Placement mode ──────────────────────────────────────────────────────────
+  const [activeBuildType, setActiveBuildType] = useState<BuildingCategory | null>(null);
+  const [placementTarget, setPlacementTarget] = useState<TileInfo | null>(null);
+  const [placementError, setPlacementError] = useState<string | null>(null);
+  const [placementPending, setPlacementPending] = useState(false);
+
+  // Compute valid tiles and recommendations when placement mode is active
+  const validPlacementTiles = useMemo(() => {
+    if (!activeBuildType || !auth?.player_id) return new Set<string>();
+    const valid = new Set<string>();
+    for (const tile of tiles.values()) {
+      if (canBuildOnTile(tile, auth.player_id)) {
+        valid.add(tile.tile_id);
+      }
+    }
+    return valid;
+  }, [activeBuildType, tiles, auth?.player_id]);
+
+  const recommendedTiles = useMemo(() => {
+    if (!activeBuildType || !auth?.player_id) return [];
+    return getRecommendedTiles(activeBuildType, tiles, auth.player_id, 5);
+  }, [activeBuildType, tiles, auth?.player_id]);
+
+  // Handle tile click during placement mode
+  const handleTileSelect = useCallback((tile: TileInfo | null) => {
+    if (activeBuildType && tile && auth?.player_id) {
+      if (canBuildOnTile(tile, auth.player_id)) {
+        setPlacementTarget(tile);
+        setPlacementError(null);
+        return;
+      }
+    }
+    setSelectedTile(tile);
+  }, [activeBuildType, auth?.player_id]);
+
+  // Handle placement confirmation (purchase if needed + build)
+  async function handlePlacementConfirm(name: string) {
+    if (!placementTarget || !activeBuildType || !auth) return;
+    setPlacementPending(true);
+    setPlacementError(null);
+    try {
+      // Purchase tile first if not owned
+      if (placementTarget.owner_player_id !== auth.player_id) {
+        await purchaseTile(placementTarget.tile_id);
+      }
+      // Build
+      const res = await constructBuilding(auth.city_id, activeBuildType, name, placementTarget.tile_id);
+      setFlash({ ok: true, msg: `Building started! Ready in ${res.construction_ticks_remaining} days.` });
+      qc.invalidateQueries({ queryKey: ['buildings'] });
+      refreshTileChunk(placementTarget);
+      setPlacementTarget(null);
+      setActiveBuildType(null);
+    } catch (err) {
+      setPlacementError(err instanceof Error ? err.message : 'Build failed');
+    } finally {
+      setPlacementPending(false);
+    }
+  }
+
+  // Cancel placement mode when Escape is pressed
+  useEffect(() => {
+    if (!activeBuildType) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveBuildType(null);
+        setPlacementTarget(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeBuildType]);
+
   const [activeTab, setActiveTab] = useState<'supply' | 'info'>('supply');
   useEffect(() => { setActiveTab('supply'); }, [selectedTile?.tile_id]);
 
@@ -414,9 +491,16 @@ export default function TilesScreen() {
             myPlayerId={auth?.player_id ?? ''}
             selectedTile={selectedTile}
             hoveredTile={hoveredTile}
-            onSelect={setSelectedTile}
+            onSelect={handleTileSelect}
             onHover={setHoveredTile}
           />
+          {activeBuildType && (
+            <PlacementOverlay3D
+              validTiles={validPlacementTiles}
+              recommended={recommendedTiles}
+              tiles={tiles}
+            />
+          )}
           <BuildingMeshes
             tiles={tiles}
             myPlayerId={auth?.player_id ?? ''}
@@ -583,6 +667,25 @@ export default function TilesScreen() {
             {isBank     && <BankPanel />}
           </Panel>
         )}
+
+        {/* Build toolbar (bottom-center) */}
+        <div
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1001]"
+          style={{
+            opacity: mapReady ? 1 : 0,
+            transform: mapReady ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(1rem)',
+            transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
+          }}
+        >
+          <BuildToolbar activeBuildType={activeBuildType} onSelect={setActiveBuildType} />
+        </div>
+
+        {/* Placement mode hint */}
+        {activeBuildType && !placementTarget && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1001] bg-indigo-900/90 text-indigo-200 text-xs px-4 py-2 rounded-lg border border-indigo-600 shadow-xl">
+            Click a highlighted tile to place your building · <span className="text-indigo-400">ESC</span> to cancel
+          </div>
+        )}
     </div>
 
       {configTarget?.building_id && (
@@ -600,6 +703,17 @@ export default function TilesScreen() {
           buildingId={invTarget.building_id}
           buildingName={invTarget.building_name}
           onClose={() => setInvTarget(null)}
+        />
+      )}
+      {placementTarget && activeBuildType && (
+        <BuildConfirmDialog
+          tile={placementTarget}
+          buildingType={activeBuildType}
+          myPlayerId={auth?.player_id ?? ''}
+          isPending={placementPending}
+          error={placementError}
+          onConfirm={handlePlacementConfirm}
+          onCancel={() => { setPlacementTarget(null); setPlacementError(null); }}
         />
       )}
     </>
