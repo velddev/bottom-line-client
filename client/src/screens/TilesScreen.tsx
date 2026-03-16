@@ -26,6 +26,7 @@ import TileDecorations from '../components/TileDecorations';
 import MapBorder from '../components/MapBorder';
 import FarmAnimals from '../components/FarmAnimals';
 import TileSelector3D from '../components/TileSelector3D';
+import SelectedBuildingOutline from '../components/SelectedBuildingOutline';
 import CompanyList from '../components/CompanyList';
 import Panel from '../components/Panel';
 import UnifiedChatPanel from '../components/UnifiedChatPanel';
@@ -492,6 +493,7 @@ export default function TilesScreen() {
           <BuildingMeshes
             tiles={tiles}
             myPlayerId={auth?.player_id ?? ''}
+            selectedTile={selectedTile}
           />
           <RoadNetwork3D />
           <TileDecorations />
@@ -500,6 +502,13 @@ export default function TilesScreen() {
           <SupplyVehicles3D routes={supplyRoutes} />
           {selectedTile && (
             <TileSelector3D gridX={selectedTile.grid_x} gridY={selectedTile.grid_y} />
+          )}
+          {selectedTile?.building_type && (
+            <SelectedBuildingOutline
+              buildingType={selectedTile.building_type}
+              gridX={selectedTile.grid_x}
+              gridY={selectedTile.grid_y}
+            />
           )}
           {activeBuildType && hoveredTile && canBuildOnTile(hoveredTile, auth?.player_id ?? '') && (
             <GhostBuilding3D

@@ -13,18 +13,98 @@ import {
 
 const _tempMatrix = new THREE.Matrix4();
 const _tempScale = new THREE.Vector3();
-const WARNING_STATUSES = new Set(['MissingResources', 'Paused']);
 
 // Preload all variant models
 ALL_MODEL_PATHS.forEach(p => useGLTF.preload(p));
 
-/** Extract all meshes from a GLTF scene */
-function extractMeshes(scene: THREE.Group): Array<{ geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }> {
-  const results: Array<{ geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[] }> = [];
+// ── Fresnel cutout shader injection ────────────────────────────────────
+
+// GLSL injected into MeshStandardMaterial vertex shader
+const CUTOUT_VERTEX_PREAMBLE = /* glsl */ `
+  uniform vec3  uSelectedPos;
+  uniform float uHasSelection;
+  varying float vOcclude;
+  varying vec3  vViewNormal2;
+`;
+
+const CUTOUT_VERTEX_BODY = /* glsl */ `
+  vViewNormal2 = normalize(transformedNormal);
+  vOcclude = 0.0;
+  if (uHasSelection > 0.5) {
+    vec3 iPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+    // Isometric 45° azimuth: depth = x + z, lateral = x - z
+    float iDepth = iPos.x + iPos.z;
+    float sDepth = uSelectedPos.x + uSelectedPos.z;
+    float latDiff = abs((iPos.x - iPos.z) - (uSelectedPos.x - uSelectedPos.z));
+    float dist = length(iPos.xz - uSelectedPos.xz);
+    // Block if closer to camera, laterally close, and not the selected building itself
+    if (iDepth > sDepth + 0.7 && latDiff < 1.8 && dist > 0.3) {
+      vOcclude = 1.0;
+    }
+  }
+`;
+
+// GLSL injected into MeshStandardMaterial fragment shader
+const CUTOUT_FRAG_PREAMBLE = /* glsl */ `
+  varying float vOcclude;
+  varying vec3  vViewNormal2;
+`;
+
+const CUTOUT_FRAG_BODY = /* glsl */ `
+  if (vOcclude > 0.5) {
+    float NdotV = abs(dot(vec3(0.0, 0.0, 1.0), normalize(vViewNormal2)));
+    float fresnel = pow(1.0 - NdotV, 2.0);
+    gl_FragColor.a = mix(0.06, 0.45, fresnel);
+  }
+`;
+
+/** Clone a material and inject the fresnel cutout shader */
+function injectCutoutShader(
+  original: THREE.Material,
+  uniforms: { uSelectedPos: { value: THREE.Vector3 }; uHasSelection: { value: number } },
+): THREE.Material {
+  const mat = original.clone();
+  (mat as THREE.MeshStandardMaterial).transparent = true;
+  (mat as THREE.MeshStandardMaterial).depthWrite = true;
+  mat.customProgramCacheKey = () => 'building-fresnel-cutout';
+
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uSelectedPos = uniforms.uSelectedPos;
+    shader.uniforms.uHasSelection = uniforms.uHasSelection;
+
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      '#include <common>\n' + CUTOUT_VERTEX_PREAMBLE,
+    );
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      '#include <begin_vertex>\n' + CUTOUT_VERTEX_BODY,
+    );
+
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      '#include <common>\n' + CUTOUT_FRAG_PREAMBLE,
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      CUTOUT_FRAG_BODY + '\n#include <dithering_fragment>',
+    );
+  };
+  return mat;
+}
+
+// ── Mesh extraction ────────────────────────────────────────────────────
+
+interface MeshPart {
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material | THREE.Material[];
+}
+
+function extractMeshes(scene: THREE.Group): MeshPart[] {
+  const results: MeshPart[] = [];
   scene.traverse((child) => {
     if ((child as THREE.Mesh).isMesh) {
       const mesh = child as THREE.Mesh;
-      // Apply parent transforms to geometry
       const geo = mesh.geometry.clone();
       mesh.updateWorldMatrix(true, false);
       geo.applyMatrix4(mesh.matrixWorld);
@@ -34,26 +114,38 @@ function extractMeshes(scene: THREE.Group): Array<{ geometry: THREE.BufferGeomet
   return results;
 }
 
+// ── Per-variant instanced component ────────────────────────────────────
+
 interface BuildingMeshesProps {
   tiles: Map<string, TileInfo>;
   myPlayerId: string;
+  selectedTile?: TileInfo | null;
 }
 
 function BuildingVariantGLB({
   variant,
   buildings,
-  myPlayerId,
+  cutoutUniforms,
 }: {
   variant: ModelVariant;
   buildings: TileInfo[];
-  myPlayerId: string;
+  cutoutUniforms: { uSelectedPos: { value: THREE.Vector3 }; uHasSelection: { value: number } };
 }) {
   const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
   const { scene } = useGLTF(variant.path);
 
   const meshParts = useMemo(() => extractMeshes(scene), [scene]);
 
-  // Compute unified bounding box across all parts
+  // Clone materials with fresnel cutout shader injected
+  const processedMaterials = useMemo(() => {
+    return meshParts.map(part => {
+      if (Array.isArray(part.material)) {
+        return part.material.map(m => injectCutoutShader(m, cutoutUniforms));
+      }
+      return injectCutoutShader(part.material, cutoutUniforms);
+    });
+  }, [meshParts, cutoutUniforms]);
+
   const bounds = useMemo(() => {
     const box = new THREE.Box3();
     meshParts.forEach(p => {
@@ -83,7 +175,6 @@ function BuildingVariantGLB({
         const cosR = Math.cos(rotation);
         const sinR = Math.sin(rotation);
 
-        // Rotated scaled center offset
         const scx = cx * fitScale;
         const scz = cz * fitScale;
         const rscx = cosR * scx + sinR * scz;
@@ -108,7 +199,7 @@ function BuildingVariantGLB({
 
       mesh.instanceMatrix.needsUpdate = true;
     });
-  }, [buildings, variant, meshParts, bounds, myPlayerId]);
+  }, [buildings, variant, meshParts, bounds]);
 
   if (meshParts.length === 0) return null;
 
@@ -120,7 +211,7 @@ function BuildingVariantGLB({
         <instancedMesh
           key={idx}
           ref={el => { meshRefs.current[idx] = el; }}
-          args={[part.geometry, part.material, maxCount]}
+          args={[part.geometry, processedMaterials[idx], maxCount]}
           castShadow
           receiveShadow
           frustumCulled={false}
@@ -130,7 +221,26 @@ function BuildingVariantGLB({
   );
 }
 
-export default function BuildingMeshes({ tiles, myPlayerId }: BuildingMeshesProps) {
+// ── Main component ─────────────────────────────────────────────────────
+
+export default function BuildingMeshes({ tiles, myPlayerId, selectedTile }: BuildingMeshesProps) {
+  // Shared uniforms for the fresnel cutout — all materials reference these
+  const cutoutUniforms = useMemo(() => ({
+    uSelectedPos: { value: new THREE.Vector3(0, 0, 0) },
+    uHasSelection: { value: 0 as number },
+  }), []);
+
+  // Update cutout uniforms when selection changes
+  useEffect(() => {
+    if (selectedTile?.building_id) {
+      const [wx, wz] = tileToWorld(selectedTile.grid_x, selectedTile.grid_y);
+      cutoutUniforms.uSelectedPos.value.set(wx + 0.5, 0, wz + 0.5);
+      cutoutUniforms.uHasSelection.value = 1.0;
+    } else {
+      cutoutUniforms.uHasSelection.value = 0.0;
+    }
+  }, [selectedTile, cutoutUniforms]);
+
   // Group buildings by (type, variantIndex) for instanced rendering
   const buildingGroups = useMemo(() => {
     const groups: Record<string, { variant: ModelVariant; tiles: TileInfo[] }> = {};
@@ -156,7 +266,7 @@ export default function BuildingMeshes({ tiles, myPlayerId }: BuildingMeshesProp
             key={key}
             variant={group.variant}
             buildings={group.tiles}
-            myPlayerId={myPlayerId}
+            cutoutUniforms={cutoutUniforms}
           />
         );
       })}
