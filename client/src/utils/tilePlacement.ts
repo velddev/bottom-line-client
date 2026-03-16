@@ -113,7 +113,8 @@ function computeSuitability(
 }
 
 /**
- * Compute suitability scores for all buildable tiles.
+ * Compute suitability scores for all tiles (buildable and non-buildable).
+ * Buildable tiles get scored; non-buildable get normalized=0 (red).
  * Returns scores with normalized 0..1 values for heatmap coloring.
  */
 export function computeHeatmap(
@@ -121,33 +122,37 @@ export function computeHeatmap(
   allTiles: Map<string, TileInfo>,
   myPlayerId: string,
 ): TilePlacementScore[] {
-  const scores: TilePlacementScore[] = [];
+  const buildable: TilePlacementScore[] = [];
+  const nonBuildable: TilePlacementScore[] = [];
 
   for (const tile of allTiles.values()) {
-    if (!canBuildOnTile(tile, myPlayerId)) continue;
-
-    const s = computeSuitability(tile.grid_x, tile.grid_y, buildingType, allTiles);
-    scores.push({ tile, score: s, normalized: 0 });
-  }
-
-  if (scores.length === 0) return scores;
-
-  // Normalize to 0..1
-  let minScore = Infinity, maxScore = -Infinity;
-  for (const s of scores) {
-    if (s.score < minScore) minScore = s.score;
-    if (s.score > maxScore) maxScore = s.score;
-  }
-  const range = maxScore - minScore;
-  if (range > 0) {
-    for (const s of scores) {
-      s.normalized = (s.score - minScore) / range;
+    if (canBuildOnTile(tile, myPlayerId)) {
+      const s = computeSuitability(tile.grid_x, tile.grid_y, buildingType, allTiles);
+      buildable.push({ tile, score: s, normalized: 0 });
+    } else {
+      // Non-buildable tiles show as red
+      nonBuildable.push({ tile, score: -Infinity, normalized: 0 });
     }
-  } else {
-    for (const s of scores) s.normalized = 0.5;
   }
 
-  return scores;
+  // Normalize buildable tiles to 0..1
+  if (buildable.length > 0) {
+    let minScore = Infinity, maxScore = -Infinity;
+    for (const s of buildable) {
+      if (s.score < minScore) minScore = s.score;
+      if (s.score > maxScore) maxScore = s.score;
+    }
+    const range = maxScore - minScore;
+    if (range > 0) {
+      for (const s of buildable) {
+        s.normalized = (s.score - minScore) / range;
+      }
+    } else {
+      for (const s of buildable) s.normalized = 0.5;
+    }
+  }
+
+  return [...buildable, ...nonBuildable];
 }
 
 /**

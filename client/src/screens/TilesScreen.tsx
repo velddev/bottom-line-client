@@ -34,6 +34,7 @@ import { tileToWorld } from '../components/cityGrid';
 import BuildToolbar from '../components/BuildToolbar';
 import BuildConfirmDialog from '../components/BuildConfirmDialog';
 import PlacementOverlay3D from '../components/PlacementOverlay3D';
+import GhostBuilding3D from '../components/GhostBuilding3D';
 import type { BuildingCategory } from '../utils/tilePlacement';
 import { canBuildOnTile, computeHeatmap } from '../utils/tilePlacement';
 
@@ -497,6 +498,13 @@ export default function TilesScreen() {
           <SupplyVehicles3D routes={supplyRoutes} />
           {selectedTile && (
             <TileSelector3D gridX={selectedTile.grid_x} gridY={selectedTile.grid_y} />
+          )}
+          {activeBuildType && hoveredTile && canBuildOnTile(hoveredTile, auth?.player_id ?? '') && (
+            <GhostBuilding3D
+              buildingType={activeBuildType}
+              gridX={hoveredTile.grid_x}
+              gridY={hoveredTile.grid_y}
+            />
           )}
           <TileTooltip3D
             hoveredTile={hoveredTile}
