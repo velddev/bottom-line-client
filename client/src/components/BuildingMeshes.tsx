@@ -256,10 +256,20 @@ export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesPr
   const lastWxRef = useRef(0);
   const lastWzRef = useRef(0);
   const progressRef = useRef(0);
+  const lastBuildingIdRef = useRef<string | null>(null);
 
   // Animate the cutout capsule in/out and project the bounding box
   useFrame(({ camera, size }, delta) => {
     const hasSelection = !!selectedTile?.building_id;
+    const currentId = selectedTile?.building_id ?? null;
+
+    // Reset animation when switching between different buildings
+    if (currentId !== lastBuildingIdRef.current) {
+      if (currentId && lastBuildingIdRef.current) {
+        progressRef.current = 0;
+      }
+      lastBuildingIdRef.current = currentId;
+    }
 
     if (hasSelection) {
       const [wx, wz] = tileToWorld(selectedTile.grid_x, selectedTile.grid_y);
