@@ -1,7 +1,7 @@
 import { useRef, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import type { TileInfo } from '../types';
 import { tileToWorld } from './cityGrid';
 import {
@@ -154,6 +154,7 @@ function BuildingVariantGLB({
 }) {
   const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
   const { scene } = useGLTF(variant.path);
+  const { invalidate } = useThree();
 
   const meshParts = useMemo(() => extractMeshes(scene), [scene]);
 
@@ -218,8 +219,10 @@ function BuildingVariantGLB({
       }
 
       mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
     });
-  }, [buildings, variant, meshParts, bounds]);
+    invalidate();
+  }, [buildings, variant, meshParts, bounds, invalidate]);
 
   if (meshParts.length === 0) return null;
 
@@ -244,6 +247,8 @@ function BuildingVariantGLB({
 // ── Main component ─────────────────────────────────────────────────────
 
 export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesProps) {
+  const { invalidate } = useThree();
+
   const cutoutUniforms = useMemo<CutoutUniforms>(() => ({
     uSelectedPos:       { value: new THREE.Vector3(0, 0, 0) },
     uHasSelection:      { value: 0 },
@@ -258,8 +263,11 @@ export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesPr
   const progressRef = useRef(0);
   const lastBuildingIdRef = useRef<string | null>(null);
 
+  // Trigger re-render when selection changes (needed for demand frameloop)
+  useEffect(() => { invalidate(); }, [selectedTile, invalidate]);
+
   // Animate the cutout capsule in/out and project the bounding box
-  useFrame(({ camera, size }, delta) => {
+  useFrame(({ camera, size, gl }, delta) => {
     const hasSelection = !!selectedTile?.building_id;
     const currentId = selectedTile?.building_id ?? null;
 
@@ -284,6 +292,9 @@ export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesPr
     progressRef.current += (target - progressRef.current) * speed;
     if (Math.abs(progressRef.current - target) < 0.01) progressRef.current = target;
 
+    // Keep rendering while cutout animation is in progress
+    if (progressRef.current !== target) invalidate();
+
     cutoutUniforms.uCutoutProgress.value = progressRef.current;
     cutoutUniforms.uHasSelection.value = progressRef.current > 0.01 ? 1.0 : 0.0;
 
@@ -292,6 +303,7 @@ export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesPr
       const wx = lastWxRef.current;
       const wz = lastWzRef.current;
       const BUILDING_HEIGHT = 4.0;
+      const dpr = gl.getPixelRatio();
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
       for (let i = 0; i < 8; i++) {
         _projVec.set(
@@ -299,14 +311,14 @@ export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesPr
           i & 2 ? BUILDING_HEIGHT : 0,
           i & 4 ? wz + 1 : wz,
         ).project(camera);
-        const sx = (_projVec.x * 0.5 + 0.5) * size.width;
-        const sy = (_projVec.y * 0.5 + 0.5) * size.height;
+        const sx = (_projVec.x * 0.5 + 0.5) * size.width * dpr;
+        const sy = (_projVec.y * 0.5 + 0.5) * size.height * dpr;
         minX = Math.min(minX, sx);
         maxX = Math.max(maxX, sx);
         minY = Math.min(minY, sy);
         maxY = Math.max(maxY, sy);
       }
-      const PAD = 10;
+      const PAD = 10 * dpr;
       cutoutUniforms.uSelectedScreenMin.value.set(minX - PAD, minY - PAD);
       cutoutUniforms.uSelectedScreenMax.value.set(maxX + PAD, maxY + PAD);
     }

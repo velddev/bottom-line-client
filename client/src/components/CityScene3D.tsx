@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, useCallback } from 'react';
+import { useRef, useEffect, useMemo, useCallback, useState } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { MapControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -14,21 +14,27 @@ interface CityScene3DProps {
 }
 
 function IsometricCamera() {
-  const { camera, size } = useThree();
+  const { camera, size, invalidate } = useThree();
 
-  useEffect(() => {
+  // Enforce frustum every frame to prevent resize flash
+  useFrame(() => {
     if (camera instanceof THREE.OrthographicCamera) {
       const aspect = size.width / size.height;
       const frustum = 30;
-      camera.left = -frustum * aspect;
-      camera.right = frustum * aspect;
-      camera.top = frustum;
-      camera.bottom = -frustum;
-      camera.near = 0.1;
-      camera.far = 1000;
-      camera.updateProjectionMatrix();
+      const l = -frustum * aspect;
+      const r = frustum * aspect;
+      if (camera.left !== l || camera.right !== r || camera.top !== frustum || camera.bottom !== -frustum) {
+        camera.left = l;
+        camera.right = r;
+        camera.top = frustum;
+        camera.bottom = -frustum;
+        camera.near = 0.1;
+        camera.far = 1000;
+        camera.updateProjectionMatrix();
+        invalidate();
+      }
     }
-  }, [camera, size]);
+  });
 
   return null;
 }
@@ -37,12 +43,13 @@ function IsometricCamera() {
 function KeyboardControls({ controlsRef }: { controlsRef: React.RefObject<any> }) {
   const keysDown = useRef(new Set<string>());
   const holdTime = useRef(0); // seconds keys have been held
-  const { camera } = useThree();
+  const { camera, invalidate } = useThree();
 
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
       keysDown.current.add(e.key.toLowerCase());
+      invalidate();
     };
     const onUp = (e: KeyboardEvent) => {
       keysDown.current.delete(e.key.toLowerCase());
@@ -92,6 +99,7 @@ function KeyboardControls({ controlsRef }: { controlsRef: React.RefObject<any> }
     if (pan.lengthSq() > 0) {
       camera.position.add(pan);
       controls.target.add(pan);
+      invalidate();
     }
   });
 
@@ -101,8 +109,7 @@ function KeyboardControls({ controlsRef }: { controlsRef: React.RefObject<any> }
 /** Smoothly pans camera to a world position when focusWorldPos changes.
  *  If far away (>30 units), snaps most of the way and animates the last bit. */
 function CameraFocus({ controlsRef, focusWorldPos, snap }: { controlsRef: React.RefObject<any>; focusWorldPos?: [number, number] | null; snap?: boolean }) {
-  const { camera } = useThree();
-  const animating = useRef(false);
+  const { camera, invalidate } = useThree();  const animating = useRef(false);
   const targetPos = useRef(new THREE.Vector3());
   const prevFocus = useRef<string | null>(null);
 
@@ -118,9 +125,9 @@ function CameraFocus({ controlsRef, focusWorldPos, snap }: { controlsRef: React.
     const offset = new THREE.Vector3().subVectors(camera.position, target);
 
     if (snap) {
-      // Instant snap — no animation
       target.copy(dest);
       camera.position.copy(dest).add(offset);
+      invalidate();
       return;
     }
 
@@ -135,7 +142,8 @@ function CameraFocus({ controlsRef, focusWorldPos, snap }: { controlsRef: React.
 
     targetPos.current.copy(dest);
     animating.current = true;
-  }, [focusWorldPos, controlsRef, snap]);
+    invalidate();
+  }, [focusWorldPos, controlsRef, snap, invalidate]);
 
   useFrame((_, delta) => {
     if (!animating.current || !controlsRef.current) return;
@@ -155,6 +163,7 @@ function CameraFocus({ controlsRef, focusWorldPos, snap }: { controlsRef: React.
       camera.position.copy(target).add(offset);
       animating.current = false;
     }
+    invalidate();
   });
 
   return null;
@@ -223,7 +232,7 @@ function GridGround() {
   return (
     <group position={[WORLD_SIZE / 2, 0, WORLD_SIZE / 2]}>
       {/* Ground plane */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh name="Ground" rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[WORLD_SIZE, WORLD_SIZE]} />
         <meshStandardMaterial color="#5a8a50" />
       </mesh>
@@ -240,8 +249,213 @@ function GridGround() {
 const ISO_ANGLE = Math.PI / 6;
 const ISO_DISTANCE = 140;
 
+/** Counts actual GPU frames rendered and writes stats to an external DOM element. */
+function FrameCounterInternal({ targetRef }: { targetRef: React.RefObject<HTMLDivElement | null> }) {
+  const frames = useRef(0);
+  const lastCalls = useRef(0);
+  const lastTris = useRef(0);
+
+  useFrame(({ gl }) => {
+    frames.current++;
+    lastCalls.current = gl.info.render.calls;
+    lastTris.current = gl.info.render.triangles;
+  });
+
+  // Update the display every second via requestAnimationFrame (doesn't cause R3F renders)
+  useEffect(() => {
+    let raf = 0;
+    let lastTime = performance.now();
+    const tick = () => {
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        if (targetRef.current) {
+          const tris = lastTris.current > 1000
+            ? `${(lastTris.current / 1000).toFixed(1)}k`
+            : `${lastTris.current}`;
+          targetRef.current.textContent =
+            `${frames.current} FPS | ${lastCalls.current} draws | ${tris} tris`;
+        }
+        frames.current = 0;
+        lastTime = now;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [targetRef]);
+
+  return null;
+}
+
+interface MeshInfo { name: string; tris: number; instances: number; culled: boolean; radius: number; visible: boolean }
+
+/** Walk up the scene graph to find a meaningful component/group name. */
+function findComponentName(obj: THREE.Object3D): string {
+  let node: THREE.Object3D | null = obj;
+  while (node) {
+    const r3f = (node as any).__r3f;
+    if (r3f?.type && typeof r3f.type === 'string' && r3f.type !== 'group' && r3f.type !== 'instancedMesh' && r3f.type !== 'mesh') {
+      return r3f.type;
+    }
+    if (node.name && node.name !== '' && !/^Object3D|Group|Scene|Mesh/.test(node.name)) {
+      return node.name;
+    }
+    node = node.parent;
+  }
+  return obj.type;
+}
+
+/** Traverses the scene to build a per-component triangle breakdown. */
+function SceneAnalysisInternal({ targetRef }: { targetRef: React.RefObject<HTMLDivElement | null> }) {
+  const { scene, gl, camera, invalidate } = useThree();
+  const renderedTris = useRef(0);
+  const renderedCalls = useRef(0);
+
+  useFrame(() => {
+    renderedTris.current = gl.info.render.triangles;
+    renderedCalls.current = gl.info.render.calls;
+  });
+
+  useEffect(() => {
+    const frustum = new THREE.Frustum();
+    const projScreenMatrix = new THREE.Matrix4();
+
+    const run = () => {
+      projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      frustum.setFromProjectionMatrix(projScreenMatrix);
+
+      const raw: MeshInfo[] = [];
+      scene.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const geo = mesh.geometry;
+        if (!geo) return;
+
+        const posCount = geo.attributes.position?.count ?? 0;
+        const idxCount = geo.index?.count ?? 0;
+        const baseTris = idxCount > 0 ? idxCount / 3 : posCount / 3;
+        if (!isFinite(baseTris) || baseTris === 0) return;
+
+        const instanced = (mesh as THREE.InstancedMesh).isInstancedMesh;
+        const count = instanced ? (mesh as THREE.InstancedMesh).count : 1;
+        const totalTris = baseTris * count;
+        if (!isFinite(totalTris) || totalTris === 0) return;
+
+        let actualRadius = -1;
+        if (instanced) {
+          const iMesh = mesh as THREE.InstancedMesh;
+          try { iMesh.computeBoundingSphere(); } catch { /* empty */ }
+          if (iMesh.boundingSphere) actualRadius = iMesh.boundingSphere.radius;
+        } else {
+          try { geo.computeBoundingSphere(); } catch { /* empty */ }
+          if (geo.boundingSphere) actualRadius = geo.boundingSphere.radius;
+        }
+
+        let isVisible = true;
+        if (mesh.frustumCulled) {
+          if (instanced) {
+            const iMesh = mesh as THREE.InstancedMesh;
+            if (iMesh.boundingSphere) {
+              isVisible = frustum.intersectsSphere(iMesh.boundingSphere);
+            }
+          } else {
+            if (geo.boundingSphere) {
+              const sphere = geo.boundingSphere.clone().applyMatrix4(mesh.matrixWorld);
+              isVisible = frustum.intersectsSphere(sphere);
+            }
+          }
+        }
+
+        raw.push({
+          name: findComponentName(mesh),
+          tris: totalTris,
+          instances: count,
+          culled: mesh.frustumCulled,
+          radius: actualRadius,
+          visible: isVisible,
+        });
+      });
+
+      const agg = new Map<string, { tris: number; visTris: number; instances: number; meshes: number; minR: number; maxR: number; allCulled: boolean }>();
+      for (const item of raw) {
+        const existing = agg.get(item.name);
+        if (existing) {
+          existing.tris += item.tris;
+          if (item.visible) existing.visTris += item.tris;
+          existing.instances += item.instances;
+          existing.meshes++;
+          if (item.radius >= 0) {
+            existing.minR = existing.minR >= 0 ? Math.min(existing.minR, item.radius) : item.radius;
+            existing.maxR = Math.max(existing.maxR, item.radius);
+          }
+          existing.allCulled = existing.allCulled && item.culled;
+        } else {
+          agg.set(item.name, {
+            tris: item.tris,
+            visTris: item.visible ? item.tris : 0,
+            instances: item.instances,
+            meshes: 1,
+            minR: item.radius,
+            maxR: item.radius,
+            allCulled: item.culled,
+          });
+        }
+      }
+
+      const sorted = [...agg.entries()].sort((a, b) => b[1].tris - a[1].tris);
+
+      if (targetRef.current) {
+        const totalTris = sorted.reduce((s, [, v]) => s + v.tris, 0);
+        const totalVisTris = sorted.reduce((s, [, v]) => s + v.visTris, 0);
+        const totalMeshes = sorted.reduce((s, [, v]) => s + v.meshes, 0);
+        const fmtTris = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
+
+        const lines = sorted.map(([name, v]) => {
+          const tStr = fmtTris(v.tris).padStart(7);
+          const vStr = fmtTris(v.visTris).padStart(7);
+          const fc = v.allCulled ? '✓' : '✗';
+          let rStr: string;
+          if (v.maxR < 0) {
+            rStr = '—'.padStart(8);
+          } else if (v.minR === v.maxR || v.minR < 0) {
+            rStr = `r=${v.maxR.toFixed(0)}`.padStart(8);
+          } else {
+            rStr = `r=${v.minR.toFixed(0)}-${v.maxR.toFixed(0)}`.padStart(8);
+          }
+          const mStr = `${v.meshes}m`.padStart(4);
+          return `${tStr} ${vStr} ${fc} ${rStr} ${mStr}  ${name}`;
+        });
+        const header = `${'total'.padStart(7)} ${'visible'.padStart(7)} fc ${'radius'.padStart(8)} ${'#m'.padStart(4)}  component`;
+        const visTris = fmtTris(renderedTris.current);
+        const visCalls = renderedCalls.current;
+        targetRef.current.textContent =
+          `Scene Analysis (${totalMeshes} meshes, ${fmtTris(totalTris)} total, ${fmtTris(totalVisTris)} visible, ${visCalls} draws)\n${header}\n${'─'.repeat(60)}\n${lines.join('\n')}`;
+      }
+    };
+
+    const timeout = setTimeout(run, 100);
+    const interval = setInterval(() => { invalidate(); setTimeout(run, 50); }, 2000);
+    return () => { clearTimeout(timeout); clearInterval(interval); };
+  }, [scene, targetRef, invalidate]);
+
+  return null;
+}
+
 export default function CityScene3D({ children, focusWorldPos, snapNextFocus, onVisibleBoundsChange }: CityScene3DProps) {
   const controlsRef = useRef<any>(null);
+  const [showFps, setShowFps] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const fpsRef = useRef<HTMLDivElement>(null);
+  const analysisRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'F3' && !e.shiftKey) { e.preventDefault(); setShowFps(v => !v); }
+      if (e.key === 'F3' && e.shiftKey) { e.preventDefault(); setShowAnalysis(v => !v); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const cameraPosition = useMemo(() => {
     const cx = WORLD_SIZE / 2;
@@ -259,60 +473,109 @@ export default function CityScene3D({ children, focusWorldPos, snapNextFocus, on
   );
 
   return (
-    <Canvas
-      orthographic
-      camera={{
-        position: cameraPosition,
-        zoom: 8,
-        near: 0.1,
-        far: 1000,
-      }}
-      shadows={{ type: THREE.PCFShadowMap }}
-      style={{ background: '#87CEEB' }}
-      gl={{ antialias: true, alpha: false }}
-    >
-      <IsometricCamera />
-      <KeyboardControls controlsRef={controlsRef} />
-      <CameraFocus controlsRef={controlsRef} focusWorldPos={focusWorldPos} snap={snapNextFocus} />
-      {onVisibleBoundsChange && <VisibleBoundsTracker onChange={onVisibleBoundsChange} />}
+    <>
+      {showFps && (
+        <div
+          ref={fpsRef}
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            background: 'rgba(0,0,0,0.7)',
+            color: '#0f0',
+            fontFamily: 'monospace',
+            fontSize: 14,
+            padding: '4px 8px',
+            borderRadius: 4,
+            zIndex: 9999,
+            pointerEvents: 'none',
+          }}
+        >
+          0 FPS
+        </div>
+      )}
+      {showAnalysis && (
+        <div
+          ref={analysisRef}
+          style={{
+            position: 'absolute',
+            top: 8,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(0,0,0,0.85)',
+            color: '#0f0',
+            fontFamily: 'monospace',
+            fontSize: 12,
+            padding: '8px 12px',
+            borderRadius: 4,
+            zIndex: 9999,
+            pointerEvents: 'none',
+            whiteSpace: 'pre',
+            lineHeight: 1.4,
+          }}
+        >
+          Analyzing...
+        </div>
+      )}
+      <Canvas
+        orthographic
+        frameloop="demand"
+        camera={{
+          position: cameraPosition,
+          zoom: 8,
+          near: 0.1,
+          far: 1000,
+        }}
+        shadows={{ type: THREE.PCFShadowMap }}
+        style={{ background: '#87CEEB' }}
+        gl={{ antialias: true, alpha: false }}
+      >
+        <IsometricCamera />
+        <KeyboardControls controlsRef={controlsRef} />
+        <CameraFocus controlsRef={controlsRef} focusWorldPos={focusWorldPos} snap={snapNextFocus} />
+        {onVisibleBoundsChange && <VisibleBoundsTracker onChange={onVisibleBoundsChange} />}
+        {showFps && <FrameCounterInternal targetRef={fpsRef} />}
+        {showAnalysis && <SceneAnalysisInternal targetRef={analysisRef} />}
 
-      {/* Sky color */}
-      <color attach="background" args={['#87CEEB']} />
+        {/* Sky color */}
+        <color attach="background" args={['#87CEEB']} />
 
-      {/* Bright, warm lighting */}
-      <ambientLight intensity={0.8} />
-      <directionalLight
-        position={[80, 120, 60]}
-        intensity={1.2}
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-camera-left={-80}
-        shadow-camera-right={80}
-        shadow-camera-top={80}
-        shadow-camera-bottom={-80}
-      />
-      <directionalLight position={[-40, 80, -30]} intensity={0.4} />
-      <hemisphereLight args={['#87CEEB', '#5a8a50', 0.3]} />
+        {/* Bright, warm lighting */}
+        <ambientLight intensity={0.8} />
+        <directionalLight
+          position={[80, 120, 60]}
+          intensity={1.2}
+          castShadow
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-camera-left={-80}
+          shadow-camera-right={80}
+          shadow-camera-top={80}
+          shadow-camera-bottom={-80}
+        />
+        <directionalLight position={[-40, 80, -30]} intensity={0.4} />
+        <hemisphereLight args={['#87CEEB', '#5a8a50', 0.3]} />
 
-      <GridGround />
+        <GridGround />
 
-      {/* Camera controls — isometric pan/zoom with limited rotation */}
-      <MapControls
-        ref={controlsRef}
-        target={cameraTarget}
-        enableRotate={false}
-        enableDamping
-        dampingFactor={0.1}
-        minZoom={2}
-        maxZoom={60}
-        screenSpacePanning
-        zoomSpeed={1.5}
-        mouseButtons={{ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE }}
-      />
+        {/* Camera controls — isometric pan/zoom with limited rotation */}
+        <MapControls
+          ref={controlsRef}
+          makeDefault
+          target={cameraTarget}
+          enableRotate={false}
+          enableDamping
+          dampingFactor={0.1}
+          minZoom={2}
+          maxZoom={60}
+          screenSpacePanning
+          zoomSpeed={1.5}
+          mouseButtons={{ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE }}
+        />
 
-      {children}
-    </Canvas>
+        {children}
+      </Canvas>
+    </>
   );
 }
 
