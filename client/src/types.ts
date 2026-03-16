@@ -35,6 +35,17 @@ export interface BuildingStatus {
   construction_ticks_remaining: number; // > 0 only when status === 'under_construction'
   output_type: string;   // normalized resource type string, e.g. 'cattle', 'grain', '' if no recipe
   population_capacity: number; // citizens housed (residential buildings only; 0 otherwise)
+
+  // Landlord / Rent fields (residential only)
+  units: number;                    // rentable units (1/4/20)
+  occupied_units: number;           // units with tenants
+  rent_per_unit_cents: number;      // monthly rent per unit in cents
+  freshness: number;                // 0–100 building condition
+  construction_cost_cents: number;  // cost to build in cents
+  for_sale_price_cents: number;     // 0 = not listed for sale
+  is_renovating: boolean;
+  renovation_ticks_remaining: number;
+  built_at_tick: number;
 }
 
 export interface RecipeInfo {

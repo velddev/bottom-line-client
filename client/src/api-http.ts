@@ -354,6 +354,14 @@ export function createHttpApi(): IApiService {
     getBuildingSales: (buildingId, historyTicks = 20) =>
       get<GetBuildingSalesResponse>(`/buildings/${buildingId}/sales`, { history_ticks: String(historyTicks) }),
 
+    setRent: (buildingId, rentPerUnitCents) =>
+      put<{ success: boolean; rent_per_unit_cents: number }>(`/buildings/${buildingId}/rent`, {
+        rent_per_unit_cents: rentPerUnitCents,
+      }),
+
+    renovate: (buildingId) =>
+      post<{ success: boolean; renovation_cost_cents: number; renovation_ticks: number }>(`/buildings/${buildingId}/renovate`, {}),
+
     // ─── Chat ────────────────────────────────────────────────────────────────
     sendChatMessage: (content, to_player_id = '') =>
       post<{ success: boolean; message: string }>('/chat', { content, to_player_id }),

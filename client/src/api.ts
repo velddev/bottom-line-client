@@ -75,6 +75,8 @@ export const listPotentialSuppliers: IApiService['listPotentialSuppliers'] = (..
 export const getAutoSellConfigs: IApiService['getAutoSellConfigs'] = (...args) => api.getAutoSellConfigs(...args);
 export const setAutoSellConfig: IApiService['setAutoSellConfig'] = (...args) => api.setAutoSellConfig(...args);
 export const getBuildingSales: IApiService['getBuildingSales'] = (...args) => api.getBuildingSales(...args);
+export const setRent: IApiService['setRent'] = (...args) => api.setRent(...args);
+export const renovate: IApiService['renovate'] = (...args) => api.renovate(...args);
 export const sendChatMessage: IApiService['sendChatMessage'] = (...args) => api.sendChatMessage(...args);
 export const getChatMessages: IApiService['getChatMessages'] = (...args) => api.getChatMessages(...args);
 export const listDmConversations: IApiService['listDmConversations'] = () => api.listDmConversations();

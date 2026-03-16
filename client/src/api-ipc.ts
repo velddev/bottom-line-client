@@ -223,6 +223,16 @@ export function createIpcApi(): IApiService {
     getBuildingSales: (buildingId, historyTicks = 20) =>
       invoke<GetBuildingSalesResponse>('api:getBuildingSales', { building_id: buildingId, history_ticks: historyTicks, apiKey: apiKey() }),
 
+    setRent: (buildingId, rentPerUnitCents) =>
+      invoke<{ success: boolean; rent_per_unit_cents: number }>('api:setRent', {
+        building_id: buildingId, rent_per_unit_cents: rentPerUnitCents, apiKey: apiKey(),
+      }),
+
+    renovate: (buildingId) =>
+      invoke<{ success: boolean; renovation_cost_cents: number; renovation_ticks: number }>('api:renovate', {
+        building_id: buildingId, apiKey: apiKey(),
+      }),
+
     // ─── Chat ────────────────────────────────────────────────────────────────
     sendChatMessage: (content, to_player_id = '') =>
       invoke<{ success: boolean; message: string }>('api:sendChatMessage', { content, to_player_id, apiKey: apiKey() }),

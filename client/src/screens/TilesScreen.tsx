@@ -667,6 +667,7 @@ export default function TilesScreen() {
                 buildingName={selectedTile.building_name}
                 ownerName={selectedTile.building_player_name || selectedTile.owner_name}
                 isOwned={isMine}
+                building={selectedBldInfo}
               />
             )}
           </Panel>
