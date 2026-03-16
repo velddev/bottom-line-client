@@ -1,6 +1,7 @@
 import { useRef, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
 import type { TileInfo } from '../types';
 import { tileToWorld } from './cityGrid';
 import {
@@ -16,6 +17,80 @@ const _tempScale = new THREE.Vector3();
 
 // Preload all variant models
 ALL_MODEL_PATHS.forEach(p => useGLTF.preload(p));
+
+// ── Dithered cutout for blocking buildings ─────────────────────────────
+//
+// Buildings in front of the selected building get 50% screen-door dithering
+// via discard. The selected building is pre-rendered at renderOrder -1
+// (by SelectedBuildingOutline), so it shows through the discarded holes.
+
+interface CutoutUniforms {
+  uSelectedPos:  { value: THREE.Vector3 };
+  uHasSelection: { value: number };
+}
+
+const CUTOUT_VERTEX_PREAMBLE = /* glsl */ `
+  uniform vec3  uSelectedPos;
+  uniform float uHasSelection;
+  varying float vBlocking;
+`;
+
+// Instance-level check: is this building in front of the selected one?
+// Uses isometric depth (x + z) and lateral (x - z) for the 45° camera.
+const CUTOUT_VERTEX_BODY = /* glsl */ `
+  vBlocking = 0.0;
+  if (uHasSelection > 0.5) {
+    vec3 iPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+    float iDepth = iPos.x + iPos.z;
+    float sDepth = uSelectedPos.x + uSelectedPos.z;
+    float lateral = abs((iPos.x - iPos.z) - (uSelectedPos.x - uSelectedPos.z));
+    if (iDepth > sDepth + 0.3 && lateral < 4.0) {
+      vBlocking = 1.0;
+    }
+  }
+`;
+
+const CUTOUT_FRAG_PREAMBLE = /* glsl */ `
+  varying float vBlocking;
+`;
+
+// Interleaved gradient noise dithering — discards ~50% of fragments
+// on blocking buildings, creating a screen-door effect.
+const CUTOUT_FRAG_BODY = /* glsl */ `
+  if (vBlocking > 0.5) {
+    float igNoise = fract(52.9829189 * fract(0.06711056 * gl_FragCoord.x + 0.00583715 * gl_FragCoord.y));
+    if (igNoise > 0.5) discard;
+  }
+`;
+
+function injectCutoutShader(original: THREE.Material, uniforms: CutoutUniforms): THREE.Material {
+  const mat = original.clone();
+  mat.customProgramCacheKey = () => 'building-dither-cutout';
+  mat.needsUpdate = true;
+
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uSelectedPos  = uniforms.uSelectedPos;
+    shader.uniforms.uHasSelection = uniforms.uHasSelection;
+
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      '#include <common>\n' + CUTOUT_VERTEX_PREAMBLE,
+    );
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      '#include <begin_vertex>\n' + CUTOUT_VERTEX_BODY,
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      '#include <common>\n' + CUTOUT_FRAG_PREAMBLE,
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      CUTOUT_FRAG_BODY + '\n#include <dithering_fragment>',
+    );
+  };
+  return mat;
+}
 
 // ── Mesh extraction ────────────────────────────────────────────────────
 
@@ -43,19 +118,31 @@ function extractMeshes(scene: THREE.Group): MeshPart[] {
 interface BuildingMeshesProps {
   tiles: Map<string, TileInfo>;
   myPlayerId: string;
+  selectedTile?: TileInfo | null;
 }
 
 function BuildingVariantGLB({
   variant,
   buildings,
+  cutoutUniforms,
 }: {
   variant: ModelVariant;
   buildings: TileInfo[];
+  cutoutUniforms: CutoutUniforms;
 }) {
   const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
   const { scene } = useGLTF(variant.path);
 
   const meshParts = useMemo(() => extractMeshes(scene), [scene]);
+
+  const processedMaterials = useMemo(() => {
+    return meshParts.map(part => {
+      if (Array.isArray(part.material)) {
+        return part.material.map(m => injectCutoutShader(m, cutoutUniforms));
+      }
+      return injectCutoutShader(part.material, cutoutUniforms);
+    });
+  }, [meshParts, cutoutUniforms]);
 
   const bounds = useMemo(() => {
     const box = new THREE.Box3();
@@ -122,7 +209,7 @@ function BuildingVariantGLB({
         <instancedMesh
           key={idx}
           ref={el => { meshRefs.current[idx] = el; }}
-          args={[part.geometry, part.material, maxCount]}
+          args={[part.geometry, processedMaterials[idx], maxCount]}
           castShadow
           receiveShadow
           frustumCulled={false}
@@ -134,7 +221,23 @@ function BuildingVariantGLB({
 
 // ── Main component ─────────────────────────────────────────────────────
 
-export default function BuildingMeshes({ tiles }: BuildingMeshesProps) {
+export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesProps) {
+  const cutoutUniforms = useMemo<CutoutUniforms>(() => ({
+    uSelectedPos:  { value: new THREE.Vector3(0, 0, 0) },
+    uHasSelection: { value: 0 },
+  }), []);
+
+  // Update uniforms when selection changes
+  useFrame(() => {
+    if (selectedTile?.building_id) {
+      const [wx, wz] = tileToWorld(selectedTile.grid_x, selectedTile.grid_y);
+      cutoutUniforms.uSelectedPos.value.set(wx + 0.5, 0, wz + 0.5);
+      cutoutUniforms.uHasSelection.value = 1.0;
+    } else {
+      cutoutUniforms.uHasSelection.value = 0.0;
+    }
+  });
+
   const buildingGroups = useMemo(() => {
     const groups: Record<string, { variant: ModelVariant; tiles: TileInfo[] }> = {};
     for (const [, tile] of tiles) {
@@ -159,6 +262,7 @@ export default function BuildingMeshes({ tiles }: BuildingMeshesProps) {
             key={key}
             variant={group.variant}
             buildings={group.tiles}
+            cutoutUniforms={cutoutUniforms}
           />
         );
       })}

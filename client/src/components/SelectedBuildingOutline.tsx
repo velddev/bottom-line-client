@@ -1,8 +1,7 @@
 // Renders effects for the selected building:
-// 1. Gold backface-extruded outline (inverted hull technique)
-// 2. Depth-based reveal — renders with depthFunc: GreaterEqual so the
-//    building shows through any occluding geometry. No dithering, no
-//    shader injection on other materials, pixel-perfect for any height.
+// 1. Pre-render at renderOrder -1 — fills the depth buffer so the building
+//    shows through dithered holes in blocking geometry
+// 2. Gold backface-extruded outline (inverted hull technique)
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
@@ -52,36 +51,6 @@ function extractMeshParts(scene: THREE.Group): MeshPart[] {
   return results;
 }
 
-/** Clone a material and configure it for the depth-reveal pass.
- *  - FrontSide only (no inside-out back faces)
- *  - depthFunc: Greater (strict) so it only renders where the building is
- *    truly BEHIND other geometry, not where it's already visible
- *  - polygonOffset: -1 prevents z-fighting at the visible/occluded boundary
- *  - Screen-door dithering for a dissolve look */
-function makeRevealMaterial(original: THREE.Material): THREE.Material {
-  const mat = original.clone();
-  mat.side = THREE.FrontSide;
-  mat.depthFunc = THREE.GreaterDepth;
-  mat.depthWrite = false;
-  mat.polygonOffset = true;
-  mat.polygonOffsetFactor = -1;
-  mat.polygonOffsetUnits = -1;
-  mat.customProgramCacheKey = () => 'building-reveal-dither';
-  mat.needsUpdate = true;
-
-  mat.onBeforeCompile = (shader) => {
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <dithering_fragment>',
-      `// Screen-door dithering for occluded reveal
-      float igNoise = fract(52.9829189 * fract(0.06711056 * gl_FragCoord.x + 0.00583715 * gl_FragCoord.y));
-      if (igNoise > 0.5) discard;
-      #include <dithering_fragment>`,
-    );
-  };
-
-  return mat;
-}
-
 interface Props {
   buildingType: string;
   gridX: number;
@@ -104,15 +73,6 @@ function OutlineInner({
     () => extractMeshParts(scene as unknown as THREE.Group),
     [scene],
   );
-
-  const revealMaterials = useMemo(() => {
-    return meshParts.map(part => {
-      if (Array.isArray(part.material)) {
-        return part.material.map(m => makeRevealMaterial(m));
-      }
-      return makeRevealMaterial(part.material);
-    });
-  }, [meshParts]);
 
   const bounds = useMemo(() => {
     const box = new THREE.Box3();
@@ -150,21 +110,19 @@ function OutlineInner({
       rotation={[0, rotation, 0]}
       scale={[fitScale, fitScale, fitScale]}
     >
+      {/* Pre-render: fills depth buffer before blocking buildings render,
+          so the selected building shows through their dithered holes */}
+      {meshParts.map((part, idx) => (
+        <mesh
+          key={`prerender-${idx}`}
+          geometry={part.geometry}
+          material={part.material}
+          renderOrder={-1}
+        />
+      ))}
       {/* Gold outline (inverted hull) */}
       {meshParts.map((part, idx) => (
         <mesh key={`outline-${idx}`} geometry={part.geometry} material={outlineMaterial} />
-      ))}
-      {/* Reveal pass: renders only where the building is occluded by other geometry.
-          depthFunc: GreaterEqual means fragments only pass where they are BEHIND
-          what's already in the depth buffer — i.e. occluded by blocking buildings.
-          renderOrder 999 ensures this runs after all normal scene geometry. */}
-      {meshParts.map((part, idx) => (
-        <mesh
-          key={`reveal-${idx}`}
-          geometry={part.geometry}
-          material={revealMaterials[idx]}
-          renderOrder={999}
-        />
       ))}
     </group>
   );

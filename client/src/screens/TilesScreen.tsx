@@ -493,6 +493,7 @@ export default function TilesScreen() {
           <BuildingMeshes
             tiles={tiles}
             myPlayerId={auth?.player_id ?? ''}
+            selectedTile={selectedTile}
           />
           <RoadNetwork3D />
           <TileDecorations />
