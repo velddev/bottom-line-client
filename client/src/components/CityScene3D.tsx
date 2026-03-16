@@ -110,6 +110,61 @@ function KeyboardControls({ controlsRef }: { controlsRef: React.RefObject<any> }
   return null;
 }
 
+/** Q / E — rotate the camera 90° around the Y axis, orbiting the controls target */
+function CameraRotation({ controlsRef }: { controlsRef: React.RefObject<any> }) {
+  const { camera, invalidate } = useThree();
+  const targetAzimuth = useRef(Math.PI / 4);
+  const currentAzimuth = useRef(Math.PI / 4);
+  const animating = useRef(false);
+
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+      const key = e.key.toLowerCase();
+      if (key === 'q') {
+        targetAzimuth.current -= Math.PI / 2;
+        animating.current = true;
+        invalidate();
+      } else if (key === 'e') {
+        targetAzimuth.current += Math.PI / 2;
+        animating.current = true;
+        invalidate();
+      }
+    };
+    window.addEventListener('keydown', onDown);
+    return () => window.removeEventListener('keydown', onDown);
+  }, [invalidate]);
+
+  useFrame((_, delta) => {
+    if (!animating.current) return;
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    const diff = targetAzimuth.current - currentAzimuth.current;
+    if (Math.abs(diff) < 0.001) {
+      currentAzimuth.current = targetAzimuth.current;
+      animating.current = false;
+      return;
+    }
+
+    const t = 1 - Math.pow(0.02, delta);
+    currentAzimuth.current += diff * t;
+
+    const target = controls.target as THREE.Vector3;
+    const dy = ISO_DISTANCE * Math.sin(ISO_ANGLE);
+    const horizontalDist = ISO_DISTANCE * Math.cos(ISO_ANGLE);
+    const dx = horizontalDist * Math.sin(currentAzimuth.current);
+    const dz = horizontalDist * Math.cos(currentAzimuth.current);
+
+    camera.position.set(target.x + dx, target.y + dy, target.z + dz);
+    controls.update();
+    invalidate();
+  });
+
+  return null;
+}
+
 /** Smoothly pans camera to a world position when focusWorldPos changes.
  *  If far away (>30 units), snaps most of the way and animates the last bit.
  *  If focusBounds is provided, computes the zoom to fit all points in the viewport. */
@@ -598,6 +653,7 @@ export default function CityScene3D({ children, focusWorldPos, focusZoom, focusB
       >
         <IsometricCamera />
         <KeyboardControls controlsRef={controlsRef} />
+        <CameraRotation controlsRef={controlsRef} />
         <CameraFocus controlsRef={controlsRef} focusWorldPos={focusWorldPos} focusZoom={focusZoom} focusBounds={focusBounds} snap={snapNextFocus} />
         {onVisibleBoundsChange && <VisibleBoundsTracker onChange={onVisibleBoundsChange} />}
         {showFps && <FrameCounterInternal targetRef={fpsRef} />}
