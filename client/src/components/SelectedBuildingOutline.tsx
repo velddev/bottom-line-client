@@ -28,9 +28,13 @@ function extractMeshParts(scene: THREE.Group): MeshPart[] {
   return results;
 }
 
-/** Clone a material and brighten it by multiplying final RGB */
+/** Clone a material and brighten it by multiplying final RGB.
+ *  polygonOffset -1 prevents z-fighting with the instanced copy. */
 function makeBrightenedMaterial(original: THREE.Material): THREE.Material {
   const mat = original.clone();
+  mat.polygonOffset = true;
+  mat.polygonOffsetFactor = -1;
+  mat.polygonOffsetUnits = -1;
   mat.customProgramCacheKey = () => 'building-bright';
   mat.needsUpdate = true;
   mat.onBeforeCompile = (shader) => {
