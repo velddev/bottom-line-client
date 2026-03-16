@@ -76,7 +76,7 @@ export default function PoliticsPanel() {
   const isCandidate = election?.candidates?.some((c) => c.player_id === auth?.player_id);
 
   return (
-    <div>
+    <div className="flex flex-col gap-4">
       {govLoading && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
       {gov && (
         <>
@@ -105,7 +105,7 @@ export default function PoliticsPanel() {
             <p className="text-gray-600 text-xs mt-0.5">Term: Day {gov.term_start_tick} – Day {gov.term_end_tick}</p>
           </div>
 
-          <div className="space-y-2 mt-4">
+          <div className="space-y-2">
             <p className="text-gray-600 text-xs uppercase tracking-wider">Tax Rates</p>
             <TaxBar label="Consumer Tax"  value={gov.consumer_tax_rate}  />
             <TaxBar label="Profit Tax"    value={gov.profit_tax_rate}    />
@@ -113,7 +113,7 @@ export default function PoliticsPanel() {
             <TaxBar label="Employee Tax"  value={gov.employee_tax_rate}  />
           </div>
 
-          <div className="space-y-2 mt-4">
+          <div className="space-y-2">
             <p className="text-gray-600 text-xs uppercase tracking-wider">Approval Ratings</p>
             <ApprovalBar label="City"     value={gov.approval_city}     color="text-blue-400"    />
             <ApprovalBar label="People"   value={gov.approval_people}   color="text-emerald-400" />
@@ -123,7 +123,7 @@ export default function PoliticsPanel() {
       )}
 
       {/* Election */}
-      <div className="space-y-3 mt-4">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-gray-600 text-xs uppercase tracking-wider">Election</p>
           {election && election.status === 'open' && !isCandidate && (
