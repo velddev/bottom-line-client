@@ -559,11 +559,11 @@ export default function TilesScreen() {
             subheader={
               <div className="text-xs text-gray-600 flex items-center gap-2">
                 <span className="truncate">{selectedTile.owner_name || 'Unowned'}</span>
-                {hasBuilding && <StatusBadge status={selectedTile.building_status} />}
-                {hasBuilding && selectedTile.building_status === 'UnderConstruction' && constructionTicksRemaining > 0 && (
+                {isMine && hasBuilding && <StatusBadge status={selectedTile.building_status} />}
+                {isMine && hasBuilding && selectedTile.building_status === 'UnderConstruction' && constructionTicksRemaining > 0 && (
                   <EtaCountdown ticks={constructionTicksRemaining} nextTickAt={nextTickAt} />
                 )}
-                {hasBuilding && selectedTile.building_status === 'Producing' && productionTicksRemaining > 0 && (
+                {isMine && hasBuilding && selectedTile.building_status === 'Producing' && productionTicksRemaining > 0 && (
                   <EtaCountdown ticks={productionTicksRemaining} nextTickAt={nextTickAt} className="text-emerald-500 text-xs font-mono" />
                 )}
                 {selectedTile.is_for_sale && (
