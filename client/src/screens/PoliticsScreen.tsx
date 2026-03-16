@@ -68,15 +68,17 @@ export default function PoliticsScreen() {
   });
 
   const { data: gov, isLoading: govLoading } = useQuery({
-    queryKey: ['government'],
-    queryFn: () => getGovernment(),
+    queryKey: ['government', auth?.city_id],
+    queryFn: () => getGovernment(auth!.city_id),
+    enabled: !!auth?.city_id,
     refetchInterval: 30_000,
   });
 
   const { data: election, isLoading: elecLoading } = useQuery({
-    queryKey: ['election'],
-    queryFn: () => getElection(),
-    refetchInterval: 30_000, // refresh every 30s to pick up polling updates
+    queryKey: ['election', auth?.city_id],
+    queryFn: () => getElection(auth!.city_id),
+    enabled: !!auth?.city_id,
+    refetchInterval: 30_000,
   });
 
   const runMut = useMutation({

@@ -43,14 +43,16 @@ export default function PoliticsPanel() {
   });
 
   const { data: gov, isLoading: govLoading } = useQuery({
-    queryKey: ['government'],
-    queryFn: () => getGovernment(),
+    queryKey: ['government', auth?.city_id],
+    queryFn: () => getGovernment(auth!.city_id),
+    enabled: !!auth?.city_id,
     refetchInterval: 60_000,
   });
 
   const { data: election, isLoading: elecLoading } = useQuery({
-    queryKey: ['election'],
-    queryFn: () => getElection(),
+    queryKey: ['election', auth?.city_id],
+    queryFn: () => getElection(auth!.city_id),
+    enabled: !!auth?.city_id,
     refetchInterval: 60_000,
   });
 
