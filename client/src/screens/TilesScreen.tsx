@@ -12,6 +12,7 @@ import { BUILDING_ICONS, BUILDING_TYPES, fmtMoney } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
 import BankPanel from '../components/BankPanel';
+import ResidentialPanel from '../components/ResidentialPanel';
 import SupplySection from '../components/SupplySection';
 import EtaCountdown from '../components/EtaCountdown';
 import { useTickRefresh } from '../hooks/useTickRefresh';
@@ -408,6 +409,7 @@ export default function TilesScreen() {
     : undefined;
   const isLandmark = selectedTile?.building_type?.toLowerCase() === 'landmark';
   const isBank = selectedTile?.building_type?.toLowerCase() === 'bank';
+  const isResidential = selectedTile?.building_type?.toLowerCase().startsWith('residential');
   const isGovBuilding = isLandmark || isBank;
 
   // Remaining construction ticks — prefer myBuildings data, fall back to tile data
@@ -658,6 +660,15 @@ export default function TilesScreen() {
             {/* Government landmark — politics panel */}
             {isLandmark && <PoliticsPanel />}
             {isBank     && <BankPanel />}
+            {isResidential && selectedTile && (
+              <ResidentialPanel
+                buildingType={selectedTile.building_type}
+                populationCapacity={selectedTile.population_capacity}
+                buildingName={selectedTile.building_name}
+                ownerName={selectedTile.building_player_name || selectedTile.owner_name}
+                isOwned={isMine}
+              />
+            )}
           </Panel>
         )}
 
