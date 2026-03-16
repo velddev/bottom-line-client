@@ -2,27 +2,6 @@ import type { TileInfo } from '../types';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 
-// Y-cycle layout: 10-tile cycles → 3 for-sale (blue) + 7 government (green)
-const Y_CYCLE = 10;
-const Y_BLUE = 3;
-
-function isResidentialTile(tile: TileInfo): boolean {
-  const t = tile.building_type?.toLowerCase() ?? '';
-  return t.startsWith('residential');
-}
-
-function distanceSq(ax: number, ay: number, bx: number, by: number): number {
-  return (ax - bx) ** 2 + (ay - by) ** 2;
-}
-
-// Compute the nearest government (green) row distance for a given grid Y
-function nearestGovDistance(gy: number): number {
-  const posInCycle = gy % Y_CYCLE;
-  // Green rows are at positions 3..9 within each cycle
-  if (posInCycle >= Y_BLUE) return 0; // already in green section
-  return Y_BLUE - posInCycle;
-}
-
 export type BuildingCategory = 'store' | 'field' | 'factory' | 'warehouse'
   | 'residential_low' | 'residential_medium' | 'residential_high';
 
@@ -39,89 +18,136 @@ export const CONSTRUCTION_TICKS: Record<string, number> = {
 
 export interface TilePlacementScore {
   tile: TileInfo;
-  score: number;
+  score: number;       // raw score
+  normalized: number;  // 0..1 normalized (0 = worst, 1 = best)
+}
+
+// ── Scoring algorithm (mirrors backend TileMarketValueService) ──────────────
+
+const PROXIMITY_RADIUS = 16;
+
+function euclidean(x1: number, y1: number, x2: number, y2: number): number {
+  return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
 }
 
 /**
- * Score a tile for a given building type.
- * Higher score = better placement.
+ * Compute a suitability score for placing `buildingType` on a tile.
+ * Uses the same proximity/decay logic as the server's TileMarketValueService:
+ *   decay = 1 - distance/16 (linear, capped at 16 tiles)
+ *
+ * Building-specific weights:
+ *   Store:   +100 landmark, +30 residential, +10 store, -20 field/factory
+ *   Factory: -50 landmark, -20 residential, +15 factory (cluster), -10 store
+ *   Field:   -50 landmark, -20 residential, +10 field (cluster), -10 store
  */
-function scoreTile(
-  tile: TileInfo,
+function computeSuitability(
+  gx: number,
+  gy: number,
+  buildingType: BuildingCategory,
+  allTiles: Map<string, TileInfo>,
+): number {
+  let score = 0;
+
+  for (const t of allTiles.values()) {
+    if (!t.building_type) continue;
+    const dist = euclidean(gx, gy, t.grid_x, t.grid_y);
+    if (dist > PROXIMITY_RADIUS || dist < 0.001) continue;
+
+    const decay = 1 - dist / PROXIMITY_RADIUS;
+    const bt = t.building_type.toLowerCase();
+    const isLandmark = bt === 'landmark';
+    const isResidential = bt.startsWith('residential');
+    const isStore = bt === 'store';
+    const isField = bt === 'field';
+    const isFactory = bt === 'factory';
+
+    const popFactor = t.population_capacity > 0
+      ? Math.min(t.population_capacity / 25, 5) // normalize: 25 pop = 1x, cap at 5x
+      : 1;
+
+    switch (buildingType) {
+      case 'store':
+        // Stores thrive near people and landmarks
+        if (isLandmark)     score += 100 * decay;
+        if (isResidential)  score += 30 * decay * popFactor;
+        if (isStore)        score += 10 * decay;  // stores benefit from clustering (foot traffic)
+        if (isField || isFactory) score -= 20 * decay;
+        break;
+
+      case 'factory':
+        // Factories prefer industrial zones, away from residential
+        if (isLandmark)     score -= 50 * decay;
+        if (isResidential)  score -= 20 * decay * popFactor;
+        if (isFactory)      score += 15 * decay;  // industrial clustering
+        if (isStore)        score -= 10 * decay;
+        if (isField)        score += 10 * decay;  // near raw materials
+        break;
+
+      case 'field':
+        // Fields prefer rural areas
+        if (isLandmark)     score -= 50 * decay;
+        if (isResidential)  score -= 20 * decay * popFactor;
+        if (isField)        score += 10 * decay;  // farming cluster
+        if (isFactory)      score += 5 * decay;   // near processing
+        if (isStore)        score -= 10 * decay;
+        break;
+
+      case 'warehouse':
+        // Warehouses near production
+        if (isFactory || isField) score += 20 * decay;
+        if (isStore)        score += 5 * decay;
+        break;
+
+      case 'residential_low':
+      case 'residential_medium':
+      case 'residential_high':
+        // Same as server: +100 landmark, -30 field/factory, +20 store
+        if (isLandmark)     score += 100 * decay;
+        if (isField || isFactory) score -= 30 * decay;
+        if (isStore)        score += 20 * decay;
+        break;
+    }
+  }
+
+  return score;
+}
+
+/**
+ * Compute suitability scores for all buildable tiles.
+ * Returns scores with normalized 0..1 values for heatmap coloring.
+ */
+export function computeHeatmap(
   buildingType: BuildingCategory,
   allTiles: Map<string, TileInfo>,
   myPlayerId: string,
-): number {
-  const isOwnedEmpty = tile.owner_player_id === myPlayerId && !tile.building_id;
-  const isForSale = tile.is_for_sale && tile.owner_player_id !== myPlayerId;
-  if (!isOwnedEmpty && !isForSale) return -1;
-  if (tile.building_id) return -1;
+): TilePlacementScore[] {
+  const scores: TilePlacementScore[] = [];
 
-  let score = 50;
+  for (const tile of allTiles.values()) {
+    if (!canBuildOnTile(tile, myPlayerId)) continue;
 
-  let residentialProximity = 0;
-  let sameTypeCount = 0;
-  const SCAN_RANGE = 15;
+    const s = computeSuitability(tile.grid_x, tile.grid_y, buildingType, allTiles);
+    scores.push({ tile, score: s, normalized: 0 });
+  }
 
-  for (const other of allTiles.values()) {
-    const d2 = distanceSq(tile.grid_x, tile.grid_y, other.grid_x, other.grid_y);
-    if (d2 > SCAN_RANGE * SCAN_RANGE) continue;
+  if (scores.length === 0) return scores;
 
-    if (isResidentialTile(other) || (other.owner_player_id === GOVERNMENT_ID && other.building_type)) {
-      const popWeight = other.population_capacity > 0 ? other.population_capacity : 1;
-      const dist = Math.sqrt(d2);
-      if (dist > 0) {
-        residentialProximity += popWeight / dist;
-      }
+  // Normalize to 0..1
+  let minScore = Infinity, maxScore = -Infinity;
+  for (const s of scores) {
+    if (s.score < minScore) minScore = s.score;
+    if (s.score > maxScore) maxScore = s.score;
+  }
+  const range = maxScore - minScore;
+  if (range > 0) {
+    for (const s of scores) {
+      s.normalized = (s.score - minScore) / range;
     }
-
-    if (other.building_type?.toLowerCase() === buildingType && d2 > 0 && d2 < 25) {
-      sameTypeCount++;
-    }
+  } else {
+    for (const s of scores) s.normalized = 0.5;
   }
 
-  const govDist = nearestGovDistance(tile.grid_y);
-
-  switch (buildingType) {
-    case 'store':
-      score += residentialProximity * 10;
-      score -= govDist * 3;
-      score -= sameTypeCount * 5;
-      break;
-
-    case 'field':
-    case 'factory':
-      score += govDist * 5;
-      score -= residentialProximity * 2;
-      score -= sameTypeCount * 2;
-      score += Math.sqrt(distanceSq(tile.grid_x, tile.grid_y, 60, 60)) * 0.3;
-      break;
-
-    case 'warehouse':
-      for (const other of allTiles.values()) {
-        const d2 = distanceSq(tile.grid_x, tile.grid_y, other.grid_x, other.grid_y);
-        if (d2 > SCAN_RANGE * SCAN_RANGE || d2 === 0) continue;
-        const otherType = other.building_type?.toLowerCase() ?? '';
-        if (otherType === 'factory' || otherType === 'field') {
-          score += 5 / Math.sqrt(d2);
-        }
-      }
-      score -= sameTypeCount * 3;
-      break;
-
-    case 'residential_low':
-    case 'residential_medium':
-    case 'residential_high':
-      score += residentialProximity * 5;
-      score -= govDist * 2;
-      break;
-  }
-
-  if (tile.owner_player_id === myPlayerId) {
-    score += 10; // Bonus for already-owned tiles
-  }
-
-  return Math.max(0, score);
+  return scores;
 }
 
 /**
@@ -133,17 +159,9 @@ export function getRecommendedTiles(
   myPlayerId: string,
   topN = 5,
 ): TilePlacementScore[] {
-  const scored: TilePlacementScore[] = [];
-
-  for (const tile of allTiles.values()) {
-    const s = scoreTile(tile, buildingType, allTiles, myPlayerId);
-    if (s > 0) {
-      scored.push({ tile, score: s });
-    }
-  }
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, topN);
+  const all = computeHeatmap(buildingType, allTiles, myPlayerId);
+  all.sort((a, b) => b.score - a.score);
+  return all.slice(0, topN);
 }
 
 /**

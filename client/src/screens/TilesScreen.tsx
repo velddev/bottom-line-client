@@ -35,7 +35,7 @@ import BuildToolbar from '../components/BuildToolbar';
 import BuildConfirmDialog from '../components/BuildConfirmDialog';
 import PlacementOverlay3D from '../components/PlacementOverlay3D';
 import type { BuildingCategory } from '../utils/tilePlacement';
-import { getRecommendedTiles, canBuildOnTile } from '../utils/tilePlacement';
+import { canBuildOnTile, computeHeatmap } from '../utils/tilePlacement';
 
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 const CHUNK_SIZE = 20;
@@ -342,21 +342,10 @@ export default function TilesScreen() {
   const [placementError, setPlacementError] = useState<string | null>(null);
   const [placementPending, setPlacementPending] = useState(false);
 
-  // Compute valid tiles and recommendations when placement mode is active
-  const validPlacementTiles = useMemo(() => {
-    if (!activeBuildType || !auth?.player_id) return new Set<string>();
-    const valid = new Set<string>();
-    for (const tile of tiles.values()) {
-      if (canBuildOnTile(tile, auth.player_id)) {
-        valid.add(tile.tile_id);
-      }
-    }
-    return valid;
-  }, [activeBuildType, tiles, auth?.player_id]);
-
-  const recommendedTiles = useMemo(() => {
+  // Compute heatmap when placement mode is active
+  const placementHeatmap = useMemo(() => {
     if (!activeBuildType || !auth?.player_id) return [];
-    return getRecommendedTiles(activeBuildType, tiles, auth.player_id, 5);
+    return computeHeatmap(activeBuildType, tiles, auth.player_id);
   }, [activeBuildType, tiles, auth?.player_id]);
 
   // Handle tile click during placement mode
@@ -494,12 +483,8 @@ export default function TilesScreen() {
             onSelect={handleTileSelect}
             onHover={setHoveredTile}
           />
-          {activeBuildType && (
-            <PlacementOverlay3D
-              validTiles={validPlacementTiles}
-              recommended={recommendedTiles}
-              tiles={tiles}
-            />
+          {activeBuildType && placementHeatmap.length > 0 && (
+            <PlacementOverlay3D heatmap={placementHeatmap} />
           )}
           <BuildingMeshes
             tiles={tiles}
