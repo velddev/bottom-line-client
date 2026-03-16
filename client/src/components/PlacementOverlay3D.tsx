@@ -6,24 +6,18 @@ import { tileToWorld } from './cityGrid';
 const TILE_UNIT = 1;
 
 interface Props {
-  heatmap: TilePlacementScore[]; // all scored tiles with normalized 0..1 values
+  heatmap: TilePlacementScore[];
 }
 
 const _tempMatrix = new THREE.Matrix4();
 const _tempColor = new THREE.Color();
 
-// Interpolate from red (0) → yellow (0.5) → green (1)
+// Vivid gradient: red → orange → yellow → lime → green using HSL
+// HSL hue: 0 (red) → 120 (green), saturation 90%, lightness 50%
 function heatColor(t: number): THREE.Color {
   const color = new THREE.Color();
-  if (t < 0.5) {
-    // red → yellow
-    const f = t * 2;
-    color.setRGB(0.9, 0.2 + f * 0.6, 0.1);
-  } else {
-    // yellow → green
-    const f = (t - 0.5) * 2;
-    color.setRGB(0.8 - f * 0.6, 0.8, 0.1 + f * 0.2);
-  }
+  const hue = t * 0.33; // 0 = red (0), 1 = green (~120°=0.33)
+  color.setHSL(hue, 0.85, 0.55);
   return color;
 }
 
@@ -32,13 +26,12 @@ export default function PlacementOverlay3D({ heatmap }: Props) {
 
   const geometry = useMemo(() => new THREE.PlaneGeometry(TILE_UNIT * 0.92, TILE_UNIT * 0.92), []);
   const material = useMemo(
-    () => new THREE.MeshStandardMaterial({
+    () => new THREE.MeshBasicMaterial({
       transparent: true,
-      opacity: 0.45,
-      roughness: 0.5,
-      metalness: 0.1,
+      opacity: 0.5,
       side: THREE.FrontSide,
       depthWrite: false,
+      toneMapped: false, // keep colors vivid, bypass tone mapping
     }),
     []
   );
@@ -76,7 +69,7 @@ export default function PlacementOverlay3D({ heatmap }: Props) {
       ref={meshRef}
       args={[geometry, material, maxInstances]}
       frustumCulled={false}
-      raycast={() => {}} // Don't intercept clicks
+      raycast={() => {}}
     />
   );
 }
