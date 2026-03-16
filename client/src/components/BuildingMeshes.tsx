@@ -22,16 +22,15 @@ ALL_MODEL_PATHS.forEach(p => useGLTF.preload(p));
 // ── Dithered cutout for blocking buildings ─────────────────────────────
 //
 // Buildings in front of the selected building get their fragments discarded
-// inside the selected building's screen-space bounding rectangle.
-// The selected building is pre-rendered at renderOrder -1
-// (by SelectedBuildingOutline), so it shows through the discarded holes.
-// A dithered gradient border smooths the cutout edges.
+// inside a capsule-shaped screen-space region derived from the selected
+// building's projected bounding box. Animates in/out smoothly.
 
 interface CutoutUniforms {
   uSelectedPos:       { value: THREE.Vector3 };
   uHasSelection:      { value: number };
   uSelectedScreenMin: { value: THREE.Vector2 };
   uSelectedScreenMax: { value: THREE.Vector2 };
+  uCutoutProgress:    { value: number };
 }
 
 const CUTOUT_VERTEX_PREAMBLE = /* glsl */ `
@@ -40,8 +39,6 @@ const CUTOUT_VERTEX_PREAMBLE = /* glsl */ `
   varying float vBlocking;
 `;
 
-// Instance-level check: is this building in front of the selected one?
-// Uses isometric depth (x + z) and lateral (x - z) for the 45° camera.
 const CUTOUT_VERTEX_BODY = /* glsl */ `
   vBlocking = 0.0;
   if (uHasSelection > 0.5) {
@@ -56,19 +53,30 @@ const CUTOUT_VERTEX_BODY = /* glsl */ `
 `;
 
 const CUTOUT_FRAG_PREAMBLE = /* glsl */ `
-  uniform vec2 uSelectedScreenMin;
-  uniform vec2 uSelectedScreenMax;
+  uniform vec2  uSelectedScreenMin;
+  uniform vec2  uSelectedScreenMax;
+  uniform float uCutoutProgress;
   varying float vBlocking;
 `;
 
-// Screen-space bounding box cutout: fully discard inside the rect,
-// dithered gradient at the border for a smooth transition.
+// Capsule-shaped signed distance field in screen space.
+// Fully discard inside, dithered gradient at the border, animated by progress.
 const CUTOUT_FRAG_BODY = /* glsl */ `
-  if (vBlocking > 0.5) {
-    vec2 nearest = clamp(gl_FragCoord.xy, uSelectedScreenMin, uSelectedScreenMax);
-    float dist = length(gl_FragCoord.xy - nearest);
+  if (vBlocking > 0.5 && uCutoutProgress > 0.01) {
+    vec2 center = (uSelectedScreenMin + uSelectedScreenMax) * 0.5;
+    float w = uSelectedScreenMax.x - uSelectedScreenMin.x;
+    float h = uSelectedScreenMax.y - uSelectedScreenMin.y;
+    float radius = w * 0.5;
+    float segHalf = max(h * 0.5 - radius, 0.0);
+
+    vec2 p = gl_FragCoord.xy - center;
+    p.y = max(abs(p.y) - segHalf, 0.0);
+    float dist = length(p) - radius;
+
     float FADE_PX = 30.0;
     float keepChance = smoothstep(0.0, FADE_PX, dist);
+    keepChance = mix(1.0, keepChance, uCutoutProgress);
+
     float igNoise = fract(52.9829189 * fract(0.06711056 * gl_FragCoord.x + 0.00583715 * gl_FragCoord.y));
     if (igNoise > keepChance) discard;
   }
@@ -84,6 +92,7 @@ function injectCutoutShader(original: THREE.Material, uniforms: CutoutUniforms):
     shader.uniforms.uHasSelection      = uniforms.uHasSelection;
     shader.uniforms.uSelectedScreenMin = uniforms.uSelectedScreenMin;
     shader.uniforms.uSelectedScreenMax = uniforms.uSelectedScreenMax;
+    shader.uniforms.uCutoutProgress    = uniforms.uCutoutProgress;
 
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
@@ -240,17 +249,39 @@ export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesPr
     uHasSelection:      { value: 0 },
     uSelectedScreenMin: { value: new THREE.Vector2(0, 0) },
     uSelectedScreenMax: { value: new THREE.Vector2(0, 0) },
+    uCutoutProgress:    { value: 0 },
   }), []);
 
-  // Project the selected building's 3D bounding box to screen space each frame
-  useFrame(({ camera, size }) => {
-    if (selectedTile?.building_id) {
-      const [wx, wz] = tileToWorld(selectedTile.grid_x, selectedTile.grid_y);
-      cutoutUniforms.uSelectedPos.value.set(wx + 0.5, 0, wz + 0.5);
-      cutoutUniforms.uHasSelection.value = 1.0;
+  // Animation state — persists across renders
+  const lastWxRef = useRef(0);
+  const lastWzRef = useRef(0);
+  const progressRef = useRef(0);
 
-      // Project 8 corners of the building's world bounding box to screen space
-      const BUILDING_HEIGHT = 4.0; // generous height covering all building types
+  // Animate the cutout capsule in/out and project the bounding box
+  useFrame(({ camera, size }, delta) => {
+    const hasSelection = !!selectedTile?.building_id;
+
+    if (hasSelection) {
+      const [wx, wz] = tileToWorld(selectedTile.grid_x, selectedTile.grid_y);
+      lastWxRef.current = wx;
+      lastWzRef.current = wz;
+      cutoutUniforms.uSelectedPos.value.set(wx + 0.5, 0, wz + 0.5);
+    }
+
+    // Smooth lerp toward target (0 or 1)
+    const target = hasSelection ? 1 : 0;
+    const speed = 1 - Math.pow(0.001, delta);
+    progressRef.current += (target - progressRef.current) * speed;
+    if (Math.abs(progressRef.current - target) < 0.01) progressRef.current = target;
+
+    cutoutUniforms.uCutoutProgress.value = progressRef.current;
+    cutoutUniforms.uHasSelection.value = progressRef.current > 0.01 ? 1.0 : 0.0;
+
+    // Project bounding box while cutout is active (including fade-out)
+    if (progressRef.current > 0.01) {
+      const wx = lastWxRef.current;
+      const wz = lastWzRef.current;
+      const BUILDING_HEIGHT = 4.0;
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
       for (let i = 0; i < 8; i++) {
         _projVec.set(
@@ -265,13 +296,9 @@ export default function BuildingMeshes({ tiles, selectedTile }: BuildingMeshesPr
         minY = Math.min(minY, sy);
         maxY = Math.max(maxY, sy);
       }
-
-      // Small padding to account for model offset from tile center
       const PAD = 10;
       cutoutUniforms.uSelectedScreenMin.value.set(minX - PAD, minY - PAD);
       cutoutUniforms.uSelectedScreenMax.value.set(maxX + PAD, maxY + PAD);
-    } else {
-      cutoutUniforms.uHasSelection.value = 0.0;
     }
   });
 

@@ -1,36 +1,13 @@
-// Renders effects for the selected building:
-// 1. Pre-render at renderOrder -1 — fills the depth buffer so the building
-//    shows through dithered holes in blocking geometry
-// 2. Gold backface-extruded outline (inverted hull technique)
+// Renders selection effects for the selected building:
+// - Pre-render at renderOrder -1 — fills the depth buffer so the building
+//   shows through dithered holes in blocking geometry
+// - Brightened by 40% to visually distinguish the selected building
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
 import { tileToWorld } from './cityGrid';
 import { getModelVariant, getBuildingRotation } from './buildingVariants';
-
-const outlineMaterial = new THREE.ShaderMaterial({
-  uniforms: {
-    uColor: { value: new THREE.Color('#fbbf24') }, // amber-400 gold
-    uThickness: { value: 0.06 },
-  },
-  vertexShader: /* glsl */ `
-    uniform float uThickness;
-    void main() {
-      vec3 pos = position + normal * uThickness;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-    }
-  `,
-  fragmentShader: /* glsl */ `
-    uniform vec3 uColor;
-    void main() {
-      gl_FragColor = vec4(uColor, 1.0);
-    }
-  `,
-  side: THREE.BackSide,
-  depthTest: true,
-  depthWrite: true,
-});
 
 interface MeshPart {
   geometry: THREE.BufferGeometry;
@@ -49,6 +26,21 @@ function extractMeshParts(scene: THREE.Group): MeshPart[] {
     }
   });
   return results;
+}
+
+/** Clone a material and brighten it by multiplying final RGB */
+function makeBrightenedMaterial(original: THREE.Material): THREE.Material {
+  const mat = original.clone();
+  mat.customProgramCacheKey = () => 'building-bright';
+  mat.needsUpdate = true;
+  mat.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      `gl_FragColor.rgb *= 1.4;
+      #include <dithering_fragment>`,
+    );
+  };
+  return mat;
 }
 
 interface Props {
@@ -73,6 +65,15 @@ function OutlineInner({
     () => extractMeshParts(scene as unknown as THREE.Group),
     [scene],
   );
+
+  const brightenedMaterials = useMemo(() => {
+    return meshParts.map(part => {
+      if (Array.isArray(part.material)) {
+        return part.material.map(m => makeBrightenedMaterial(m));
+      }
+      return makeBrightenedMaterial(part.material);
+    });
+  }, [meshParts]);
 
   const bounds = useMemo(() => {
     const box = new THREE.Box3();
@@ -110,19 +111,15 @@ function OutlineInner({
       rotation={[0, rotation, 0]}
       scale={[fitScale, fitScale, fitScale]}
     >
-      {/* Pre-render: fills depth buffer before blocking buildings render,
-          so the selected building shows through their dithered holes */}
+      {/* Pre-render with brightness: fills depth buffer before blocking
+          buildings render, shows through their dithered cutout holes */}
       {meshParts.map((part, idx) => (
         <mesh
           key={`prerender-${idx}`}
           geometry={part.geometry}
-          material={part.material}
+          material={brightenedMaterials[idx]}
           renderOrder={-1}
         />
-      ))}
-      {/* Gold outline (inverted hull) */}
-      {meshParts.map((part, idx) => (
-        <mesh key={`outline-${idx}`} geometry={part.geometry} material={outlineMaterial} />
       ))}
     </group>
   );
