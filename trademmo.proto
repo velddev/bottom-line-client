@@ -83,6 +83,17 @@ enum TaxType {
   EMPLOYEE_TAX = 4; // employee payroll tax (reserved for future use)
 }
 
+// Wealth class of citizens living in residential buildings.
+enum CitizenClass {
+  CITIZEN_CLASS_UNSPECIFIED      = 0;
+  CITIZEN_CLASS_LOWER_BOTTOM    = 1; // poverty — $2/day
+  CITIZEN_CLASS_LOWER           = 2; // working class — $5/day
+  CITIZEN_CLASS_MIDDLE          = 3; // middle class — $15/day
+  CITIZEN_CLASS_UPPER           = 4; // upper class — $40/day
+  CITIZEN_CLASS_ONE_PERCENT     = 5; // wealthy — $150/day
+  CITIZEN_CLASS_POINT_ONE_PERCENT = 6; // elite — $500/day
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────
 // agreement.proto
@@ -91,10 +102,12 @@ service TradeAgreementService {
   rpc Create  (CreateAgreementRequest)  returns (CreateAgreementResponse) {
   }
   rpc Respond (RespondAgreementRequest) returns (RespondAgreementResponse) {
+    option (google.api.http) = { put: "/v1/agreements/{agreement_id}/response" body: "*" };
   }
   rpc List    (ListAgreementsRequest)   returns (ListAgreementsResponse) {
   }
   rpc Cancel  (CancelAgreementRequest)  returns (CancelAgreementResponse) {
+    option (google.api.http) = { delete: "/v1/agreements/{agreement_id}" };
   }
 }
 
@@ -176,21 +189,17 @@ enum OAuthProvider {
 
 service AuthService {
   // Returns all configured OAuth providers with their client_ids.
-  // Client uses this to render login buttons and to get the correct client_id per provider.
-  // No authentication required.
-  rpc GetAuthMethods (GetAuthMethodsRequest) returns (GetAuthMethodsResponse) {}
+  rpc GetAuthMethods (GetAuthMethodsRequest) returns (GetAuthMethodsResponse) {
+  }
 
-  // Returns the OAuth2 client_id for the requested provider so the client can build the auth URL.
-  // No authentication required.
-  rpc GetOAuthClientId (GetOAuthClientIdRequest) returns (GetOAuthClientIdResponse) {}
+  // Returns the OAuth2 client_id for the requested provider.
+  rpc GetOAuthClientId (GetOAuthClientIdRequest) returns (GetOAuthClientIdResponse) {
+    option (google.api.http) = { get: "/v1/auth/oauth/{provider}/client-id" };
+  }
 
-  // Client-side OAuth exchange:
-  //   1. Client opens provider auth URL (using client_id from above)
-  //   2. Provider redirects to client deep link with ?code=...
-  //   3. Client calls this RPC with the code and the redirect_uri it used
-  //   4. Server exchanges code with the provider, creates/finds player, returns API key
-  // No authentication required.
-  rpc ExchangeOAuthCode (ExchangeOAuthCodeRequest) returns (ExchangeOAuthCodeResponse) {}
+  // Client-side OAuth code exchange.
+  rpc ExchangeOAuthCode (ExchangeOAuthCodeRequest) returns (ExchangeOAuthCodeResponse) {
+  }
 }
 
 message GetAuthMethodsRequest {}
@@ -231,9 +240,15 @@ message ExchangeOAuthCodeResponse {
 // bank.proto
 // ─────────────────────────────────────────────────────────────────────────
 service BankService {
-  rpc GetLoan       (GetLoanRequest)       returns (GetLoanResponse);
-  rpc BorrowCapital (BorrowCapitalRequest) returns (BorrowCapitalResponse);
-  rpc RepayDebt     (RepayDebtRequest)     returns (RepayDebtResponse);
+  rpc GetLoan       (GetLoanRequest)       returns (GetLoanResponse) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/bank/loan" };
+  }
+  rpc BorrowCapital (BorrowCapitalRequest) returns (BorrowCapitalResponse) {
+    option (google.api.http) = { post: "/v1/cities/{city_id}/bank/borrow" body: "*" };
+  }
+  rpc RepayDebt     (RepayDebtRequest)     returns (RepayDebtResponse) {
+    option (google.api.http) = { post: "/v1/cities/{city_id}/bank/repay" body: "*" };
+  }
 }
 
 message GetLoanRequest       { string city_id = 1; }
@@ -256,45 +271,47 @@ message RepayDebtResponse     { int64 new_loan_balance = 1; int64 player_balance
 // building.proto
 // ─────────────────────────────────────────────────────────────────────────
 service BuildingService {
-  // Construct a new building on the given tile in the city.
   rpc Construct              (ConstructRequest)              returns (ConstructResponse) {
   }
-  // Configure a building's recipe and worker count.
   rpc Configure              (ConfigureRequest)              returns (ConfigureResponse) {
+    option (google.api.http) = { put: "/v1/buildings/{building_id}/config" body: "*" };
   }
-  // Get full status of a single building.
   rpc GetStatus              (GetBuildingRequest)            returns (BuildingInfo) {
+    option (google.api.http) = { get: "/v1/buildings/{building_id}" };
   }
-  // List all buildings owned by the authenticated player.
   rpc ListBuildings          (ListBuildingsRequest)          returns (ListBuildingsResponse) {
   }
-  // List all production recipes, optionally filtered by building type.
   rpc ListRecipes            (ListRecipesRequest)            returns (ListRecipesResponse) {
   }
-  // Get all active supply links for a building (what it buys from and who).
   rpc GetSupplyLinks         (GetSupplyLinksRequest)         returns (GetSupplyLinksResponse) {
+    option (google.api.http) = { get: "/v1/buildings/{building_id}/supply-links" };
   }
-  // Add a supply link: building will auto-buy resource_type from supplier_building_id each tick.
   rpc AddSupplyLink          (AddSupplyLinkRequest)          returns (AddSupplyLinkResponse) {
+    option (google.api.http) = { post: "/v1/buildings/{consumer_building_id}/supply-links" body: "*" };
   }
-  // Remove a supply link by ID.
   rpc RemoveSupplyLink       (RemoveSupplyLinkRequest)       returns (RemoveSupplyLinkResponse) {
+    option (google.api.http) = { delete: "/v1/supply-links/{supply_link_id}" };
   }
-  // List buildings in the city that sell a given resource type (for supply link creation).
-  // Stores are excluded — they sell to citizens only.
   rpc ListPotentialSuppliers (ListPotentialSuppliersRequest) returns (ListPotentialSuppliersResponse) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/suppliers/{resource_type}" };
   }
-  // Get auto-sell price configs for all resource types a building produces.
   rpc GetAutoSellConfigs     (GetAutoSellConfigsRequest)     returns (GetAutoSellConfigsResponse) {
+    option (google.api.http) = { get: "/v1/buildings/{building_id}/auto-sell" };
   }
-  // Set the auto-sell price and enabled state for a resource type on a building.
   rpc SetAutoSellConfig      (SetAutoSellConfigRequest)      returns (SetAutoSellConfigResponse) {
+    option (google.api.http) = { put: "/v1/buildings/{building_id}/auto-sell" body: "*" };
   }
-  // Get the market value score for a tile (used to determine what residential tier can be built).
   rpc GetTileMarketScore     (GetTileMarketScoreRequest)     returns (GetTileMarketScoreResponse) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/tiles/{tile_id}/market-score" };
   }
-  // Get historical per-tick sales data for a store building.
   rpc GetBuildingSales       (GetBuildingSalesRequest)       returns (GetBuildingSalesResponse) {
+    option (google.api.http) = { get: "/v1/buildings/{building_id}/sales" };
+  }
+  rpc SetRent                (SetRentRequest)                returns (SetRentResponse) {
+    option (google.api.http) = { put: "/v1/buildings/{building_id}/rent" body: "*" };
+  }
+  rpc Renovate               (RenovateRequest)               returns (RenovateResponse) {
+    option (google.api.http) = { post: "/v1/buildings/{building_id}/renovate" body: "*" };
   }
 }
 
@@ -340,6 +357,27 @@ message BuildingInfo {
   int32          construction_ticks_remaining = 12; // > 0 only when status = UNDER_CONSTRUCTION
   ResourceType   output_type                  = 13; // resource this building currently produces (unspecified if no recipe set)
   int32          population_capacity          = 14; // number of citizens housed (residential buildings only; 0 otherwise)
+
+  // ── Landlord / Rent fields (residential only) ─────────────────────────
+  int32          units                        = 15; // rentable units (1/4/20)
+  int32          occupied_units               = 16; // units with tenants
+  int64          rent_per_unit_cents          = 17; // monthly rent per unit in cents
+  float          freshness                    = 18; // 0–100 building condition
+  int64          construction_cost_cents      = 19; // cost to build in cents
+  int64          for_sale_price_cents         = 20; // 0 = not listed for sale
+  bool           is_renovating                = 21;
+  int32          renovation_ticks_remaining   = 22;
+  int64          built_at_tick                = 23;
+
+  // ── Citizen class counts (residential only) ─────────────────────────
+  int32          citizens_lower_bottom        = 24;
+  int32          citizens_lower               = 25;
+  int32          citizens_middle              = 26;
+  int32          citizens_upper               = 27;
+  int32          citizens_one_percent         = 28;
+  int32          citizens_point_one_percent   = 29;
+  int64          average_daily_spend_cents    = 30; // weighted avg daily spend of all tenants
+  float          spending_modifier            = 31; // current spending modifier (1.0 = normal)
 }
 
 message ListBuildingsRequest {}
@@ -451,25 +489,39 @@ message GetBuildingSalesResponse {
   repeated SalesTick ticks = 1;
 }
 
+// ── Rent management ─────────────────────────────────────────────────────
+message SetRentRequest {
+  string building_id         = 1;
+  int64  rent_per_unit_cents = 2; // monthly rent per unit in cents
+}
+message SetRentResponse {
+  bool  success              = 1;
+  int64 rent_per_unit_cents  = 2; // confirmed new rent
+}
+
+message RenovateRequest {
+  string building_id = 1;
+}
+message RenovateResponse {
+  bool  success                  = 1;
+  int64 renovation_cost_cents    = 2;
+  int32 renovation_ticks         = 3;
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────
 // chat.proto
 // ─────────────────────────────────────────────────────────────────────────
 // ── Chat service ──────────────────────────────────────────────────────────────
-// Public city chat and direct messages between players.
-// All messages are scoped to the sender's city.
 
 service ChatService {
-  // Send a public city message or a direct message to another player.
-  rpc SendMessage (SendMessageRequest) returns (SendMessageResponse);
-
-  // Retrieve recent messages.
-  // If to_player_id is empty, returns the public city chat (last N messages).
-  // If to_player_id is set, returns the DM thread between the caller and that player.
-  rpc GetMessages (GetMessagesRequest) returns (GetMessagesResponse);
-
-  // List all players the caller has had a DM conversation with.
-  rpc ListDmConversations (ListDmConversationsRequest) returns (ListDmConversationsResponse);
+  rpc SendMessage (SendMessageRequest) returns (SendMessageResponse) {
+  }
+  rpc GetMessages (GetMessagesRequest) returns (GetMessagesResponse) {
+    option (google.api.http) = { get: "/v1/chat/{city_id}/messages" };
+  }
+  rpc ListDmConversations (ListDmConversationsRequest) returns (ListDmConversationsResponse) {
+  }
 }
 
 // ── Request / response messages ───────────────────────────────────────────────
@@ -530,8 +582,10 @@ service CityService {
   rpc ListCities        (ListCitiesRequest)       returns (ListCitiesResponse) {
   }
   rpc GetCityStats      (GetCityStatsRequest)     returns (CityStats) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}" };
   }
   rpc ListCityBuildings (ListCityBuildingsRequest) returns (ListCityBuildingsResponse) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/buildings" };
   }
 }
 
@@ -611,6 +665,16 @@ message GameEvent {
     BuildingConstructionStartedEvent building_construction_started = 22;
     BuildingStatusChangedEvent building_status_changed = 23;
     GovernmentPolicyChangedEvent government_policy_changed = 24;
+    TenantRentDefaultEvent       tenant_rent_default        = 25;
+    TenantPromotedEvent          tenant_promoted            = 26;
+    TenantDemotedEvent           tenant_demoted             = 27;
+    VacancySpiralEvent           vacancy_spiral             = 28;
+    TenantMovedInEvent           tenant_moved_in            = 29;
+    TenantUpgradedHousingEvent   tenant_upgraded_housing    = 30;
+    MigrationInfluxEvent         migration_influx           = 31;
+    MigrationExodusEvent         migration_exodus           = 32;
+    CrimeWaveEvent               crime_wave                 = 33;
+    SpendingModifierEvent        spending_modifier          = 34;
   }
 }
 
@@ -739,20 +803,119 @@ message GovernmentPolicyChangedEvent {
   float   new_rate             = 6;
 }
 
+// ── Property management events ────────────────────────────────────────────────
+
+message TenantRentDefaultEvent {
+  string       city_id          = 1;
+  string       building_id      = 2;
+  string       owner_player_id  = 3;
+  string       building_name    = 4;
+  int32        tenants_evicted  = 5;
+  CitizenClass citizen_class    = 6;
+  int32        remaining_occupied = 7;
+  int32        total_units      = 8;
+}
+
+message TenantPromotedEvent {
+  string       city_id          = 1;
+  string       building_id      = 2;
+  string       owner_player_id  = 3;
+  string       building_name    = 4;
+  CitizenClass from_class       = 5;
+  CitizenClass to_class         = 6;
+  int32        count            = 7;
+}
+
+message TenantDemotedEvent {
+  string       city_id          = 1;
+  string       building_id      = 2;
+  string       owner_player_id  = 3;
+  string       building_name    = 4;
+  CitizenClass from_class       = 5;
+  CitizenClass to_class         = 6;
+  int32        count            = 7;
+}
+
+message VacancySpiralEvent {
+  string city_id          = 1;
+  string building_id      = 2;
+  string owner_player_id  = 3;
+  string building_name    = 4;
+  int32  tenants_lost     = 5;
+  float  occupancy_rate   = 6;
+}
+
+message TenantMovedInEvent {
+  string city_id          = 1;
+  string building_id      = 2;
+  string owner_player_id  = 3;
+  string building_name    = 4;
+  int32  new_tenants      = 5;
+  int32  occupied_units   = 6;
+  int32  total_units      = 7;
+}
+
+message TenantUpgradedHousingEvent {
+  string       city_id          = 1;
+  string       building_id      = 2;
+  string       owner_player_id  = 3;
+  string       building_name    = 4;
+  CitizenClass citizen_class    = 5;
+  int32        count            = 6;
+}
+
+message MigrationInfluxEvent {
+  string city_id          = 1;
+  string building_id      = 2;
+  string owner_player_id  = 3;
+  string building_name    = 4;
+  int32  new_citizens     = 5;
+}
+
+message MigrationExodusEvent {
+  string city_id          = 1;
+  string building_id      = 2;
+  string owner_player_id  = 3;
+  string building_name    = 4;
+  int32  citizens_lost    = 5;
+}
+
+message CrimeWaveEvent {
+  string city_id          = 1;
+  string building_id      = 2;
+  string owner_player_id  = 3;
+  string building_name    = 4;
+  float  poverty_rate     = 5;
+}
+
+message SpendingModifierEvent {
+  string city_id          = 1;
+  string building_id      = 2;
+  string owner_player_id  = 3;
+  string building_name    = 4;
+  float  modifier         = 5;
+  int32  duration_ticks   = 6;
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────
 // market.proto
 // ─────────────────────────────────────────────────────────────────────────
 service MarketService {
   rpc ListOfferings         (ListOfferingsRequest)         returns (ListOfferingsResponse) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/offerings" };
   }
   rpc CancelOffering        (CancelOfferingRequest)        returns (CancelOfferingResponse) {
+    option (google.api.http) = { delete: "/v1/offerings/{offering_id}" };
   }
   rpc Purchase              (PurchaseRequest)              returns (PurchaseResponse) {
+    option (google.api.http) = { post: "/v1/offerings/{offering_id}/purchase" body: "*" };
   }
   rpc GetMarketShare        (GetMarketShareRequest)        returns (GetMarketShareResponse) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/market-share" };
   }
   rpc GetDemandUtilization  (GetDemandUtilizationRequest)  returns (GetDemandUtilizationResponse) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/demand-utilization" };
   }
 }
 
@@ -851,8 +1014,10 @@ service MarketingService {
   rpc CreateCampaign (CreateCampaignRequest) returns (CreateCampaignResponse) {
   }
   rpc PauseCampaign  (PauseCampaignRequest)  returns (PauseCampaignResponse) {
+    option (google.api.http) = { put: "/v1/campaigns/{campaign_id}/pause" body: "*" };
   }
   rpc GetBrandValue  (GetBrandValueRequest)  returns (BrandValueResponse) {
+    option (google.api.http) = { get: "/v1/brands/{brand_id}" };
   }
   rpc ListBrands     (ListBrandsRequest)     returns (ListBrandsResponse) {
   }
@@ -926,8 +1091,8 @@ service PlayerService {
   }
   rpc GetCompanyHistory   (GetCompanyHistoryRequest)   returns (GetCompanyHistoryResponse) {
   }
-  // Look up a player by their username/handle. Used for starting DMs or checking if a player exists.
   rpc FindPlayerByHandle  (FindPlayerByHandleRequest)  returns (FindPlayerByHandleResponse) {
+    option (google.api.http) = { get: "/v1/players/handle/{handle}" };
   }
 }
 
@@ -1028,15 +1193,19 @@ message FindPlayerByHandleResponse {
 // ─────────────────────────────────────────────────────────────────────────
 service PoliticsService {
   rpc GetGovernment  (GetGovernmentRequest)  returns (GovernmentInfo) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/government" };
   }
   rpc GetElection    (GetElectionRequest)    returns (ElectionInfo) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/election" };
   }
   rpc RunForElection (RunForElectionRequest) returns (RunForElectionResponse) {
+    option (google.api.http) = { post: "/v1/elections/{election_id}/candidates" body: "*" };
   }
   rpc EnactPolicy    (EnactPolicyRequest)    returns (EnactPolicyResponse) {
+    option (google.api.http) = { put: "/v1/cities/{city_id}/government/policy" body: "*" };
   }
-  // Cast a vote for a candidate during the voting phase.
   rpc CastVote       (CastVoteRequest)       returns (CastVoteResponse) {
+    option (google.api.http) = { post: "/v1/elections/{election_id}/votes" body: "*" };
   }
 }
 
@@ -1123,10 +1292,12 @@ service ResearchService {
   rpc StartResearch (StartResearchRequest) returns (StartResearchResponse) {
   }
   rpc GetProgress   (GetResearchRequest)   returns (ResearchProgress) {
+    option (google.api.http) = { get: "/v1/research/{resource_type}" };
   }
   rpc ListResearch  (ListResearchRequest)  returns (ListResearchResponse) {
   }
   rpc PauseResearch (PauseResearchRequest) returns (PauseResearchResponse) {
+    option (google.api.http) = { put: "/v1/research/{project_id}/pause" body: "*" };
   }
 }
 
@@ -1174,9 +1345,15 @@ message PauseResearchResponse {
 // tile.proto
 // ─────────────────────────────────────────────────────────────────────────
 service TileService {
-  rpc ListTiles       (ListTilesRequest)       returns (ListTilesResponse);
-  rpc GetTile         (GetTileRequest)         returns (TileInfo);
-  rpc PurchaseTile    (PurchaseTileRequest)    returns (PurchaseTileResponse);
+  rpc ListTiles       (ListTilesRequest)       returns (ListTilesResponse) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/tiles" };
+  }
+  rpc GetTile         (GetTileRequest)         returns (TileInfo) {
+    option (google.api.http) = { get: "/v1/tiles/{tile_id}" };
+  }
+  rpc PurchaseTile    (PurchaseTileRequest)    returns (PurchaseTileResponse) {
+    option (google.api.http) = { post: "/v1/tiles/{tile_id}/purchase" body: "*" };
+  }
 }
 
 // Viewport query — returns tiles whose GridX/Y is within the given bounds
@@ -1208,6 +1385,7 @@ message TileInfo {
   int64          construction_ready_at_tick   = 17; // tick when construction completes; 0 if already built
   int32          population_capacity          = 18; // residential buildings only
   bool           is_government_port           = 19;
+  repeated string building_output_types       = 20; // resource types this building can produce (e.g. "RESOURCE_TYPE_GRAIN")
 }
 
 message ListTilesResponse {

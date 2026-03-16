@@ -46,6 +46,16 @@ export interface BuildingStatus {
   is_renovating: boolean;
   renovation_ticks_remaining: number;
   built_at_tick: number;
+
+  // Citizen wealth class counts (residential only)
+  citizens_lower_bottom: number;
+  citizens_lower: number;
+  citizens_middle: number;
+  citizens_upper: number;
+  citizens_one_percent: number;
+  citizens_point_one_percent: number;
+  average_daily_spend_cents: number;
+  spending_modifier: number;
 }
 
 export interface RecipeInfo {
@@ -225,6 +235,17 @@ export interface GameEvent {
   taxes_collected?: { city_id: string; total_collected: number };
   tile_changed?: { city_id: string; tile_id: string; grid_x: number; grid_y: number; owner_player_id: string; owner_name: string; is_for_sale: boolean; purchase_price: number; building_id: string; building_name: string; building_type: string; building_status: string };
   chat_message?: ChatMessageEvent;
+  // Citizen / Property management events
+  tenant_rent_default?: { city_id: string; building_id: string; player_id: string; building_name: string; citizen_class: string; count: number };
+  tenant_promoted?: { city_id: string; building_id: string; player_id: string; building_name: string; from_class: string; to_class: string; count: number };
+  tenant_demoted?: { city_id: string; building_id: string; player_id: string; building_name: string; from_class: string; to_class: string; count: number };
+  vacancy_spiral?: { city_id: string; building_id: string; player_id: string; building_name: string; occupancy_pct: number; citizens_left: number };
+  tenant_moved_in?: { city_id: string; building_id: string; player_id: string; building_name: string; citizen_class: string; count: number };
+  tenant_upgraded_housing?: { city_id: string; building_id: string; player_id: string; building_name: string; citizen_class: string; count: number };
+  migration_influx?: { city_id: string; citizen_class: string; count: number; quality_of_life: number };
+  migration_exodus?: { city_id: string; citizen_class: string; count: number; quality_of_life: number };
+  crime_wave?: { city_id: string; building_id: string; player_id: string; building_name: string; lower_bottom_pct: number };
+  spending_modifier_event?: { city_id: string; building_id: string; player_id: string; building_name: string; modifier: number; duration_ticks: number; reason: string };
 }
 
 // ─── Tiles ────────────────────────────────────────────────────────────────────

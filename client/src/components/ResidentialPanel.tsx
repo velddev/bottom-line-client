@@ -20,6 +20,15 @@ const TIER_INFO: Record<string, { label: string; icon: string; color: string }> 
 
 const SHOPPING_RADIUS = 8;
 
+const CITIZEN_CLASSES = [
+  { key: 'citizens_lower_bottom',     label: 'Poverty',  icon: '🏚️', color: 'text-red-400',    bar: 'bg-red-400' },
+  { key: 'citizens_lower',            label: 'Working',  icon: '🔧', color: 'text-orange-400', bar: 'bg-orange-400' },
+  { key: 'citizens_middle',           label: 'Middle',   icon: '🏠', color: 'text-yellow-400', bar: 'bg-yellow-400' },
+  { key: 'citizens_upper',            label: 'Upper',    icon: '🏡', color: 'text-emerald-400',bar: 'bg-emerald-400' },
+  { key: 'citizens_one_percent',      label: 'Wealthy',  icon: '💎', color: 'text-blue-400',   bar: 'bg-blue-400' },
+  { key: 'citizens_point_one_percent',label: 'Elite',    icon: '👑', color: 'text-purple-400', bar: 'bg-purple-400' },
+] as const;
+
 export default function ResidentialPanel({
   buildingType,
   populationCapacity,
@@ -49,6 +58,18 @@ export default function ResidentialPanel({
   const dailyIncome = units > 0 ? (rentPerUnitCents / 30) * occupiedUnits * (freshness / 100) : 0;
   const occupancyPct = units > 0 ? Math.round((occupiedUnits / units) * 100) : 0;
   const renovationCost = constructionCostCents * 0.10;
+
+  // Citizen class data
+  const classCounts: Record<string, number> = {
+    citizens_lower_bottom:      building?.citizens_lower_bottom ?? 0,
+    citizens_lower:             building?.citizens_lower ?? 0,
+    citizens_middle:            building?.citizens_middle ?? 0,
+    citizens_upper:             building?.citizens_upper ?? 0,
+    citizens_one_percent:       building?.citizens_one_percent ?? 0,
+    citizens_point_one_percent: building?.citizens_point_one_percent ?? 0,
+  };
+  const totalCitizens = Object.values(classCounts).reduce((a, b) => a + b, 0);
+  const avgDailySpend = building?.average_daily_spend_cents ?? 0;
 
   const rentMut = useMutation({
     mutationFn: () => setRent(building!.building_id, Math.round(parseFloat(rentInput) * 100)),
@@ -107,7 +128,7 @@ export default function ResidentialPanel({
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3">
         <Stat label="Population Cap." value={populationCapacity.toLocaleString()} />
-        <Stat label="Daily Spending" value={fmtMoney(populationCapacity * 10)} sub="at nearby stores" />
+        <Stat label="Avg Daily Spend" value={avgDailySpend > 0 ? fmtMoney(avgDailySpend) : '—'} sub="per citizen" />
         {units > 0 && (
           <>
             <Stat label="Monthly Rent/Unit" value={fmtMoney(monthlyRentPerUnit)} />
@@ -119,6 +140,31 @@ export default function ResidentialPanel({
           </>
         )}
       </div>
+
+      {/* Citizen class breakdown */}
+      {totalCitizens > 0 && (
+        <div className="flex flex-col gap-1">
+          <p className="text-[10px] uppercase tracking-wider text-gray-600">Residents by Wealth</p>
+          <div className="flex flex-col gap-0.5">
+            {CITIZEN_CLASSES.map((c) => {
+              const count = classCounts[c.key] ?? 0;
+              if (count === 0) return null;
+              const pct = Math.round((count / totalCitizens) * 100);
+              return (
+                <div key={c.key} className="flex items-center gap-1.5 text-xs">
+                  <span className="w-3 text-center">{c.icon}</span>
+                  <span className={`w-16 truncate ${c.color}`}>{c.label}</span>
+                  <div className="flex-1 h-1 bg-gray-300 rounded-full overflow-hidden">
+                    <div className={`h-full ${c.bar} rounded-full`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-gray-700 font-mono w-10 text-right">{count}</span>
+                  <span className="text-gray-500 font-mono w-8 text-right">{pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Owner controls */}
       {isOwned && building && units > 0 && (
