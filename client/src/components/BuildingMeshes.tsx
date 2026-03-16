@@ -65,18 +65,23 @@ const CUTOUT_FRAG_PREAMBLE = /* glsl */ `
   varying vec3  vViewNormal2;
 `;
 
-// Per-fragment: screen-space radial gradient + fresnel edge glow
+// Per-fragment: screen-space dithered discard + fresnel edge retention.
+// Uses discard instead of alpha blending so the depth buffer gets holes,
+// allowing the selected building behind to actually render.
 const CUTOUT_FRAG_BODY = /* glsl */ `
   if (vBlocking > 0.5 && uGradientRadius > 0.0) {
     float screenDist = length(gl_FragCoord.xy - uSelectedScreenPos);
     if (screenDist < uGradientRadius) {
       // Smooth gradient: 0 at center → 1 at edge of radius
       float fade = smoothstep(0.0, uGradientRadius, screenDist);
-      // Fresnel: edges of geometry stay slightly more visible
+      // Fresnel: geometry edges more likely to survive the discard
       float NdotV = abs(dot(vec3(0.0, 0.0, 1.0), normalize(vViewNormal2)));
       float fresnel = pow(1.0 - NdotV, 2.0);
-      float baseAlpha = mix(0.04, 0.25, fresnel);
-      gl_FragColor.a = mix(baseAlpha, 1.0, fade);
+      // Keep probability: low at center, high at edges and at gradient boundary
+      float keepChance = mix(fresnel * 0.25, 1.0, fade);
+      // Screen-space dithering for smooth dissolve
+      float dither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+      if (dither > keepChance) discard;
     }
   }
 `;
@@ -84,9 +89,10 @@ const CUTOUT_FRAG_BODY = /* glsl */ `
 /** Clone a material and inject the fresnel cutout shader */
 function injectCutoutShader(original: THREE.Material, uniforms: CutoutUniforms): THREE.Material {
   const mat = original.clone();
-  (mat as THREE.MeshStandardMaterial).transparent = true;
-  (mat as THREE.MeshStandardMaterial).depthWrite = true;
-  mat.customProgramCacheKey = () => 'building-fresnel-cutout-v2';
+  // No transparency needed — we use discard for the cutout, not alpha blending.
+  // This avoids depth buffer issues where blocking buildings hide the selected one.
+  mat.customProgramCacheKey = () => 'building-fresnel-cutout-v3';
+  mat.needsUpdate = true;
 
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uSelectedPos       = uniforms.uSelectedPos;
