@@ -2,22 +2,7 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
 import { tileToWorld } from './cityGrid';
-
-interface ModelMapping {
-  path: string;
-  scale: number;
-  yOffset: number;
-}
-
-const MODEL_MAP: Record<string, ModelMapping> = {
-  factory:             { path: '/models/buildings/industrial/building-a.glb',             scale: 0.5, yOffset: 0 },
-  store:               { path: '/models/buildings/commercial/building-a.glb',             scale: 0.5, yOffset: 0 },
-  warehouse:           { path: '/models/buildings/industrial/building-d.glb',             scale: 0.5, yOffset: 0 },
-  field:               { path: '/models/buildings/farm/fence.glb',                        scale: 0.5, yOffset: 0 },
-  residential_low:     { path: '/models/buildings/suburban/building-type-a.glb',          scale: 0.5, yOffset: 0 },
-  residential_medium:  { path: '/models/buildings/commercial/building-c.glb',             scale: 0.5, yOffset: 0 },
-  residential_high:    { path: '/models/buildings/commercial/building-skyscraper-b.glb',  scale: 0.5, yOffset: 0 },
-};
+import { getModelVariant, getBuildingRotation } from './buildingVariants';
 
 const ghostMaterial = new THREE.MeshStandardMaterial({
   color: new THREE.Color('#60a5fa'),
@@ -49,14 +34,14 @@ interface Props {
 }
 
 export default function GhostBuilding3D({ buildingType, gridX, gridY }: Props) {
-  const mapping = MODEL_MAP[buildingType];
-  if (!mapping) return null;
+  const variant = getModelVariant(buildingType, gridX, gridY);
+  if (!variant) return null;
 
-  return <GhostBuildingInner mapping={mapping} gridX={gridX} gridY={gridY} />;
+  return <GhostBuildingInner variant={variant} gridX={gridX} gridY={gridY} />;
 }
 
-function GhostBuildingInner({ mapping, gridX, gridY }: { mapping: ModelMapping; gridX: number; gridY: number }) {
-  const { scene } = useGLTF(mapping.path);
+function GhostBuildingInner({ variant, gridX, gridY }: { variant: { path: string; scale: number; yOffset: number }; gridX: number; gridY: number }) {
+  const { scene } = useGLTF(variant.path);
   const meshParts = useMemo(() => extractMeshes(scene as unknown as THREE.Group), [scene]);
 
   const bounds = useMemo(() => {
@@ -73,17 +58,26 @@ function GhostBuildingInner({ mapping, gridX, gridY }: { mapping: ModelMapping; 
   const modelWidth = bounds.max.x - bounds.min.x;
   const modelDepth = bounds.max.z - bounds.min.z;
   const maxDim = Math.max(modelWidth, modelDepth);
-  const fitScale = maxDim > 0 ? 0.85 / maxDim : mapping.scale;
+  const fitScale = maxDim > 0 ? 0.85 / maxDim : variant.scale;
   const cx = (bounds.max.x + bounds.min.x) / 2;
   const cz = (bounds.max.z + bounds.min.z) / 2;
+
+  const rotation = getBuildingRotation(gridX, gridY);
+  const cosR = Math.cos(rotation);
+  const sinR = Math.sin(rotation);
+  const scx = cx * fitScale;
+  const scz = cz * fitScale;
+  const rscx = cosR * scx + sinR * scz;
+  const rscz = -sinR * scx + cosR * scz;
 
   return (
     <group
       position={[
-        wx + 0.5 - cx * fitScale,
-        mapping.yOffset - bounds.min.y * fitScale,
-        wz + 0.5 - cz * fitScale,
+        wx + 0.5 - rscx,
+        variant.yOffset - bounds.min.y * fitScale,
+        wz + 0.5 - rscz,
       ]}
+      rotation={[0, rotation, 0]}
       scale={[fitScale, fitScale, fitScale]}
     >
       {meshParts.map((part, idx) => (
