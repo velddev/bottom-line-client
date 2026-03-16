@@ -76,7 +76,7 @@ export default function PoliticsPanel() {
   const isCandidate = election?.candidates?.some((c) => c.player_id === auth?.player_id);
 
   return (
-    <div className="space-y-6 mt-2">
+    <div className="space-y-5">
       {govLoading && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
       {gov && (
         <>
