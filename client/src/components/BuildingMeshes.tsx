@@ -1,6 +1,7 @@
 import { useRef, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
 import type { TileInfo } from '../types';
 import { tileToWorld } from './cityGrid';
 import {
@@ -13,64 +14,85 @@ import {
 
 const _tempMatrix = new THREE.Matrix4();
 const _tempScale = new THREE.Vector3();
+const _projVec = new THREE.Vector3();
 
 // Preload all variant models
 ALL_MODEL_PATHS.forEach(p => useGLTF.preload(p));
 
 // ── Fresnel cutout shader injection ────────────────────────────────────
+//
+// Two-stage approach:
+//   Vertex: coarse instance-level check — is this building in front of selected?
+//   Fragment: precise screen-space gradient + fresnel on surface normals.
 
-// GLSL injected into MeshStandardMaterial vertex shader
+interface CutoutUniforms {
+  uSelectedPos:       { value: THREE.Vector3 };   // world pos (for instance check)
+  uSelectedScreenPos: { value: THREE.Vector2 };   // screen-space pos (gl_FragCoord)
+  uGradientRadius:    { value: number };           // gradient radius in pixels
+  uHasSelection:      { value: number };
+}
+
 const CUTOUT_VERTEX_PREAMBLE = /* glsl */ `
   uniform vec3  uSelectedPos;
   uniform float uHasSelection;
-  varying float vOcclude;
+  varying float vBlocking;
   varying vec3  vViewNormal2;
 `;
 
+// Coarse per-instance check: is this instance in front of the selected building?
+// Only marks it as potentially blocking — the precise gradient is in the fragment.
 const CUTOUT_VERTEX_BODY = /* glsl */ `
   vViewNormal2 = normalize(transformedNormal);
-  vOcclude = 0.0;
+  vBlocking = 0.0;
   if (uHasSelection > 0.5) {
     vec3 iPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
-    // Isometric 45° azimuth: depth = x + z, lateral = x - z
+    float dist = length(iPos.xz - uSelectedPos.xz);
+    // Isometric 45° azimuth: depth along camera = x + z
     float iDepth = iPos.x + iPos.z;
     float sDepth = uSelectedPos.x + uSelectedPos.z;
-    float latDiff = abs((iPos.x - iPos.z) - (uSelectedPos.x - uSelectedPos.z));
-    float dist = length(iPos.xz - uSelectedPos.xz);
-    // Block if closer to camera, laterally close, and not the selected building itself
-    if (iDepth > sDepth + 0.7 && latDiff < 1.8 && dist > 0.3) {
-      vOcclude = 1.0;
+    // Only potentially blocking if in front of selected building and not the same tile
+    if (iDepth > sDepth + 0.3 && dist > 0.3) {
+      vBlocking = 1.0;
     }
   }
 `;
 
-// GLSL injected into MeshStandardMaterial fragment shader
 const CUTOUT_FRAG_PREAMBLE = /* glsl */ `
-  varying float vOcclude;
+  uniform vec2  uSelectedScreenPos;
+  uniform float uGradientRadius;
+  uniform float uHasSelection;
+  varying float vBlocking;
   varying vec3  vViewNormal2;
 `;
 
+// Per-fragment: screen-space radial gradient + fresnel edge glow
 const CUTOUT_FRAG_BODY = /* glsl */ `
-  if (vOcclude > 0.5) {
-    float NdotV = abs(dot(vec3(0.0, 0.0, 1.0), normalize(vViewNormal2)));
-    float fresnel = pow(1.0 - NdotV, 2.0);
-    gl_FragColor.a = mix(0.06, 0.45, fresnel);
+  if (vBlocking > 0.5 && uGradientRadius > 0.0) {
+    float screenDist = length(gl_FragCoord.xy - uSelectedScreenPos);
+    if (screenDist < uGradientRadius) {
+      // Smooth gradient: 0 at center → 1 at edge of radius
+      float fade = smoothstep(0.0, uGradientRadius, screenDist);
+      // Fresnel: edges of geometry stay slightly more visible
+      float NdotV = abs(dot(vec3(0.0, 0.0, 1.0), normalize(vViewNormal2)));
+      float fresnel = pow(1.0 - NdotV, 2.0);
+      float baseAlpha = mix(0.04, 0.25, fresnel);
+      gl_FragColor.a = mix(baseAlpha, 1.0, fade);
+    }
   }
 `;
 
 /** Clone a material and inject the fresnel cutout shader */
-function injectCutoutShader(
-  original: THREE.Material,
-  uniforms: { uSelectedPos: { value: THREE.Vector3 }; uHasSelection: { value: number } },
-): THREE.Material {
+function injectCutoutShader(original: THREE.Material, uniforms: CutoutUniforms): THREE.Material {
   const mat = original.clone();
   (mat as THREE.MeshStandardMaterial).transparent = true;
   (mat as THREE.MeshStandardMaterial).depthWrite = true;
-  mat.customProgramCacheKey = () => 'building-fresnel-cutout';
+  mat.customProgramCacheKey = () => 'building-fresnel-cutout-v2';
 
   mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uSelectedPos = uniforms.uSelectedPos;
-    shader.uniforms.uHasSelection = uniforms.uHasSelection;
+    shader.uniforms.uSelectedPos       = uniforms.uSelectedPos;
+    shader.uniforms.uSelectedScreenPos = uniforms.uSelectedScreenPos;
+    shader.uniforms.uGradientRadius    = uniforms.uGradientRadius;
+    shader.uniforms.uHasSelection      = uniforms.uHasSelection;
 
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
@@ -129,14 +151,13 @@ function BuildingVariantGLB({
 }: {
   variant: ModelVariant;
   buildings: TileInfo[];
-  cutoutUniforms: { uSelectedPos: { value: THREE.Vector3 }; uHasSelection: { value: number } };
+  cutoutUniforms: CutoutUniforms;
 }) {
   const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
   const { scene } = useGLTF(variant.path);
 
   const meshParts = useMemo(() => extractMeshes(scene), [scene]);
 
-  // Clone materials with fresnel cutout shader injected
   const processedMaterials = useMemo(() => {
     return meshParts.map(part => {
       if (Array.isArray(part.material)) {
@@ -224,24 +245,43 @@ function BuildingVariantGLB({
 // ── Main component ─────────────────────────────────────────────────────
 
 export default function BuildingMeshes({ tiles, myPlayerId, selectedTile }: BuildingMeshesProps) {
-  // Shared uniforms for the fresnel cutout — all materials reference these
-  const cutoutUniforms = useMemo(() => ({
-    uSelectedPos: { value: new THREE.Vector3(0, 0, 0) },
-    uHasSelection: { value: 0 as number },
+  const cutoutUniforms = useMemo<CutoutUniforms>(() => ({
+    uSelectedPos:       { value: new THREE.Vector3(0, 0, 0) },
+    uSelectedScreenPos: { value: new THREE.Vector2(0, 0) },
+    uGradientRadius:    { value: 0 },
+    uHasSelection:      { value: 0 },
   }), []);
 
-  // Update cutout uniforms when selection changes
-  useEffect(() => {
-    if (selectedTile?.building_id) {
-      const [wx, wz] = tileToWorld(selectedTile.grid_x, selectedTile.grid_y);
-      cutoutUniforms.uSelectedPos.value.set(wx + 0.5, 0, wz + 0.5);
+  // Compute selected world position (memoized, changes only on selection)
+  const selectedWorldPos = useMemo(() => {
+    if (!selectedTile?.building_id) return null;
+    const [wx, wz] = tileToWorld(selectedTile.grid_x, selectedTile.grid_y);
+    return new THREE.Vector3(wx + 0.5, 0, wz + 0.5);
+  }, [selectedTile]);
+
+  // Update uniforms every frame — camera may pan/zoom, changing screen projection
+  useFrame(({ camera, size }) => {
+    if (selectedWorldPos) {
+      cutoutUniforms.uSelectedPos.value.copy(selectedWorldPos);
       cutoutUniforms.uHasSelection.value = 1.0;
+
+      // Project selected building to screen-space (gl_FragCoord coordinates)
+      _projVec.copy(selectedWorldPos);
+      _projVec.project(camera);
+      cutoutUniforms.uSelectedScreenPos.value.set(
+        (_projVec.x * 0.5 + 0.5) * size.width,
+        (_projVec.y * 0.5 + 0.5) * size.height,
+      );
+
+      // Gradient radius: ~2 world units scaled to current zoom
+      const ortho = camera as THREE.OrthographicCamera;
+      const pixelsPerUnit = (size.height * ortho.zoom) / (ortho.top - ortho.bottom);
+      cutoutUniforms.uGradientRadius.value = pixelsPerUnit * 2.0;
     } else {
       cutoutUniforms.uHasSelection.value = 0.0;
     }
-  }, [selectedTile, cutoutUniforms]);
+  });
 
-  // Group buildings by (type, variantIndex) for instanced rendering
   const buildingGroups = useMemo(() => {
     const groups: Record<string, { variant: ModelVariant; tiles: TileInfo[] }> = {};
     for (const [, tile] of tiles) {
