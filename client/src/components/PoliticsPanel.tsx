@@ -3,9 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Vote, Settings } from 'lucide-react';
 import { getGovernment, getElection, runForElection, enactPolicy } from '../api';
 import { useAuth } from '../auth';
-import { fmtPct, fmtMoney } from '../types';
+import { fmtPct } from '../types';
 import Modal, { Field, Input } from './Modal';
-import Panel from './Panel';
 
 function TaxBar({ label, value }: { label: string; value: number }) {
   return (
@@ -77,64 +76,57 @@ export default function PoliticsPanel() {
   const isCandidate = election?.candidates?.some((c) => c.player_id === auth?.player_id);
 
   return (
-    <div className="space-y-4">
-      {/* Government card */}
-      <Panel
-        compact
-        title="🏛️ Government"
-        headerActions={
-          isRuler ? (
-            <button
-              onClick={() => {
-                setPolicyForm({
-                  consumer_tax_rate: String((gov!.consumer_tax_rate * 100).toFixed(1)),
-                  profit_tax_rate:   String((gov!.profit_tax_rate   * 100).toFixed(1)),
-                  land_tax_rate:     String((gov!.land_tax_rate     * 100).toFixed(1)),
-                  employee_tax_rate: String((gov!.employee_tax_rate * 100).toFixed(1)),
-                });
-                setShowPolicy(true);
-              }}
-              className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-            >
-              <Settings size={11} /> Set Policy
-            </button>
-          ) : undefined
-        }
-      >
-        {govLoading && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
-        {gov && (
-          <>
-            <div>
-              <p className="text-gray-600 text-xs mb-0.5">Current Ruler</p>
-              <p className="text-gray-900 text-sm font-semibold">{gov.ruling_player_name || 'AI Government'}</p>
-              {isRuler && <span className="text-indigo-400 text-xs">← You</span>}
-              <p className="text-gray-600 text-xs">Term: Day {gov.term_start_tick} – Day {gov.term_end_tick}</p>
+    <div className="space-y-6 mt-2">
+      {govLoading && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
+      {gov && (
+        <>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-gray-600 text-xs">Current Ruler</p>
+              {isRuler && (
+                <button
+                  onClick={() => {
+                    setPolicyForm({
+                      consumer_tax_rate: String((gov.consumer_tax_rate * 100).toFixed(1)),
+                      profit_tax_rate:   String((gov.profit_tax_rate   * 100).toFixed(1)),
+                      land_tax_rate:     String((gov.land_tax_rate     * 100).toFixed(1)),
+                      employee_tax_rate: String((gov.employee_tax_rate * 100).toFixed(1)),
+                    });
+                    setShowPolicy(true);
+                  }}
+                  className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  <Settings size={11} /> Set Policy
+                </button>
+              )}
             </div>
+            <p className="text-gray-900 text-sm font-semibold">{gov.ruling_player_name || 'AI Government'}</p>
+            {isRuler && <span className="text-indigo-400 text-xs">← You</span>}
+            <p className="text-gray-600 text-xs mt-0.5">Term: Day {gov.term_start_tick} – Day {gov.term_end_tick}</p>
+          </div>
 
-            <div className="space-y-2">
-              <p className="text-gray-600 text-xs uppercase tracking-wider">Tax Rates</p>
-              <TaxBar label="Consumer Tax"  value={gov.consumer_tax_rate}  />
-              <TaxBar label="Profit Tax"    value={gov.profit_tax_rate}    />
-              <TaxBar label="Land Tax"      value={gov.land_tax_rate}      />
-              <TaxBar label="Employee Tax"  value={gov.employee_tax_rate}  />
-            </div>
+          <div className="space-y-2">
+            <p className="text-gray-600 text-xs uppercase tracking-wider">Tax Rates</p>
+            <TaxBar label="Consumer Tax"  value={gov.consumer_tax_rate}  />
+            <TaxBar label="Profit Tax"    value={gov.profit_tax_rate}    />
+            <TaxBar label="Land Tax"      value={gov.land_tax_rate}      />
+            <TaxBar label="Employee Tax"  value={gov.employee_tax_rate}  />
+          </div>
 
-            <div className="space-y-2">
-              <p className="text-gray-600 text-xs uppercase tracking-wider">Approval Ratings</p>
-              <ApprovalBar label="City"     value={gov.approval_city}     color="text-blue-400"    />
-              <ApprovalBar label="People"   value={gov.approval_people}   color="text-emerald-400" />
-              <ApprovalBar label="Business" value={gov.approval_business} color="text-amber-400"   />
-            </div>
-          </>
-        )}
-      </Panel>
+          <div className="space-y-2">
+            <p className="text-gray-600 text-xs uppercase tracking-wider">Approval Ratings</p>
+            <ApprovalBar label="City"     value={gov.approval_city}     color="text-blue-400"    />
+            <ApprovalBar label="People"   value={gov.approval_people}   color="text-emerald-400" />
+            <ApprovalBar label="Business" value={gov.approval_business} color="text-amber-400"   />
+          </div>
+        </>
+      )}
 
-      {/* Election card */}
-      <Panel
-        compact
-        title="🗳️ Election"
-        headerActions={
-          election && election.status === 'open' && !isCandidate ? (
+      {/* Election */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-gray-600 text-xs uppercase tracking-wider">Election</p>
+          {election && election.status === 'open' && !isCandidate && (
             <button
               onClick={() => runMut.mutate()}
               disabled={runMut.isPending}
@@ -142,60 +134,58 @@ export default function PoliticsPanel() {
             >
               <Vote size={11} /> Run
             </button>
-          ) : undefined
-        }
-        bodyClassName="p-3"
-      >
-          {elecLoading && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
-          {election && (
-            <>
-              <div className="flex items-center gap-2 mb-3">
-                <span className={`px-2 py-0.5 rounded text-xs ${
-                  election.status === 'open'       ? 'bg-emerald-900/40 text-emerald-400' :
-                  election.status === 'concluded'  ? 'bg-gray-100 text-gray-600' :
-                                                     'bg-amber-900/40 text-amber-400'
-                }`}>{election.status}</span>
-                <span className="text-gray-600 text-xs">t{election.voting_start} – t{election.voting_end}</span>
-              </div>
+          )}
+        </div>
 
-              {election.winner_player_id && (
-                <p className="text-xs text-gray-600 mb-2">
-                  Winner: <span className="text-gray-900">{election.winner_player_id.slice(0, 8)}…</span>
-                </p>
-              )}
+        {elecLoading && <p className="text-gray-500 text-xs animate-pulse">Loading…</p>}
+        {election && (
+          <>
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-0.5 rounded text-xs ${
+                election.status === 'open'       ? 'bg-emerald-900/40 text-emerald-400' :
+                election.status === 'concluded'  ? 'bg-gray-100 text-gray-600' :
+                                                    'bg-amber-900/40 text-amber-400'
+              }`}>{election.status}</span>
+              <span className="text-gray-600 text-xs">t{election.voting_start} – t{election.voting_end}</span>
+            </div>
 
-              {isCandidate && (
-                <p className="text-xs text-indigo-400 mb-2">✓ You are a candidate</p>
-              )}
+            {election.winner_player_id && (
+              <p className="text-xs text-gray-600">
+                Winner: <span className="text-gray-900">{election.winner_player_id.slice(0, 8)}…</span>
+              </p>
+            )}
 
-              {(election.candidates?.length ?? 0) > 0 && (
-                <div className="space-y-2">
-                  <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Candidates</p>
-                  {election.candidates.map((c) => (
-                    <div key={c.player_id} className="flex items-center justify-between text-xs">
-                      <span className={c.player_id === auth?.player_id ? 'text-indigo-300 font-semibold' : 'text-gray-800'}>
-                        {c.player_name}
-                      </span>
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <span>👁 {fmtPct(c.perception)}</span>
-                        <span>🗳 {c.votes}</span>
-                      </div>
+            {isCandidate && (
+              <p className="text-xs text-indigo-400">✓ You are a candidate</p>
+            )}
+
+            {(election.candidates?.length ?? 0) > 0 && (
+              <div className="space-y-2">
+                {election.candidates.map((c) => (
+                  <div key={c.player_id} className="flex items-center justify-between text-xs">
+                    <span className={c.player_id === auth?.player_id ? 'text-indigo-300 font-semibold' : 'text-gray-800'}>
+                      {c.player_name}
+                    </span>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <span>👁 {fmtPct(c.perception)}</span>
+                      <span>🗳 {c.votes}</span>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                ))}
+              </div>
+            )}
 
-              {(election.candidates?.length ?? 0) === 0 && (
-                <p className="text-gray-600 text-xs">No candidates yet.</p>
-              )}
-            </>
-          )}
-          {!election && !elecLoading && (
-            <p className="text-gray-600 text-xs">No election currently scheduled.</p>
-          )}
-          {runMut.isError  && <p className="text-rose-400 text-xs mt-2">{(runMut.error as Error).message}</p>}
-          {runMut.data     && <p className="text-emerald-400 text-xs mt-2">{runMut.data.message}</p>}
-      </Panel>
+            {(election.candidates?.length ?? 0) === 0 && (
+              <p className="text-gray-600 text-xs">No candidates yet.</p>
+            )}
+          </>
+        )}
+        {!election && !elecLoading && (
+          <p className="text-gray-600 text-xs">No election currently scheduled.</p>
+        )}
+        {runMut.isError  && <p className="text-rose-400 text-xs">{(runMut.error as Error).message}</p>}
+        {runMut.data     && <p className="text-emerald-400 text-xs">{runMut.data.message}</p>}
+      </div>
 
       {/* Policy modal (ruler only) */}
       {showPolicy && (
