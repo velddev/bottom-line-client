@@ -1,7 +1,6 @@
 import { useRef, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
 import type { TileInfo } from '../types';
 import { tileToWorld } from './cityGrid';
 import {
@@ -14,112 +13,9 @@ import {
 
 const _tempMatrix = new THREE.Matrix4();
 const _tempScale = new THREE.Vector3();
-const _projVec = new THREE.Vector3();
 
 // Preload all variant models
 ALL_MODEL_PATHS.forEach(p => useGLTF.preload(p));
-
-// ── Fresnel cutout shader injection ────────────────────────────────────
-//
-// Two-stage approach:
-//   Vertex: coarse instance-level check — is this building in front of selected?
-//   Fragment: precise screen-space gradient + fresnel on surface normals.
-
-interface CutoutUniforms {
-  uSelectedPos:       { value: THREE.Vector3 };   // world pos (for instance check)
-  uSelectedScreenPos: { value: THREE.Vector2 };   // screen-space pos (gl_FragCoord)
-  uGradientRadius:    { value: number };           // gradient radius in pixels
-  uHasSelection:      { value: number };
-}
-
-const CUTOUT_VERTEX_PREAMBLE = /* glsl */ `
-  uniform vec3  uSelectedPos;
-  uniform float uHasSelection;
-  varying float vBlocking;
-  varying vec3  vViewNormal2;
-`;
-
-// Coarse per-instance check: is this instance in front of the selected building?
-// Only marks it as potentially blocking — the precise gradient is in the fragment.
-const CUTOUT_VERTEX_BODY = /* glsl */ `
-  vViewNormal2 = normalize(transformedNormal);
-  vBlocking = 0.0;
-  if (uHasSelection > 0.5) {
-    vec3 iPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
-    float dist = length(iPos.xz - uSelectedPos.xz);
-    // Isometric 45° azimuth: depth along camera = x + z
-    float iDepth = iPos.x + iPos.z;
-    float sDepth = uSelectedPos.x + uSelectedPos.z;
-    // Only potentially blocking if in front of selected building and not the same tile
-    if (iDepth > sDepth + 0.3 && dist > 0.3) {
-      vBlocking = 1.0;
-    }
-  }
-`;
-
-const CUTOUT_FRAG_PREAMBLE = /* glsl */ `
-  uniform vec2  uSelectedScreenPos;
-  uniform float uGradientRadius;
-  uniform float uHasSelection;
-  varying float vBlocking;
-  varying vec3  vViewNormal2;
-`;
-
-// Per-fragment: screen-space dithered discard + fresnel edge retention.
-// Uses discard instead of alpha blending so the depth buffer gets holes,
-// allowing the selected building behind to actually render.
-const CUTOUT_FRAG_BODY = /* glsl */ `
-  if (vBlocking > 0.5 && uGradientRadius > 0.0) {
-    float screenDist = length(gl_FragCoord.xy - uSelectedScreenPos);
-    if (screenDist < uGradientRadius) {
-      // Smooth gradient: 0 at center → 1 at edge of radius
-      float fade = smoothstep(0.0, uGradientRadius, screenDist);
-      // Fresnel: geometry edges more likely to survive the discard
-      float NdotV = abs(dot(vec3(0.0, 0.0, 1.0), normalize(vViewNormal2)));
-      float fresnel = pow(1.0 - NdotV, 2.0);
-      // Keep probability: low at center, high at edges and at gradient boundary
-      float keepChance = mix(fresnel * 0.25, 1.0, fade);
-      // Screen-space dithering for smooth dissolve
-      float dither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
-      if (dither > keepChance) discard;
-    }
-  }
-`;
-
-/** Clone a material and inject the fresnel cutout shader */
-function injectCutoutShader(original: THREE.Material, uniforms: CutoutUniforms): THREE.Material {
-  const mat = original.clone();
-  // No transparency needed — we use discard for the cutout, not alpha blending.
-  // This avoids depth buffer issues where blocking buildings hide the selected one.
-  mat.customProgramCacheKey = () => 'building-fresnel-cutout-v3';
-  mat.needsUpdate = true;
-
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uSelectedPos       = uniforms.uSelectedPos;
-    shader.uniforms.uSelectedScreenPos = uniforms.uSelectedScreenPos;
-    shader.uniforms.uGradientRadius    = uniforms.uGradientRadius;
-    shader.uniforms.uHasSelection      = uniforms.uHasSelection;
-
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <common>',
-      '#include <common>\n' + CUTOUT_VERTEX_PREAMBLE,
-    );
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <begin_vertex>',
-      '#include <begin_vertex>\n' + CUTOUT_VERTEX_BODY,
-    );
-
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <common>',
-      '#include <common>\n' + CUTOUT_FRAG_PREAMBLE,
-    );
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <dithering_fragment>',
-      CUTOUT_FRAG_BODY + '\n#include <dithering_fragment>',
-    );
-  };
-  return mat;
-}
 
 // ── Mesh extraction ────────────────────────────────────────────────────
 
@@ -147,31 +43,19 @@ function extractMeshes(scene: THREE.Group): MeshPart[] {
 interface BuildingMeshesProps {
   tiles: Map<string, TileInfo>;
   myPlayerId: string;
-  selectedTile?: TileInfo | null;
 }
 
 function BuildingVariantGLB({
   variant,
   buildings,
-  cutoutUniforms,
 }: {
   variant: ModelVariant;
   buildings: TileInfo[];
-  cutoutUniforms: CutoutUniforms;
 }) {
   const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
   const { scene } = useGLTF(variant.path);
 
   const meshParts = useMemo(() => extractMeshes(scene), [scene]);
-
-  const processedMaterials = useMemo(() => {
-    return meshParts.map(part => {
-      if (Array.isArray(part.material)) {
-        return part.material.map(m => injectCutoutShader(m, cutoutUniforms));
-      }
-      return injectCutoutShader(part.material, cutoutUniforms);
-    });
-  }, [meshParts, cutoutUniforms]);
 
   const bounds = useMemo(() => {
     const box = new THREE.Box3();
@@ -238,7 +122,7 @@ function BuildingVariantGLB({
         <instancedMesh
           key={idx}
           ref={el => { meshRefs.current[idx] = el; }}
-          args={[part.geometry, processedMaterials[idx], maxCount]}
+          args={[part.geometry, part.material, maxCount]}
           castShadow
           receiveShadow
           frustumCulled={false}
@@ -250,44 +134,7 @@ function BuildingVariantGLB({
 
 // ── Main component ─────────────────────────────────────────────────────
 
-export default function BuildingMeshes({ tiles, myPlayerId, selectedTile }: BuildingMeshesProps) {
-  const cutoutUniforms = useMemo<CutoutUniforms>(() => ({
-    uSelectedPos:       { value: new THREE.Vector3(0, 0, 0) },
-    uSelectedScreenPos: { value: new THREE.Vector2(0, 0) },
-    uGradientRadius:    { value: 0 },
-    uHasSelection:      { value: 0 },
-  }), []);
-
-  // Compute selected world position (memoized, changes only on selection)
-  const selectedWorldPos = useMemo(() => {
-    if (!selectedTile?.building_id) return null;
-    const [wx, wz] = tileToWorld(selectedTile.grid_x, selectedTile.grid_y);
-    return new THREE.Vector3(wx + 0.5, 0, wz + 0.5);
-  }, [selectedTile]);
-
-  // Update uniforms every frame — camera may pan/zoom, changing screen projection
-  useFrame(({ camera, size }) => {
-    if (selectedWorldPos) {
-      cutoutUniforms.uSelectedPos.value.copy(selectedWorldPos);
-      cutoutUniforms.uHasSelection.value = 1.0;
-
-      // Project selected building to screen-space (gl_FragCoord coordinates)
-      _projVec.copy(selectedWorldPos);
-      _projVec.project(camera);
-      cutoutUniforms.uSelectedScreenPos.value.set(
-        (_projVec.x * 0.5 + 0.5) * size.width,
-        (_projVec.y * 0.5 + 0.5) * size.height,
-      );
-
-      // Gradient radius: ~2 world units scaled to current zoom
-      const ortho = camera as THREE.OrthographicCamera;
-      const pixelsPerUnit = (size.height * ortho.zoom) / (ortho.top - ortho.bottom);
-      cutoutUniforms.uGradientRadius.value = pixelsPerUnit * 2.0;
-    } else {
-      cutoutUniforms.uHasSelection.value = 0.0;
-    }
-  });
-
+export default function BuildingMeshes({ tiles }: BuildingMeshesProps) {
   const buildingGroups = useMemo(() => {
     const groups: Record<string, { variant: ModelVariant; tiles: TileInfo[] }> = {};
     for (const [, tile] of tiles) {
@@ -312,7 +159,6 @@ export default function BuildingMeshes({ tiles, myPlayerId, selectedTile }: Buil
             key={key}
             variant={group.variant}
             buildings={group.tiles}
-            cutoutUniforms={cutoutUniforms}
           />
         );
       })}

@@ -1,6 +1,8 @@
-// Renders a backface-extruded outline around the selected building.
-// Uses the "inverted hull" technique: slightly scaled-up geometry rendered
-// with BackSide only, producing a visible outline behind the real mesh.
+// Renders effects for the selected building:
+// 1. Gold backface-extruded outline (inverted hull technique)
+// 2. Depth-based reveal — renders with depthFunc: GreaterEqual so the
+//    building shows through any occluding geometry. No dithering, no
+//    shader injection on other materials, pixel-perfect for any height.
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
@@ -31,18 +33,31 @@ const outlineMaterial = new THREE.ShaderMaterial({
   depthWrite: true,
 });
 
-function extractGeometries(scene: THREE.Group): THREE.BufferGeometry[] {
-  const results: THREE.BufferGeometry[] = [];
+interface MeshPart {
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material | THREE.Material[];
+}
+
+function extractMeshParts(scene: THREE.Group): MeshPart[] {
+  const results: MeshPart[] = [];
   scene.traverse((child) => {
     if ((child as THREE.Mesh).isMesh) {
       const mesh = child as THREE.Mesh;
       const geo = mesh.geometry.clone();
       mesh.updateWorldMatrix(true, false);
       geo.applyMatrix4(mesh.matrixWorld);
-      results.push(geo);
+      results.push({ geometry: geo, material: mesh.material });
     }
   });
   return results;
+}
+
+/** Clone a material and configure it for the depth-reveal pass */
+function makeRevealMaterial(original: THREE.Material): THREE.Material {
+  const mat = original.clone();
+  mat.depthFunc = THREE.GreaterEqualDepth;
+  mat.depthWrite = false;
+  return mat;
 }
 
 interface Props {
@@ -63,19 +78,28 @@ function OutlineInner({
   path: string; scale: number; yOffset: number; gridX: number; gridY: number;
 }) {
   const { scene } = useGLTF(path);
-  const geometries = useMemo(
-    () => extractGeometries(scene as unknown as THREE.Group),
+  const meshParts = useMemo(
+    () => extractMeshParts(scene as unknown as THREE.Group),
     [scene],
   );
 
+  const revealMaterials = useMemo(() => {
+    return meshParts.map(part => {
+      if (Array.isArray(part.material)) {
+        return part.material.map(m => makeRevealMaterial(m));
+      }
+      return makeRevealMaterial(part.material);
+    });
+  }, [meshParts]);
+
   const bounds = useMemo(() => {
     const box = new THREE.Box3();
-    geometries.forEach(g => {
-      g.computeBoundingBox();
-      box.union(g.boundingBox!);
+    meshParts.forEach(p => {
+      p.geometry.computeBoundingBox();
+      box.union(p.geometry.boundingBox!);
     });
     return box;
-  }, [geometries]);
+  }, [meshParts]);
 
   const [wx, wz] = useMemo(() => tileToWorld(gridX, gridY), [gridX, gridY]);
 
@@ -104,8 +128,21 @@ function OutlineInner({
       rotation={[0, rotation, 0]}
       scale={[fitScale, fitScale, fitScale]}
     >
-      {geometries.map((geo, idx) => (
-        <mesh key={idx} geometry={geo} material={outlineMaterial} />
+      {/* Gold outline (inverted hull) */}
+      {meshParts.map((part, idx) => (
+        <mesh key={`outline-${idx}`} geometry={part.geometry} material={outlineMaterial} />
+      ))}
+      {/* Reveal pass: renders only where the building is occluded by other geometry.
+          depthFunc: GreaterEqual means fragments only pass where they are BEHIND
+          what's already in the depth buffer — i.e. occluded by blocking buildings.
+          renderOrder 999 ensures this runs after all normal scene geometry. */}
+      {meshParts.map((part, idx) => (
+        <mesh
+          key={`reveal-${idx}`}
+          geometry={part.geometry}
+          material={revealMaterials[idx]}
+          renderOrder={999}
+        />
       ))}
     </group>
   );
