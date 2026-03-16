@@ -166,6 +166,16 @@ export default function TilesScreen() {
 
   const [selectedTile, setSelectedTile] = useState<TileInfo | null>(null);
   const [hoveredTile, setHoveredTile] = useState<TileInfo | null>(null);
+  const [visibleCompanyIds, setVisibleCompanyIds] = useState<Set<string>>(new Set());
+
+  const toggleCompanyVisibility = useCallback((playerId: string) => {
+    setVisibleCompanyIds(prev => {
+      const next = new Set(prev);
+      if (next.has(playerId)) next.delete(playerId);
+      else next.add(playerId);
+      return next;
+    });
+  }, []);
 
   // Clear caches when cityId changes
   useEffect(() => {
@@ -433,9 +443,45 @@ export default function TilesScreen() {
   const [snapCamera, setSnapCamera] = useState(true);
   const [mapReady, setMapReady] = useState(false);
   const focusWorldPos = useMemo<[number, number] | null>(() => {
+    if (visibleCompanyIds.size > 0) {
+      let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+      let count = 0;
+      for (const tile of tiles.values()) {
+        if (visibleCompanyIds.has(tile.owner_player_id) && tile.building_id) {
+          const [wx, wz] = tileToWorld(tile.grid_x, tile.grid_y);
+          minX = Math.min(minX, wx);
+          maxX = Math.max(maxX, wx);
+          minZ = Math.min(minZ, wz);
+          maxZ = Math.max(maxZ, wz);
+          count++;
+        }
+      }
+      if (count > 0) {
+        return [(minX + maxX) / 2, (minZ + maxZ) / 2];
+      }
+    }
     if (!focusTile) return null;
     return tileToWorld(focusTile.grid_x, focusTile.grid_y);
-  }, [focusTile?.tile_id]);
+  }, [focusTile?.tile_id, visibleCompanyIds, tiles]);
+
+  // Bounding box of visible company buildings (world coords) for viewport fitting
+  const focusBounds = useMemo<{ minX: number; maxX: number; minZ: number; maxZ: number } | null>(() => {
+    if (visibleCompanyIds.size === 0) return null;
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    let count = 0;
+    for (const tile of tiles.values()) {
+      if (visibleCompanyIds.has(tile.owner_player_id) && tile.building_id) {
+        const [wx, wz] = tileToWorld(tile.grid_x, tile.grid_y);
+        minX = Math.min(minX, wx);
+        maxX = Math.max(maxX, wx + 1);
+        minZ = Math.min(minZ, wz);
+        maxZ = Math.max(maxZ, wz + 1);
+        count++;
+      }
+    }
+    if (count === 0) return null;
+    return { minX, maxX, minZ, maxZ };
+  }, [visibleCompanyIds, tiles]);
 
   // On first load, center on a player-owned tile (if any)
   useEffect(() => {
@@ -482,7 +528,7 @@ export default function TilesScreen() {
           transition: 'opacity 0.5s ease-in',
         }}
       >
-        <CityScene3D focusWorldPos={focusWorldPos} snapNextFocus={snapCamera} onVisibleBoundsChange={handleVisibleBoundsChange}>
+        <CityScene3D focusWorldPos={focusWorldPos} focusBounds={focusBounds} snapNextFocus={snapCamera} onVisibleBoundsChange={handleVisibleBoundsChange}>
           <TileGrid3D
             tiles={tiles}
             myPlayerId={auth?.player_id ?? ''}
@@ -498,6 +544,7 @@ export default function TilesScreen() {
             tiles={tiles}
             myPlayerId={auth?.player_id ?? ''}
             selectedTile={selectedTile}
+            highlightedPlayerIds={visibleCompanyIds}
           />
           <RoadNetwork3D />
           <TileDecorations />
@@ -543,7 +590,9 @@ export default function TilesScreen() {
             tiles={tiles}
             myPlayerId={auth?.player_id ?? ''}
             onSelectTile={handleCompanyListSelect}
+            onToggleCompanyVisibility={toggleCompanyVisibility}
             selectedTileId={selectedTile?.tile_id}
+            visibleCompanyIds={visibleCompanyIds}
           />
         </div>
 

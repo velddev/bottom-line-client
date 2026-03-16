@@ -7,6 +7,10 @@ import { WORLD_SIZE, worldToTile, GAME_GRID } from './cityGrid';
 interface CityScene3DProps {
   children?: React.ReactNode;
   focusWorldPos?: [number, number] | null;
+  /** Optional zoom level to set when focusing. */
+  focusZoom?: number | null;
+  /** Bounding box of buildings to fit in viewport (world coords). Overrides focusZoom. */
+  focusBounds?: { minX: number; maxX: number; minZ: number; maxZ: number } | null;
   /** If true, the next focusWorldPos change will snap instantly (no animation). */
   snapNextFocus?: boolean;
   /** Called when the visible tile bounds change (debounced). */
@@ -107,15 +111,60 @@ function KeyboardControls({ controlsRef }: { controlsRef: React.RefObject<any> }
 }
 
 /** Smoothly pans camera to a world position when focusWorldPos changes.
- *  If far away (>30 units), snaps most of the way and animates the last bit. */
-function CameraFocus({ controlsRef, focusWorldPos, snap }: { controlsRef: React.RefObject<any>; focusWorldPos?: [number, number] | null; snap?: boolean }) {
-  const { camera, invalidate } = useThree();  const animating = useRef(false);
+ *  If far away (>30 units), snaps most of the way and animates the last bit.
+ *  If focusBounds is provided, computes the zoom to fit all points in the viewport. */
+function CameraFocus({ controlsRef, focusWorldPos, focusZoom, focusBounds, snap }: {
+  controlsRef: React.RefObject<any>;
+  focusWorldPos?: [number, number] | null;
+  focusZoom?: number | null;
+  focusBounds?: { minX: number; maxX: number; minZ: number; maxZ: number } | null;
+  snap?: boolean;
+}) {
+  const { camera, size, invalidate } = useThree();
+  const animating = useRef(false);
   const targetPos = useRef(new THREE.Vector3());
+  const targetZoom = useRef<number | null>(null);
   const prevFocus = useRef<string | null>(null);
 
   useEffect(() => {
     if (!focusWorldPos || !controlsRef.current) return;
-    const key = `${focusWorldPos[0]}_${focusWorldPos[1]}`;
+
+    // Compute zoom from bounds using the camera's actual view matrix
+    let computedZoom = focusZoom ?? null;
+    if (focusBounds && camera instanceof THREE.OrthographicCamera) {
+      const frustum = 30;
+      const aspect = size.width / size.height;
+      // Get the camera's view matrix (without zoom/projection)
+      const viewMatrix = camera.matrixWorldInverse;
+      // Project all 4 corners of the bounding box into view space
+      const corners = [
+        new THREE.Vector3(focusBounds.minX, 0, focusBounds.minZ),
+        new THREE.Vector3(focusBounds.maxX, 0, focusBounds.minZ),
+        new THREE.Vector3(focusBounds.minX, 0, focusBounds.maxZ),
+        new THREE.Vector3(focusBounds.maxX, 0, focusBounds.maxZ),
+        // Include some height for buildings
+        new THREE.Vector3(focusBounds.minX, 3, focusBounds.minZ),
+        new THREE.Vector3(focusBounds.maxX, 3, focusBounds.maxZ),
+      ];
+      let minVX = Infinity, maxVX = -Infinity;
+      let minVY = Infinity, maxVY = -Infinity;
+      for (const c of corners) {
+        const v = c.applyMatrix4(viewMatrix);
+        minVX = Math.min(minVX, v.x);
+        maxVX = Math.max(maxVX, v.x);
+        minVY = Math.min(minVY, v.y);
+        maxVY = Math.max(maxVY, v.y);
+      }
+      const extentX = (maxVX - minVX) / 2;
+      const extentY = (maxVY - minVY) / 2;
+      // Zoom needed to fit: frustum*aspect/zoom >= extentX AND frustum/zoom >= extentY
+      const zoomX = extentX > 0 ? (frustum * aspect) / extentX : 30;
+      const zoomY = extentY > 0 ? frustum / extentY : 30;
+      // Add some padding (0.85 factor)
+      computedZoom = Math.max(2, Math.min(30, Math.min(zoomX, zoomY) * 0.85));
+    }
+
+    const key = `${focusWorldPos[0]}_${focusWorldPos[1]}_${computedZoom ?? ''}`;
     if (key === prevFocus.current) return;
     prevFocus.current = key;
 
@@ -124,9 +173,16 @@ function CameraFocus({ controlsRef, focusWorldPos, snap }: { controlsRef: React.
     const target = controls.target as THREE.Vector3;
     const offset = new THREE.Vector3().subVectors(camera.position, target);
 
+    targetZoom.current = computedZoom;
+
     if (snap) {
       target.copy(dest);
       camera.position.copy(dest).add(offset);
+      if (computedZoom && camera instanceof THREE.OrthographicCamera) {
+        camera.zoom = computedZoom;
+        camera.updateProjectionMatrix();
+      }
+      controls.update();
       invalidate();
       return;
     }
@@ -143,7 +199,7 @@ function CameraFocus({ controlsRef, focusWorldPos, snap }: { controlsRef: React.
     targetPos.current.copy(dest);
     animating.current = true;
     invalidate();
-  }, [focusWorldPos, controlsRef, snap, invalidate]);
+  }, [focusWorldPos, focusZoom, focusBounds, controlsRef, snap, camera, size, invalidate]);
 
   useFrame((_, delta) => {
     if (!animating.current || !controlsRef.current) return;
@@ -158,7 +214,17 @@ function CameraFocus({ controlsRef, focusWorldPos, snap }: { controlsRef: React.
     target.lerp(dest, t);
     camera.position.copy(target).add(offset);
 
-    if (target.distanceTo(dest) < 0.05) {
+    // Animate zoom
+    if (targetZoom.current != null && camera instanceof THREE.OrthographicCamera) {
+      camera.zoom += (targetZoom.current - camera.zoom) * t;
+      if (Math.abs(camera.zoom - targetZoom.current) < 0.05) {
+        camera.zoom = targetZoom.current;
+        targetZoom.current = null;
+      }
+      camera.updateProjectionMatrix();
+    }
+
+    if (target.distanceTo(dest) < 0.05 && targetZoom.current == null) {
       target.copy(dest);
       camera.position.copy(target).add(offset);
       animating.current = false;
@@ -441,7 +507,7 @@ function SceneAnalysisInternal({ targetRef }: { targetRef: React.RefObject<HTMLD
   return null;
 }
 
-export default function CityScene3D({ children, focusWorldPos, snapNextFocus, onVisibleBoundsChange }: CityScene3DProps) {
+export default function CityScene3D({ children, focusWorldPos, focusZoom, focusBounds, snapNextFocus, onVisibleBoundsChange }: CityScene3DProps) {
   const controlsRef = useRef<any>(null);
   const [showFps, setShowFps] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -532,7 +598,7 @@ export default function CityScene3D({ children, focusWorldPos, snapNextFocus, on
       >
         <IsometricCamera />
         <KeyboardControls controlsRef={controlsRef} />
-        <CameraFocus controlsRef={controlsRef} focusWorldPos={focusWorldPos} snap={snapNextFocus} />
+        <CameraFocus controlsRef={controlsRef} focusWorldPos={focusWorldPos} focusZoom={focusZoom} focusBounds={focusBounds} snap={snapNextFocus} />
         {onVisibleBoundsChange && <VisibleBoundsTracker onChange={onVisibleBoundsChange} />}
         {showFps && <FrameCounterInternal targetRef={fpsRef} />}
         {showAnalysis && <SceneAnalysisInternal targetRef={analysisRef} />}
