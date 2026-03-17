@@ -126,6 +126,7 @@ export default function PerformanceScreen() {
   const totalResearch    = sum('research_spend_cents');
   const totalLoanInt     = sum('loan_interest_cents');
   const totalTransport   = sum('transport_fees_cents');
+  const totalUtility     = sum('utility_cost_cents');
   const totalExpenses    = sum('total_expenses_cents');
   const totalProfit      = sum('net_profit_cents');
 
@@ -196,6 +197,7 @@ export default function PerformanceScreen() {
                   <Row label="Research"            value={totalResearch}   indent />
                   <Row label="Loan Interest"       value={totalLoanInt}    indent />
                   <Row label="Transport"           value={totalTransport}  indent />
+                  <Row label="Utility Costs"       value={totalUtility}    indent />
                   <Divider />
                   <Row label="Total Expenses"      value={totalExpenses}   total />
 

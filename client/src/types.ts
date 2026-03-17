@@ -380,6 +380,7 @@ export interface CompanyTickSnapshot {
   net_profit_cents: number;
   balance_before_tick: number;
   balance_after_tick: number;
+  utility_cost_cents: number;
 }
 
 // ── Store Insights ───────────────────────────────────────────────────────
