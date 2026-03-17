@@ -817,7 +817,7 @@ export default function TilesScreen() {
           transition: 'opacity 0.5s ease-in',
         }}
       >
-        <CityScene3D focusWorldPos={focusWorldPos} focusBounds={focusBounds} snapNextFocus={snapCamera} onVisibleBoundsChange={handleVisibleBoundsChange} rotationPivot={rotationPivot}>
+        <CityScene3D focusWorldPos={focusWorldPos} focusBounds={focusBounds} snapNextFocus={snapCamera} onVisibleBoundsChange={handleVisibleBoundsChange} rotationPivot={rotationPivot} onRotationEnd={() => setHoveredTile(null)}>
           <TileGrid3D
             tiles={tiles}
             myPlayerId={auth?.player_id ?? ''}

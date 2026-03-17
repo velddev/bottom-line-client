@@ -17,6 +17,8 @@ interface CityScene3DProps {
   onVisibleBoundsChange?: (bounds: { minX: number; maxX: number; minY: number; maxY: number }) => void;
   /** World-space [x, z] to use as Q/E rotation pivot (e.g. selected tile). */
   rotationPivot?: [number, number] | null;
+  /** Called when a Q/E rotation animation finishes. */
+  onRotationEnd?: () => void;
 }
 
 function IsometricCamera() {
@@ -116,7 +118,7 @@ function KeyboardControls({ controlsRef }: { controlsRef: React.RefObject<any> }
  *  With a selected tile: orbits camera AND lookAt target around the tile,
  *  keeping the tile at its current screen position.
  *  Without: orbits around the ground-plane screen center. */
-function CameraRotation({ controlsRef, rotationPivot }: { controlsRef: React.RefObject<any>; rotationPivot?: [number, number] | null }) {
+function CameraRotation({ controlsRef, rotationPivot, onRotationEnd }: { controlsRef: React.RefObject<any>; rotationPivot?: [number, number] | null; onRotationEnd?: () => void }) {
   const { camera, invalidate } = useThree();
 
   // ISO viewing direction azimuth (updated after each rotation completes)
@@ -196,6 +198,7 @@ function CameraRotation({ controlsRef, rotationPivot }: { controlsRef: React.Ref
           rotCurrent.current = 0;
           rotTarget.current = step;
           animating.current = true;
+          onRotationEnd?.(); // clear stale hover label immediately
         }
         invalidate();
       }
@@ -244,6 +247,7 @@ function CameraRotation({ controlsRef, rotationPivot }: { controlsRef: React.Ref
       animating.current = false;
       rotCurrent.current = 0;
       rotTarget.current = 0;
+      onRotationEnd?.();
     }
 
     invalidate();
@@ -649,7 +653,7 @@ function SceneAnalysisInternal({ targetRef }: { targetRef: React.RefObject<HTMLD
   return null;
 }
 
-export default function CityScene3D({ children, focusWorldPos, focusZoom, focusBounds, snapNextFocus, onVisibleBoundsChange, rotationPivot }: CityScene3DProps) {
+export default function CityScene3D({ children, focusWorldPos, focusZoom, focusBounds, snapNextFocus, onVisibleBoundsChange, rotationPivot, onRotationEnd }: CityScene3DProps) {
   const controlsRef = useRef<any>(null);
   const [showFps, setShowFps] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -740,7 +744,7 @@ export default function CityScene3D({ children, focusWorldPos, focusZoom, focusB
       >
         <IsometricCamera />
         <KeyboardControls controlsRef={controlsRef} />
-        <CameraRotation controlsRef={controlsRef} rotationPivot={rotationPivot} />
+        <CameraRotation controlsRef={controlsRef} rotationPivot={rotationPivot} onRotationEnd={onRotationEnd} />
         <CameraFocus controlsRef={controlsRef} focusWorldPos={focusWorldPos} focusZoom={focusZoom} focusBounds={focusBounds} snap={snapNextFocus} />
         {onVisibleBoundsChange && <VisibleBoundsTracker onChange={onVisibleBoundsChange} />}
         {showFps && <FrameCounterInternal targetRef={fpsRef} />}
