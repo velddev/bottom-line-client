@@ -353,10 +353,10 @@ export default function SupplyVehicles3D({ routes }: Props) {
 
   if (all.length === 0) return null;
 
-  return <VehicleRenderer all={all} />;
+  return <VehicleRenderer all={all} vehiclesByUrl={vehiclesByUrl} />;
 }
 
-function VehicleRenderer({ all }: { all: VehicleEntry[] }) {
+function VehicleRenderer({ all, vehiclesByUrl }: { all: VehicleEntry[]; vehiclesByUrl: Map<VehicleUrl, VehicleEntry[]> }) {
   const { invalidate } = useThree();
 
   // Drive render loop at MIN_FPS when vehicles are on screen
