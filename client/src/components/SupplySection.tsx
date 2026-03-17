@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, X, ChevronDown, ChevronUp, BarChart2 } from 'lucide-react';
+import { Plus, X, ChevronDown, ChevronUp, BarChart2, Droplets } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getBuilding, listRecipes, getSupplyLinks, addSupplyLink,
   removeSupplyLink, listPotentialSuppliers, configureBuilding,
   getAutoSellConfigs, setAutoSellConfig, getBuildingSales,
+  getUtilities,
 } from '../api';
 import type { RecipeInfo, SupplyLinkInfo, PotentialSupplier, SalesTick } from '../types';
 import { fmtMoney, fmtQuality } from '../types';
@@ -172,6 +173,41 @@ function IngredientSupplyRow({
           </div>
       </div>
     </>
+  );
+}
+
+// ── Water utility row (auto-connected, no manual linking) ─────────────────────
+function WaterUtilityRow({
+  quantity,
+  waterRateCents,
+}: {
+  quantity: number;
+  waterRateCents: number | null;
+}) {
+  return (
+    <div className="mb-3">
+      <div className="w-full flex items-center justify-between text-xs font-semibold text-gray-700 mb-1.5">
+        <span className="flex items-center gap-1 capitalize">
+          <Droplets size={12} className="text-cyan-500" />
+          water
+          <span className="text-gray-500 font-normal ml-1">× {quantity} per run</span>
+        </span>
+      </div>
+      <div className="pl-2">
+        <div className="flex items-center gap-1.5 text-xs bg-cyan-100/40 dark:bg-cyan-900/20 rounded px-2 py-1">
+          <span className="text-cyan-500 text-xs">⚡</span>
+          <span className="flex-1 text-gray-700 truncate">
+            City Water Works
+            <span className="text-gray-500 ml-1 font-normal">— utility</span>
+          </span>
+          {waterRateCents !== null && (
+            <span className="font-mono text-xs text-cyan-600 dark:text-cyan-400 shrink-0">
+              {fmtMoney(waterRateCents)}/u
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -382,18 +418,35 @@ function ProductionSupplySection({
   const [activeTypes, setActiveTypes] = useState<string[]>([]);
   const [showPicker, setShowPicker] = useState(false);
 
-  // Pre-populate from existing supply links
+  // Separate water (utility) from other ingredients
+  const waterIngredient = ingredients.find(i => i.resource_type === 'water');
+  const nonWaterIngredients = ingredients.filter(i => i.resource_type !== 'water');
+
+  // Fetch water rate from utilities
+  const { data: utilitiesData } = useQuery({
+    queryKey: ['utilities', cityId],
+    queryFn: () => getUtilities(cityId),
+    staleTime: 60_000,
+    enabled: !!waterIngredient,
+  });
+  const waterRate = utilitiesData?.utilities?.find(
+    (u: { name: string }) => u.name.toLowerCase() === 'water'
+  )?.rate_cents ?? null;
+
+  // Pre-populate from existing supply links (non-water only)
   useEffect(() => {
     const linked = new Set(links.map(l => l.resource_type));
-    const fromLinks = ingredients.filter(i => linked.has(i.resource_type)).map(i => i.resource_type);
+    const fromLinks = ingredients
+      .filter(i => i.resource_type !== 'water' && linked.has(i.resource_type))
+      .map(i => i.resource_type);
     setActiveTypes(prev => {
       const toAdd = fromLinks.filter(r => !prev.includes(r));
       return toAdd.length ? [...prev, ...toAdd] : prev;
     });
   }, [links, ingredients]);
 
-  const remaining = ingredients.filter(i => !activeTypes.includes(i.resource_type));
-  const activeIngredients = ingredients.filter(i => activeTypes.includes(i.resource_type));
+  const remaining = nonWaterIngredients.filter(i => !activeTypes.includes(i.resource_type));
+  const activeIngredients = nonWaterIngredients.filter(i => activeTypes.includes(i.resource_type));
 
   return (
     <div>
@@ -401,6 +454,12 @@ function ProductionSupplySection({
         AUTO-SUPPLY
         <span className="font-normal ml-1 text-gray-600">— buy automatically when production restarts</span>
       </p>
+
+      {/* Water utility row (always shown if recipe uses water) */}
+      {waterIngredient && (
+        <WaterUtilityRow quantity={waterIngredient.quantity} waterRateCents={waterRate} />
+      )}
+
       {activeIngredients.map(ing => (
         <IngredientSupplyRow
           key={ing.resource_type}
@@ -598,6 +657,20 @@ export default function SupplySection({
 
   const links: SupplyLinkInfo[] = supplyLinksResp?.links ?? [];
 
+  // Fetch water rate for cost calculations
+  const hasWaterRecipe = (recipesResp?.recipes ?? []).some(
+    (r: RecipeInfo) => r.ingredients?.some((i: { resource_type: string }) => i.resource_type === 'water')
+  );
+  const { data: utilitiesData } = useQuery({
+    queryKey: ['utilities', cityId],
+    queryFn: () => getUtilities(cityId),
+    staleTime: 60_000,
+    enabled: hasWaterRecipe,
+  });
+  const waterRateCents = utilitiesData?.utilities?.find(
+    (u: { name: string }) => u.name.toLowerCase() === 'water'
+  )?.rate_cents ?? null;
+
   if (!bldg) return <p className="text-gray-600 text-xs animate-pulse">Loading…</p>;
 
   // Stores: only consumer goods have supply chain meaning
@@ -633,7 +706,11 @@ export default function SupplySection({
         </p>
         {(() => {
           // Calculate input cost per run using cheapest linked supplier for each ingredient
+          // Water is priced at the utility rate (not from supply links)
           const costItems = recipe.ingredients.map((ing: { resource_type: string; quantity: number }) => {
+            if (ing.resource_type === 'water') {
+              return { ...ing, cheapestPrice: waterRateCents };
+            }
             const myLinks = links.filter(l => l.resource_type === ing.resource_type && l.supplier_current_price > 0);
             const cheapest = myLinks.length > 0 ? Math.min(...myLinks.map(l => l.supplier_current_price)) : null;
             return { ...ing, cheapestPrice: cheapest };
