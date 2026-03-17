@@ -160,6 +160,7 @@ function FarmGrass({ fieldTiles, cattleTileIds }: { fieldTiles: TileInfo[]; catt
   // Place dirt mounds
   useEffect(() => {
     const mesh = dirtRef.current;
+    if (!mesh || dirtPlacements.length === 0) return;
     for (let i = 0; i < dirtPlacements.length; i++) {
       const p = dirtPlacements[i];
       _m.identity();
@@ -175,6 +176,7 @@ function FarmGrass({ fieldTiles, cattleTileIds }: { fieldTiles: TileInfo[]; catt
 
   useEffect(() => {
     const mesh0 = ref0.current;
+    if (!mesh0 || placements0.length === 0) return;
     for (let i = 0; i < placements0.length; i++) {
       const p = placements0[i];
       _m.identity();
@@ -190,6 +192,7 @@ function FarmGrass({ fieldTiles, cattleTileIds }: { fieldTiles: TileInfo[]; catt
 
   useEffect(() => {
     const mesh1 = ref1.current;
+    if (!mesh1 || placements1.length === 0) return;
     for (let i = 0; i < placements1.length; i++) {
       const p = placements1[i];
       _m.identity();
@@ -203,12 +206,19 @@ function FarmGrass({ fieldTiles, cattleTileIds }: { fieldTiles: TileInfo[]; catt
     invalidate();
   }, [placements1, invalidate]);
 
-  if (cropTiles.length === 0 || !dirtGeo || !geo0 || !geo1) return null;
+  const hasAnything = placements0.length > 0 || placements1.length > 0 || dirtPlacements.length > 0;
+  if (!hasAnything || !geo0 || !geo1) return null;
   return (
     <>
-      <instancedMesh name="FarmDirt" ref={dirtRef} args={[dirtGeo, dirtMat as THREE.Material, dirtPlacements.length]} frustumCulled />
-      <instancedMesh name="FarmGrass" ref={ref0} args={[geo0, mat0 as THREE.Material, placements0.length]} frustumCulled />
-      <instancedMesh name="FarmGrass" ref={ref1} args={[geo1, mat1 as THREE.Material, placements1.length]} frustumCulled />
+      {dirtPlacements.length > 0 && dirtGeo && (
+        <instancedMesh name="FarmDirt" ref={dirtRef} args={[dirtGeo, dirtMat as THREE.Material, dirtPlacements.length]} frustumCulled />
+      )}
+      {placements0.length > 0 && (
+        <instancedMesh name="FarmGrass" ref={ref0} args={[geo0, mat0 as THREE.Material, placements0.length]} frustumCulled />
+      )}
+      {placements1.length > 0 && (
+        <instancedMesh name="FarmGrass" ref={ref1} args={[geo1, mat1 as THREE.Material, placements1.length]} frustumCulled />
+      )}
     </>
   );
 }
@@ -372,7 +382,9 @@ export default function FarmAnimals({ tiles }: Props) {
   const prevCattleKeyRef = useRef('');
   const prevCattleTilesRef = useRef<TileInfo[]>([]);
   const cattleTiles = useMemo(() => {
-    const result = fieldTiles.filter(t => (t.output_type ?? '').toLowerCase() === 'cattle');
+    const result = fieldTiles.filter(t =>
+      (t.building_output_types ?? []).some(o => o.toLowerCase() === 'cattle')
+    );
     const key = result.map(t => t.tile_id).sort().join(',');
     if (key === prevCattleKeyRef.current) return prevCattleTilesRef.current;
     prevCattleKeyRef.current = key;

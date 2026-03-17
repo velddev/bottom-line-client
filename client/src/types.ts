@@ -287,6 +287,7 @@ export interface TileInfo {
   is_government_port: boolean;
   active_recipe: string;          // recipe id currently in use (empty if none)
   output_type: string;            // resource this building produces (empty if no recipe)
+  building_output_types: string[]; // all resource types this building can produce
 }
 
 export interface ListTilesResponse {
