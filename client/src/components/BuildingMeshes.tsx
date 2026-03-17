@@ -33,12 +33,16 @@ interface CutoutUniforms {
   uCutoutProgress:    { value: number };
   uCompanyActive:     { value: number };
   uTime:              { value: number };
+  uCameraDepthDir:    { value: THREE.Vector2 };
+  uCameraLateralDir:  { value: THREE.Vector2 };
 }
 
 const CUTOUT_VERTEX_PREAMBLE = /* glsl */ `
   uniform vec3  uSelectedPos;
   uniform float uHasSelection;
   uniform float uTime;
+  uniform vec2  uCameraDepthDir;
+  uniform vec2  uCameraLateralDir;
   attribute float aCompanyOwned;
   attribute float aUnderConstruction;
   varying float vBlocking;
@@ -54,9 +58,9 @@ const CUTOUT_VERTEX_BODY = /* glsl */ `
   vBlocking = 0.0;
   if (uHasSelection > 0.5) {
     vec3 iPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
-    float iDepth = iPos.x + iPos.z;
-    float sDepth = uSelectedPos.x + uSelectedPos.z;
-    float lateral = abs((iPos.x - iPos.z) - (uSelectedPos.x - uSelectedPos.z));
+    float iDepth = dot(iPos.xz, uCameraDepthDir);
+    float sDepth = dot(uSelectedPos.xz, uCameraDepthDir);
+    float lateral = abs(dot(iPos.xz, uCameraLateralDir) - dot(uSelectedPos.xz, uCameraLateralDir));
     if (iDepth > sDepth + 0.3 && lateral < 4.0) {
       vBlocking = 1.0;
     }
@@ -128,6 +132,8 @@ function injectCutoutShader(original: THREE.Material, uniforms: CutoutUniforms):
     shader.uniforms.uCutoutProgress    = uniforms.uCutoutProgress;
     shader.uniforms.uCompanyActive     = uniforms.uCompanyActive;
     shader.uniforms.uTime              = uniforms.uTime;
+    shader.uniforms.uCameraDepthDir    = uniforms.uCameraDepthDir;
+    shader.uniforms.uCameraLateralDir  = uniforms.uCameraLateralDir;
 
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
@@ -330,6 +336,8 @@ export default function BuildingMeshes({ tiles, selectedTile, highlightedPlayerI
     uCutoutProgress:    { value: 0 },
     uCompanyActive:     { value: 0 },
     uTime:              { value: 0 },
+    uCameraDepthDir:    { value: new THREE.Vector2(1, 1).normalize() },
+    uCameraLateralDir:  { value: new THREE.Vector2(1, -1).normalize() },
   }), []);
 
   // Update company highlight uniform
@@ -353,6 +361,15 @@ export default function BuildingMeshes({ tiles, selectedTile, highlightedPlayerI
     // Update construction animation time
     cutoutUniforms.uTime.value += delta;
     if (hasConstructionRef.current) invalidate();
+
+    // Update camera-relative depth/lateral directions for blocking test
+    const fwd = new THREE.Vector3();
+    camera.getWorldDirection(fwd);
+    const depthDir = cutoutUniforms.uCameraDepthDir.value;
+    const lateralDir = cutoutUniforms.uCameraLateralDir.value;
+    // Negate: fwd points INTO the scene, we need toward-camera so larger = closer
+    depthDir.set(-fwd.x, -fwd.z).normalize();
+    lateralDir.set(fwd.z, -fwd.x).normalize();
 
     const hasSelection = !!selectedTile?.building_id;
     const currentId = selectedTile?.building_id ?? null;

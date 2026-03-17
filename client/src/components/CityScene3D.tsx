@@ -110,7 +110,8 @@ function KeyboardControls({ controlsRef }: { controlsRef: React.RefObject<any> }
   return null;
 }
 
-/** Q / E — rotate the camera 90° around the Y axis, orbiting the controls target */
+/** Q / E — rotate the camera 90° around the Y axis, orbiting the controls target.
+ *  Disables MapControls during animation to avoid internal state conflicts. */
 function CameraRotation({ controlsRef }: { controlsRef: React.RefObject<any> }) {
   const { camera, invalidate } = useThree();
   const targetAzimuth = useRef(Math.PI / 4);
@@ -121,20 +122,39 @@ function CameraRotation({ controlsRef }: { controlsRef: React.RefObject<any> }) 
     const onDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+      const controls = controlsRef.current;
+      if (!controls) return;
       const key = e.key.toLowerCase();
-      if (key === 'q') {
-        targetAzimuth.current -= Math.PI / 2;
-        animating.current = true;
-        invalidate();
-      } else if (key === 'e') {
-        targetAzimuth.current += Math.PI / 2;
+      if (key === 'q' || key === 'e') {
+        // Snap controls.target to ground plane before rotating.
+        // screenSpacePanning drifts target.y off y=0; fix it so the
+        // orbit stays on the correct horizontal plane.
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        if (Math.abs(dir.y) > 1e-6) {
+          const t = -camera.position.y / dir.y;
+          const groundPivot = new THREE.Vector3(
+            camera.position.x + dir.x * t,
+            0,
+            camera.position.z + dir.z * t,
+          );
+          const horizontalDist = ISO_DISTANCE * Math.cos(ISO_ANGLE);
+          const dy = ISO_DISTANCE * Math.sin(ISO_ANGLE);
+          const dx = horizontalDist * Math.sin(currentAzimuth.current);
+          const dz = horizontalDist * Math.cos(currentAzimuth.current);
+          camera.position.set(groundPivot.x + dx, dy, groundPivot.z + dz);
+          controls.target.copy(groundPivot);
+          controls.update();
+        }
+
+        targetAzimuth.current += key === 'q' ? -Math.PI / 2 : Math.PI / 2;
         animating.current = true;
         invalidate();
       }
     };
     window.addEventListener('keydown', onDown);
     return () => window.removeEventListener('keydown', onDown);
-  }, [invalidate]);
+  }, [controlsRef, camera, invalidate]);
 
   useFrame((_, delta) => {
     if (!animating.current) return;
@@ -142,23 +162,33 @@ function CameraRotation({ controlsRef }: { controlsRef: React.RefObject<any> }) 
     if (!controls) return;
 
     const diff = targetAzimuth.current - currentAzimuth.current;
-    if (Math.abs(diff) < 0.001) {
+    const done = Math.abs(diff) < 0.001;
+    if (done) {
       currentAzimuth.current = targetAzimuth.current;
-      animating.current = false;
-      return;
+    } else {
+      const t = 1 - Math.pow(1e-8, Math.min(delta, 1 / 30));
+      currentAzimuth.current += diff * t;
     }
 
-    const t = 1 - Math.pow(0.02, delta);
-    currentAzimuth.current += diff * t;
-
-    const target = controls.target as THREE.Vector3;
+    // Use controls.target (follows mouse panning) projected to y=0
+    const px = controls.target.x;
+    const pz = controls.target.z;
     const dy = ISO_DISTANCE * Math.sin(ISO_ANGLE);
     const horizontalDist = ISO_DISTANCE * Math.cos(ISO_ANGLE);
     const dx = horizontalDist * Math.sin(currentAzimuth.current);
     const dz = horizontalDist * Math.cos(currentAzimuth.current);
 
-    camera.position.set(target.x + dx, target.y + dy, target.z + dz);
-    controls.update();
+    camera.position.set(px + dx, dy, pz + dz);
+    camera.lookAt(px, 0, pz);
+    camera.updateProjectionMatrix();
+
+    if (done) {
+      // Sync MapControls with final camera state
+      controls.target.set(px, 0, pz);
+      controls.update();
+      animating.current = false;
+    }
+
     invalidate();
   });
 
