@@ -4,6 +4,17 @@ import { MapControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { WORLD_SIZE, worldToTile, GAME_GRID } from './cityGrid';
 
+// Module-level temporaries (safe: R3F callbacks are single-threaded)
+const _kbForward = new THREE.Vector3();
+const _kbRight = new THREE.Vector3();
+const _kbPan = new THREE.Vector3();
+const _focusCorner = new THREE.Vector3();
+const _focusOffset = new THREE.Vector3();
+const _focusDest = new THREE.Vector3();
+const _focusDir = new THREE.Vector3();
+const _boundsTarget = new THREE.Vector3();
+const _boundsDir = new THREE.Vector3();
+
 interface CityScene3DProps {
   children?: React.ReactNode;
   focusWorldPos?: [number, number] | null;
@@ -15,6 +26,10 @@ interface CityScene3DProps {
   snapNextFocus?: boolean;
   /** Called when the visible tile bounds change (debounced). */
   onVisibleBoundsChange?: (bounds: { minX: number; maxX: number; minY: number; maxY: number }) => void;
+  /** World-space [x, z] to use as Q/E rotation pivot (e.g. selected tile). */
+  rotationPivot?: [number, number] | null;
+  /** Called when a Q/E rotation animation finishes. */
+  onRotationEnd?: () => void;
 }
 
 function IsometricCamera() {
@@ -65,7 +80,7 @@ function KeyboardControls({ controlsRef }: { controlsRef: React.RefObject<any> }
       window.removeEventListener('keydown', onDown);
       window.removeEventListener('keyup', onUp);
     };
-  }, []);
+  }, [invalidate]);
 
   useFrame((_, delta) => {
     const controls = controlsRef.current;
@@ -87,24 +102,164 @@ function KeyboardControls({ controlsRef }: { controlsRef: React.RefObject<any> }
     const zoom = (camera as THREE.OrthographicCamera).zoom ?? 15;
     const speed = (80 / zoom) * accel * delta;
 
-    const forward = new THREE.Vector3();
-    camera.getWorldDirection(forward);
-    forward.y = 0;
-    forward.normalize();
-    const right = new THREE.Vector3().crossVectors(camera.up, forward).normalize().negate();
+    camera.getWorldDirection(_kbForward);
+    _kbForward.y = 0;
+    _kbForward.normalize();
+    _kbRight.crossVectors(camera.up, _kbForward).normalize().negate();
 
-    const pan = new THREE.Vector3();
+    _kbPan.set(0, 0, 0);
 
-    if (keys.has('w') || keys.has('arrowup')) pan.add(forward.clone().multiplyScalar(speed));
-    if (keys.has('s') || keys.has('arrowdown')) pan.add(forward.clone().multiplyScalar(-speed));
-    if (keys.has('a') || keys.has('arrowleft')) pan.add(right.clone().multiplyScalar(-speed));
-    if (keys.has('d') || keys.has('arrowright')) pan.add(right.clone().multiplyScalar(speed));
+    if (keys.has('w') || keys.has('arrowup')) _kbPan.addScaledVector(_kbForward, speed);
+    if (keys.has('s') || keys.has('arrowdown')) _kbPan.addScaledVector(_kbForward, -speed);
+    if (keys.has('a') || keys.has('arrowleft')) _kbPan.addScaledVector(_kbRight, -speed);
+    if (keys.has('d') || keys.has('arrowright')) _kbPan.addScaledVector(_kbRight, speed);
 
-    if (pan.lengthSq() > 0) {
-      camera.position.add(pan);
-      controls.target.add(pan);
+    if (_kbPan.lengthSq() > 0) {
+      camera.position.add(_kbPan);
+      controls.target.add(_kbPan);
       invalidate();
     }
+  });
+
+  return null;
+}
+
+/** Q / E — rotate the camera 90° around the Y axis.
+ *  With a selected tile: orbits camera AND lookAt target around the tile,
+ *  keeping the tile at its current screen position.
+ *  Without: orbits around the ground-plane screen center. */
+function CameraRotation({ controlsRef, rotationPivot, onRotationEnd }: { controlsRef: React.RefObject<any>; rotationPivot?: [number, number] | null; onRotationEnd?: () => void }) {
+  const { camera, invalidate } = useThree();
+
+  // ISO viewing direction azimuth (updated after each rotation completes)
+  const isoAzimuth = useRef(Math.PI / 4);
+  const animating = useRef(false);
+  const rotationPivotRef = useRef(rotationPivot);
+  rotationPivotRef.current = rotationPivot;
+
+  // Rotation animation state: rotCurrent interpolates from 0 toward rotTarget
+  const rotCurrent = useRef(0);
+  const rotTarget = useRef(0);
+
+  // Captured at the start of a rotation sequence
+  const pivotRef = useRef<[number, number]>([0, 0]);       // point we orbit around
+  const isoBaseRef = useRef(0);                             // ISO azimuth at start
+  const targetOffsetRef = useRef<[number, number]>([0, 0]); // controls.target − pivot
+  const targetYRef = useRef(0);                             // controls.target.y at start
+
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+      const controls = controlsRef.current;
+      if (!controls) return;
+      const key = e.key.toLowerCase();
+      if (key === 'q' || key === 'e') {
+        const step = key === 'q' ? -Math.PI / 2 : Math.PI / 2;
+
+        if (animating.current) {
+          // Already rotating: just extend the target
+          rotTarget.current += step;
+        } else {
+          const pivot = rotationPivotRef.current;
+          if (pivot) {
+            // Tile pivot: capture ISO azimuth relative to controls.target
+            // and the target's offset from the tile.
+            // Preserve target.y (may have drifted via screenSpacePanning)
+            // to avoid a position snap.
+            pivotRef.current = pivot;
+            isoBaseRef.current = Math.atan2(
+              camera.position.x - controls.target.x,
+              camera.position.z - controls.target.z,
+            );
+            targetOffsetRef.current = [
+              controls.target.x - pivot[0],
+              controls.target.z - pivot[1],
+            ];
+            targetYRef.current = controls.target.y;
+          } else {
+            // No tile: use ground-plane screen center as pivot
+            camera.getWorldDirection(_boundsDir);
+            let cx: number, cz: number;
+            if (Math.abs(_boundsDir.y) > 1e-6) {
+              const t = -camera.position.y / _boundsDir.y;
+              cx = camera.position.x + _boundsDir.x * t;
+              cz = camera.position.z + _boundsDir.z * t;
+            } else {
+              cx = controls.target.x;
+              cz = controls.target.z;
+            }
+            pivotRef.current = [cx, cz];
+            isoBaseRef.current = isoAzimuth.current;
+            targetOffsetRef.current = [0, 0];
+            targetYRef.current = 0;
+            // Snap controls.target to ground plane
+            controls.target.set(cx, 0, cz);
+            const h = ISO_DISTANCE * Math.cos(ISO_ANGLE);
+            const dy = ISO_DISTANCE * Math.sin(ISO_ANGLE);
+            camera.position.set(
+              cx + h * Math.sin(isoAzimuth.current), dy,
+              cz + h * Math.cos(isoAzimuth.current),
+            );
+            controls.update();
+          }
+
+          rotCurrent.current = 0;
+          rotTarget.current = step;
+          animating.current = true;
+          onRotationEnd?.(); // clear stale hover label immediately
+        }
+        invalidate();
+      }
+    };
+    window.addEventListener('keydown', onDown);
+    return () => window.removeEventListener('keydown', onDown);
+  }, [controlsRef, camera, invalidate]);
+
+  useFrame((_, delta) => {
+    if (!animating.current) return;
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    const diff = rotTarget.current - rotCurrent.current;
+    const done = Math.abs(diff) < 0.001;
+    if (done) {
+      rotCurrent.current = rotTarget.current;
+    } else {
+      const t = 1 - Math.pow(1e-8, Math.min(delta, 1 / 30));
+      rotCurrent.current += diff * t;
+    }
+
+    const rd = rotCurrent.current;
+    const cosD = Math.cos(rd);
+    const sinD = Math.sin(rd);
+
+    // Rotate the lookAt target around the pivot
+    const [pvX, pvZ] = pivotRef.current;
+    const [offX, offZ] = targetOffsetRef.current;
+    const lookX = pvX + offX * cosD + offZ * sinD;
+    const lookZ = pvZ - offX * sinD + offZ * cosD;
+
+    // Camera at ISO offset from the rotated lookAt target
+    const isoAz = isoBaseRef.current + rd;
+    const lookY = targetYRef.current;
+    const camY = lookY + ISO_DISTANCE * Math.sin(ISO_ANGLE);
+    const h = ISO_DISTANCE * Math.cos(ISO_ANGLE);
+    camera.position.set(lookX + h * Math.sin(isoAz), camY, lookZ + h * Math.cos(isoAz));
+    camera.lookAt(lookX, lookY, lookZ);
+    camera.updateProjectionMatrix();
+
+    if (done) {
+      isoAzimuth.current = isoAz;
+      controls.target.set(lookX, lookY, lookZ);
+      controls.update();
+      animating.current = false;
+      rotCurrent.current = 0;
+      rotTarget.current = 0;
+      onRotationEnd?.();
+    }
+
+    invalidate();
   });
 
   return null;
@@ -136,24 +291,23 @@ function CameraFocus({ controlsRef, focusWorldPos, focusZoom, focusBounds, snap 
       const aspect = size.width / size.height;
       // Get the camera's view matrix (without zoom/projection)
       const viewMatrix = camera.matrixWorldInverse;
-      // Project all 4 corners of the bounding box into view space
-      const corners = [
-        new THREE.Vector3(focusBounds.minX, 0, focusBounds.minZ),
-        new THREE.Vector3(focusBounds.maxX, 0, focusBounds.minZ),
-        new THREE.Vector3(focusBounds.minX, 0, focusBounds.maxZ),
-        new THREE.Vector3(focusBounds.maxX, 0, focusBounds.maxZ),
-        // Include some height for buildings
-        new THREE.Vector3(focusBounds.minX, 3, focusBounds.minZ),
-        new THREE.Vector3(focusBounds.maxX, 3, focusBounds.maxZ),
+      // Project corners of the bounding box into view space (reuse temp vector)
+      const cornerData: [number, number, number][] = [
+        [focusBounds.minX, 0, focusBounds.minZ],
+        [focusBounds.maxX, 0, focusBounds.minZ],
+        [focusBounds.minX, 0, focusBounds.maxZ],
+        [focusBounds.maxX, 0, focusBounds.maxZ],
+        [focusBounds.minX, 3, focusBounds.minZ],
+        [focusBounds.maxX, 3, focusBounds.maxZ],
       ];
       let minVX = Infinity, maxVX = -Infinity;
       let minVY = Infinity, maxVY = -Infinity;
-      for (const c of corners) {
-        const v = c.applyMatrix4(viewMatrix);
-        minVX = Math.min(minVX, v.x);
-        maxVX = Math.max(maxVX, v.x);
-        minVY = Math.min(minVY, v.y);
-        maxVY = Math.max(maxVY, v.y);
+      for (const [cx, cy, cz] of cornerData) {
+        _focusCorner.set(cx, cy, cz).applyMatrix4(viewMatrix);
+        minVX = Math.min(minVX, _focusCorner.x);
+        maxVX = Math.max(maxVX, _focusCorner.x);
+        minVY = Math.min(minVY, _focusCorner.y);
+        maxVY = Math.max(maxVY, _focusCorner.y);
       }
       const extentX = (maxVX - minVX) / 2;
       const extentY = (maxVY - minVY) / 2;
@@ -168,16 +322,16 @@ function CameraFocus({ controlsRef, focusWorldPos, focusZoom, focusBounds, snap 
     if (key === prevFocus.current) return;
     prevFocus.current = key;
 
-    const dest = new THREE.Vector3(focusWorldPos[0] + 0.5, 0, focusWorldPos[1] + 0.5);
+    _focusDest.set(focusWorldPos[0] + 0.5, 0, focusWorldPos[1] + 0.5);
     const controls = controlsRef.current;
     const target = controls.target as THREE.Vector3;
-    const offset = new THREE.Vector3().subVectors(camera.position, target);
+    _focusOffset.subVectors(camera.position, target);
 
     targetZoom.current = computedZoom;
 
     if (snap) {
-      target.copy(dest);
-      camera.position.copy(dest).add(offset);
+      target.copy(_focusDest);
+      camera.position.copy(_focusDest).add(_focusOffset);
       if (computedZoom && camera instanceof THREE.OrthographicCamera) {
         camera.zoom = computedZoom;
         camera.updateProjectionMatrix();
@@ -187,16 +341,16 @@ function CameraFocus({ controlsRef, focusWorldPos, focusZoom, focusBounds, snap 
       return;
     }
 
-    const dist = target.distanceTo(dest);
+    const dist = target.distanceTo(_focusDest);
 
     if (dist > 30) {
-      const dir = new THREE.Vector3().subVectors(dest, target).normalize();
-      const snapTo = dest.clone().sub(dir.multiplyScalar(8));
-      target.copy(snapTo);
-      camera.position.copy(snapTo).add(offset);
+      _focusDir.subVectors(_focusDest, target).normalize();
+      _focusCorner.copy(_focusDest).sub(_focusDir.multiplyScalar(8));
+      target.copy(_focusCorner);
+      camera.position.copy(_focusCorner).add(_focusOffset);
     }
 
-    targetPos.current.copy(dest);
+    targetPos.current.copy(_focusDest);
     animating.current = true;
     invalidate();
   }, [focusWorldPos, focusZoom, focusBounds, controlsRef, snap, camera, size, invalidate]);
@@ -209,10 +363,10 @@ function CameraFocus({ controlsRef, focusWorldPos, focusZoom, focusBounds, snap 
     const dest = targetPos.current;
 
     const t = 1 - Math.pow(0.01, delta);
-    const offset = new THREE.Vector3().subVectors(camera.position, target);
+    _focusOffset.subVectors(camera.position, target);
 
     target.lerp(dest, t);
-    camera.position.copy(target).add(offset);
+    camera.position.copy(target).add(_focusOffset);
 
     // Animate zoom
     if (targetZoom.current != null && camera instanceof THREE.OrthographicCamera) {
@@ -226,7 +380,7 @@ function CameraFocus({ controlsRef, focusWorldPos, focusZoom, focusBounds, snap 
 
     if (target.distanceTo(dest) < 0.05 && targetZoom.current == null) {
       target.copy(dest);
-      camera.position.copy(target).add(offset);
+      camera.position.copy(target).add(_focusOffset);
       animating.current = false;
     }
     invalidate();
@@ -254,22 +408,21 @@ function VisibleBoundsTracker({ onChange }: { onChange: (bounds: { minX: number;
     const halfH = (camera.top - camera.bottom) / (2 * camera.zoom);
 
     // Camera target is where the camera looks at on the ground plane
-    const target = camera.position.clone();
-    const dir = new THREE.Vector3();
-    camera.getWorldDirection(dir);
+    _boundsTarget.copy(camera.position);
+    camera.getWorldDirection(_boundsDir);
 
     // Ray from camera to ground plane (y=0)
-    if (dir.y !== 0) {
-      const t = -target.y / dir.y;
-      target.addScaledVector(dir, t);
+    if (_boundsDir.y !== 0) {
+      const t = -_boundsTarget.y / _boundsDir.y;
+      _boundsTarget.addScaledVector(_boundsDir, t);
     }
 
     // The visible area in world-space (conservative estimate using larger extent)
     const extent = Math.max(halfW, halfH) * 1.5;
-    const minWX = Math.max(0, target.x - extent);
-    const maxWX = Math.min(WORLD_SIZE, target.x + extent);
-    const minWZ = Math.max(0, target.z - extent);
-    const maxWZ = Math.min(WORLD_SIZE, target.z + extent);
+    const minWX = Math.max(0, _boundsTarget.x - extent);
+    const maxWX = Math.min(WORLD_SIZE, _boundsTarget.x + extent);
+    const minWZ = Math.max(0, _boundsTarget.z - extent);
+    const maxWZ = Math.min(WORLD_SIZE, _boundsTarget.z + extent);
 
     // Convert world bounds to tile grid bounds
     const [tMinX, tMinY] = worldToTile(minWX, minWZ);
@@ -306,7 +459,7 @@ function GridGround() {
       {/* Grid lines */}
       <gridHelper
         ref={gridRef}
-        args={[WORLD_SIZE, WORLD_SIZE, '#6b9a60', '#5a8a50']}
+        args={[WORLD_SIZE, 24, '#6b9a60', '#5a8a50']}
       />
     </group>
   );
@@ -507,7 +660,7 @@ function SceneAnalysisInternal({ targetRef }: { targetRef: React.RefObject<HTMLD
   return null;
 }
 
-export default function CityScene3D({ children, focusWorldPos, focusZoom, focusBounds, snapNextFocus, onVisibleBoundsChange }: CityScene3DProps) {
+export default function CityScene3D({ children, focusWorldPos, focusZoom, focusBounds, snapNextFocus, onVisibleBoundsChange, rotationPivot, onRotationEnd }: CityScene3DProps) {
   const controlsRef = useRef<any>(null);
   const [showFps, setShowFps] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -598,6 +751,7 @@ export default function CityScene3D({ children, focusWorldPos, focusZoom, focusB
       >
         <IsometricCamera />
         <KeyboardControls controlsRef={controlsRef} />
+        <CameraRotation controlsRef={controlsRef} rotationPivot={rotationPivot} onRotationEnd={onRotationEnd} />
         <CameraFocus controlsRef={controlsRef} focusWorldPos={focusWorldPos} focusZoom={focusZoom} focusBounds={focusBounds} snap={snapNextFocus} />
         {onVisibleBoundsChange && <VisibleBoundsTracker onChange={onVisibleBoundsChange} />}
         {showFps && <FrameCounterInternal targetRef={fpsRef} />}

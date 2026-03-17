@@ -121,6 +121,8 @@ function pathLength(path: THREE.Vector3[]): number {
 const _seg    = new THREE.Vector3();
 const _outPos = new THREE.Vector3();
 let   _outAngle = 0;
+const _tempMatrix = new THREE.Matrix4();
+const _tempScale = new THREE.Vector3();
 
 function samplePath(path: THREE.Vector3[], dist: number): void {
   let remaining = Math.max(0, dist);
@@ -138,7 +140,8 @@ function samplePath(path: THREE.Vector3[], dist: number): void {
   _outPos.copy(path[path.length - 1]);
 }
 
-// ── Per-vehicle animated mesh ─────────────────────────────────────────────────
+// ── Mesh extraction for instanced rendering ───────────────────────────────────
+
 // Dwell sub-phase fractions (of DWELL_TIME):
 const DPARK_ROT_END  = 0.25; // 0.00–0.25 rotate to park angle
 const DPARK_BACK_END = 0.50; // 0.25–0.50 reverse toward building
@@ -146,111 +149,34 @@ const DPARK_HOLD_END = 0.70; // 0.50–0.70 hold at parked spot
                               // 0.70–1.00 drive forward back to road centre
 const PARK_REVERSE_DIST = 0.45; // units to back toward building from road centre
 
-const _parkVec = new THREE.Vector3(); // reusable temp for parking offset
-
-interface VehicleProps {
-  path: THREE.Vector3[];
-  reversedPath: THREE.Vector3[];
-  totalLen: number;
-  tTravel: number;
-  tripDuration: number;
-  phase: number;
-  parkAngle: number; // rotation angle when backed up to building (rear toward destination tile)
-  scene: THREE.Group;
+interface MeshPart {
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material | THREE.Material[];
 }
 
-function Vehicle({ path, reversedPath, totalLen, tTravel, tripDuration, phase, parkAngle, scene }: VehicleProps) {
-  const groupRef      = useRef<THREE.Group>(null!);
-  const cloned        = useMemo(() => scene.clone(true), [scene]);
-  const dwellPos      = useRef(new THREE.Vector3());
-  const approachAngle = useRef(0);
-
-  // The first point of the reversed path is road centre at the dwell location —
-  // Phase 4 ends here so the return trip begins with no teleport.
-  const returnStart = useMemo(() => reversedPath[0].clone(), [reversedPath]);
-
-  // Departure heading: direction from dwell road-centre (index 0) to the
-  // crossing road-centre (index 2), ignoring the lane-offset midpoint (index 1).
-  const departureAngle = useMemo(() => {
-    if (reversedPath.length < 3) {
-      if (reversedPath.length < 2) return 0;
-      return Math.atan2(reversedPath[1].x - reversedPath[0].x, reversedPath[1].z - reversedPath[0].z);
-    }
-    return Math.atan2(reversedPath[2].x - reversedPath[0].x, reversedPath[2].z - reversedPath[0].z);
-  }, [reversedPath]);
-
-  // Direction the vehicle reverses toward: rear faces building, so back = -front
-  // parkAngle is ±π/2, so sin(parkAngle) = ±1, cos = 0 → reverse is purely in X
-  const reverseDirX = -Math.sin(parkAngle);
-
-  useFrame(({ clock }) => {
-    const group = groupRef.current;
-    if (!group) return;
-
-    const raw    = clock.getElapsedTime() + phase * tripDuration;
-    const cycleT = ((raw % tripDuration) + tripDuration) % tripDuration;
-
-    const T1 = tTravel;
-    const T2 = T1 + DWELL_TIME;
-
-    if (cycleT < T1) {
-      samplePath(path, (cycleT / T1) * totalLen);
-      dwellPos.current.copy(_outPos);
-      approachAngle.current = _outAngle;
-      group.position.copy(_outPos);
-      group.rotation.y = _outAngle;
-    } else if (cycleT < T2) {
-      const dwellFrac = (cycleT - T1) / DWELL_TIME;
-
-      if (dwellFrac < DPARK_ROT_END) {
-        // Phase 1: rotate from approach angle to park angle
-        group.position.copy(dwellPos.current);
-        const t = dwellFrac / DPARK_ROT_END;
-        const smooth = t * t * (3 - 2 * t);
-        const delta = ((parkAngle - approachAngle.current) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
-        group.rotation.y = approachAngle.current + delta * smooth;
-      } else if (dwellFrac < DPARK_BACK_END) {
-        // Phase 2: reverse toward building
-        const t = (dwellFrac - DPARK_ROT_END) / (DPARK_BACK_END - DPARK_ROT_END);
-        const smooth = t * t * (3 - 2 * t);
-        _parkVec.set(reverseDirX * PARK_REVERSE_DIST * smooth, 0, 0);
-        group.position.copy(dwellPos.current).add(_parkVec);
-        group.rotation.y = parkAngle;
-      } else if (dwellFrac < DPARK_HOLD_END) {
-        // Phase 3: hold at parked spot
-        _parkVec.set(reverseDirX * PARK_REVERSE_DIST, 0, 0);
-        group.position.copy(dwellPos.current).add(_parkVec);
-        group.rotation.y = parkAngle;
-      } else {
-        // Phase 4: pull forward from parked spot → return-trip start (road centre),
-        // rotating to departure heading. Ends exactly at reversedPath[0] → no teleport.
-        const t = (dwellFrac - DPARK_HOLD_END) / (1.0 - DPARK_HOLD_END);
-        const smooth = t * t * (3 - 2 * t);
-        const px = dwellPos.current.x + reverseDirX * PARK_REVERSE_DIST;
-        const pz = dwellPos.current.z;
-        group.position.set(
-          px + (returnStart.x - px) * smooth,
-          CAR_Y,
-          pz + (returnStart.z - pz) * smooth,
-        );
-        const delta = ((departureAngle - parkAngle) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
-        group.rotation.y = parkAngle + delta * smooth;
-      }
-    } else {
-      samplePath(reversedPath, ((cycleT - T2) / tTravel) * totalLen);
-      group.position.copy(_outPos);
-      group.rotation.y = _outAngle;
+function extractMeshes(scene: THREE.Group): MeshPart[] {
+  const results: MeshPart[] = [];
+  scene.traverse((child) => {
+    if ((child as THREE.Mesh).isMesh) {
+      const mesh = child as THREE.Mesh;
+      const geo = mesh.geometry.clone();
+      mesh.updateWorldMatrix(true, false);
+      geo.applyMatrix4(mesh.matrixWorld);
+      results.push({ geometry: geo, material: mesh.material });
     }
   });
-
-  return (
-    <group ref={groupRef} scale={VEHICLE_SCALE}>
-      <primitive object={cloned} />
-    </group>
-  );
+  return results;
 }
 
-// ── One component per model URL (fixed count = fixed hooks) ───────────────────
+// ── Per-vehicle animation state ───────────────────────────────────────────────
+
+interface VehicleAnimState {
+  dwellPos: THREE.Vector3;
+  approachAngle: number;
+}
+
+// ── Vehicle entry with precomputed animation data ─────────────────────────────
+
 interface VehicleEntry {
   id: string;
   path: THREE.Vector3[];
@@ -261,25 +187,114 @@ interface VehicleEntry {
   phase: number;
   parkAngle: number;
   modelUrl: VehicleUrl;
+  returnStart: THREE.Vector3;
+  departureAngle: number;
+  reverseDirX: number;
 }
 
-function VehicleGroupByModel({ modelUrl, all }: { modelUrl: VehicleUrl; all: VehicleEntry[] }) {
+// ── Instanced vehicle group per model URL ─────────────────────────────────────
+
+function VehicleGroupByModel({ modelUrl, vehicles }: { modelUrl: VehicleUrl; vehicles: VehicleEntry[] }) {
   const { scene } = useGLTF(modelUrl);
-  const matching  = all.filter((v) => v.modelUrl === modelUrl);
-  if (matching.length === 0) return null;
+  const meshRefs = useRef<(THREE.InstancedMesh | null)[]>([]);
+
+  const meshParts = useMemo(() => extractMeshes(scene as THREE.Group), [scene]);
+
+  const animState = useRef<VehicleAnimState[]>([]);
+  useEffect(() => {
+    animState.current = vehicles.map(() => ({
+      dwellPos: new THREE.Vector3(),
+      approachAngle: 0,
+    }));
+  }, [vehicles]);
+
+  useFrame(({ clock }) => {
+    const count = vehicles.length;
+    if (count === 0 || animState.current.length !== count) return;
+
+    for (let vi = 0; vi < count; vi++) {
+      const v = vehicles[vi];
+      const s = animState.current[vi];
+
+      const raw = clock.getElapsedTime() + v.phase * v.tripDuration;
+      const cycleT = ((raw % v.tripDuration) + v.tripDuration) % v.tripDuration;
+      const T1 = v.tTravel;
+      const T2 = T1 + DWELL_TIME;
+
+      let posX: number, posZ: number, rotY: number;
+
+      if (cycleT < T1) {
+        // Forward travel
+        samplePath(v.path, (cycleT / T1) * v.totalLen);
+        s.dwellPos.copy(_outPos);
+        s.approachAngle = _outAngle;
+        posX = _outPos.x; posZ = _outPos.z;
+        rotY = _outAngle;
+      } else if (cycleT < T2) {
+        const dwellFrac = (cycleT - T1) / DWELL_TIME;
+
+        if (dwellFrac < DPARK_ROT_END) {
+          // Rotate from approach angle to park angle
+          posX = s.dwellPos.x; posZ = s.dwellPos.z;
+          const t = dwellFrac / DPARK_ROT_END;
+          const smooth = t * t * (3 - 2 * t);
+          const delta = ((v.parkAngle - s.approachAngle) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+          rotY = s.approachAngle + delta * smooth;
+        } else if (dwellFrac < DPARK_BACK_END) {
+          // Reverse toward building
+          const t = (dwellFrac - DPARK_ROT_END) / (DPARK_BACK_END - DPARK_ROT_END);
+          const smooth = t * t * (3 - 2 * t);
+          posX = s.dwellPos.x + v.reverseDirX * PARK_REVERSE_DIST * smooth;
+          posZ = s.dwellPos.z;
+          rotY = v.parkAngle;
+        } else if (dwellFrac < DPARK_HOLD_END) {
+          // Hold at parked spot
+          posX = s.dwellPos.x + v.reverseDirX * PARK_REVERSE_DIST;
+          posZ = s.dwellPos.z;
+          rotY = v.parkAngle;
+        } else {
+          // Pull forward to road centre, rotating to departure heading
+          const t = (dwellFrac - DPARK_HOLD_END) / (1.0 - DPARK_HOLD_END);
+          const smooth = t * t * (3 - 2 * t);
+          const px = s.dwellPos.x + v.reverseDirX * PARK_REVERSE_DIST;
+          const pz = s.dwellPos.z;
+          posX = px + (v.returnStart.x - px) * smooth;
+          posZ = pz + (v.returnStart.z - pz) * smooth;
+          const delta = ((v.departureAngle - v.parkAngle) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+          rotY = v.parkAngle + delta * smooth;
+        }
+      } else {
+        // Return travel
+        samplePath(v.reversedPath, ((cycleT - T2) / v.tTravel) * v.totalLen);
+        posX = _outPos.x; posZ = _outPos.z;
+        rotY = _outAngle;
+      }
+
+      _tempMatrix.makeRotationY(rotY);
+      _tempScale.set(VEHICLE_SCALE, VEHICLE_SCALE, VEHICLE_SCALE);
+      _tempMatrix.scale(_tempScale);
+      _tempMatrix.setPosition(posX, CAR_Y, posZ);
+
+      for (const mesh of meshRefs.current) {
+        if (mesh) mesh.setMatrixAt(vi, _tempMatrix);
+      }
+    }
+
+    for (const mesh of meshRefs.current) {
+      if (mesh) mesh.instanceMatrix.needsUpdate = true;
+    }
+  });
+
+  if (vehicles.length === 0 || meshParts.length === 0) return null;
+
   return (
     <>
-      {matching.map((v) => (
-        <Vehicle
-          key={v.id}
-          path={v.path}
-          reversedPath={v.reversedPath}
-          totalLen={v.totalLen}
-          tTravel={v.tTravel}
-          tripDuration={v.tripDuration}
-          phase={v.phase}
-          parkAngle={v.parkAngle}
-          scene={scene as THREE.Group}
+      {meshParts.map((part, idx) => (
+        <instancedMesh
+          key={idx}
+          ref={el => { meshRefs.current[idx] = el; }}
+          args={[part.geometry, part.material as THREE.Material, vehicles.length]}
+          frustumCulled={false}
         />
       ))}
     </>
@@ -307,19 +322,41 @@ export default function SupplyVehicles3D({ routes }: Props) {
       const nearX    = wp[1][0]; // vertical road X (dwell point X)
       const toXctr   = toWorld[0] + 0.5; // destination tile centre X
       const parkAngle = Math.atan2(nearX - toXctr, 0);
+
+      // Precompute per-vehicle animation constants
+      const returnStart = rev[0].clone();
+      const departureAngle = rev.length < 3
+        ? (rev.length < 2 ? 0 : Math.atan2(rev[1].x - rev[0].x, rev[1].z - rev[0].z))
+        : Math.atan2(rev[2].x - rev[0].x, rev[2].z - rev[0].z);
+      const reverseDirX = -Math.sin(parkAngle);
+
       for (let i = 0; i < CARS_PER_LINK; i++) {
-        out.push({ id: `${r.id}-${i}`, path: fwd, reversedPath: rev, totalLen: len, tTravel: tT, tripDuration: trip, phase: i / CARS_PER_LINK, parkAngle, modelUrl: url });
+        out.push({
+          id: `${r.id}-${i}`, path: fwd, reversedPath: rev, totalLen: len,
+          tTravel: tT, tripDuration: trip, phase: i / CARS_PER_LINK, parkAngle,
+          modelUrl: url, returnStart, departureAngle, reverseDirX,
+        });
       }
     });
     return out;
   }, [routes]);
 
+  const vehiclesByUrl = useMemo(() => {
+    const map = new Map<VehicleUrl, VehicleEntry[]>();
+    for (const v of all) {
+      let arr = map.get(v.modelUrl);
+      if (!arr) { arr = []; map.set(v.modelUrl, arr); }
+      arr.push(v);
+    }
+    return map;
+  }, [all]);
+
   if (all.length === 0) return null;
 
-  return <VehicleRenderer all={all} />;
+  return <VehicleRenderer all={all} vehiclesByUrl={vehiclesByUrl} />;
 }
 
-function VehicleRenderer({ all }: { all: VehicleEntry[] }) {
+function VehicleRenderer({ all, vehiclesByUrl }: { all: VehicleEntry[]; vehiclesByUrl: Map<VehicleUrl, VehicleEntry[]> }) {
   const { invalidate } = useThree();
 
   // Drive render loop at MIN_FPS when vehicles are on screen
@@ -330,9 +367,11 @@ function VehicleRenderer({ all }: { all: VehicleEntry[] }) {
 
   return (
     <>
-      {ALL_URLS.map((url) => (
-        <VehicleGroupByModel key={url} modelUrl={url} all={all} />
-      ))}
+      {ALL_URLS.map((url) => {
+        const vehicles = vehiclesByUrl.get(url);
+        if (!vehicles || vehicles.length === 0) return null;
+        return <VehicleGroupByModel key={url} modelUrl={url} vehicles={vehicles} />;
+      })}
     </>
   );
 }

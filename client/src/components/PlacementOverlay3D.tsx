@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { TilePlacementScore } from '../utils/tilePlacement';
 import { tileToWorld, GAME_GRID } from './cityGrid';
@@ -92,6 +92,14 @@ export default function PlacementOverlay3D({ heatmap }: Props) {
     }
     return result;
   }, [tileScores]);
+
+  // Dispose old GPU textures when chunks change or on unmount
+  const prevTexturesRef = useRef<THREE.CanvasTexture[]>([]);
+  useEffect(() => {
+    prevTexturesRef.current.forEach(t => t.dispose());
+    prevTexturesRef.current = chunks.map(c => c.texture);
+    return () => { prevTexturesRef.current.forEach(t => t.dispose()); };
+  }, [chunks]);
 
   return (
     <group>

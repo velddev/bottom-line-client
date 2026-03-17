@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, useState } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
@@ -56,6 +56,7 @@ function mulberry32(seed: number) {
 /* ── Static grass scattered on all field tiles ────────────────── */
 
 const _m = new THREE.Matrix4();
+const _tempScale = new THREE.Vector3();
 
 function extractMesh(scene: THREE.Group) {
   let geo: THREE.BufferGeometry | null = null;
@@ -159,11 +160,12 @@ function FarmGrass({ fieldTiles, cattleTileIds }: { fieldTiles: TileInfo[]; catt
   // Place dirt mounds
   useEffect(() => {
     const mesh = dirtRef.current;
+    if (!mesh || dirtPlacements.length === 0) return;
     for (let i = 0; i < dirtPlacements.length; i++) {
       const p = dirtPlacements[i];
       _m.identity();
       _m.makeRotationY(p.rot);
-      _m.scale(new THREE.Vector3(p.s, p.s, p.s));
+      _m.scale(_tempScale.set(p.s, p.s, p.s));
       _m.setPosition(p.x, p.y, p.z);
       mesh.setMatrixAt(i, _m);
     }
@@ -174,11 +176,12 @@ function FarmGrass({ fieldTiles, cattleTileIds }: { fieldTiles: TileInfo[]; catt
 
   useEffect(() => {
     const mesh0 = ref0.current;
+    if (!mesh0 || placements0.length === 0) return;
     for (let i = 0; i < placements0.length; i++) {
       const p = placements0[i];
       _m.identity();
       _m.makeRotationY(p.rot);
-      _m.scale(new THREE.Vector3(p.s, p.s, p.s));
+      _m.scale(_tempScale.set(p.s, p.s, p.s));
       _m.setPosition(p.x, p.y, p.z);
       mesh0.setMatrixAt(i, _m);
     }
@@ -189,11 +192,12 @@ function FarmGrass({ fieldTiles, cattleTileIds }: { fieldTiles: TileInfo[]; catt
 
   useEffect(() => {
     const mesh1 = ref1.current;
+    if (!mesh1 || placements1.length === 0) return;
     for (let i = 0; i < placements1.length; i++) {
       const p = placements1[i];
       _m.identity();
       _m.makeRotationY(p.rot);
-      _m.scale(new THREE.Vector3(p.s, p.s, p.s));
+      _m.scale(_tempScale.set(p.s, p.s, p.s));
       _m.setPosition(p.x, p.y, p.z);
       mesh1.setMatrixAt(i, _m);
     }
@@ -202,12 +206,19 @@ function FarmGrass({ fieldTiles, cattleTileIds }: { fieldTiles: TileInfo[]; catt
     invalidate();
   }, [placements1, invalidate]);
 
-  if (cropTiles.length === 0 || !dirtGeo || !geo0 || !geo1) return null;
+  const hasAnything = placements0.length > 0 || placements1.length > 0 || dirtPlacements.length > 0;
+  if (!hasAnything || !geo0 || !geo1) return null;
   return (
     <>
-      <instancedMesh name="FarmDirt" ref={dirtRef} args={[dirtGeo, dirtMat as THREE.Material, dirtPlacements.length]} frustumCulled />
-      <instancedMesh name="FarmGrass" ref={ref0} args={[geo0, mat0 as THREE.Material, placements0.length]} frustumCulled />
-      <instancedMesh name="FarmGrass" ref={ref1} args={[geo1, mat1 as THREE.Material, placements1.length]} frustumCulled />
+      {dirtPlacements.length > 0 && dirtGeo && (
+        <instancedMesh name="FarmDirt" ref={dirtRef} args={[dirtGeo, dirtMat as THREE.Material, dirtPlacements.length]} frustumCulled />
+      )}
+      {placements0.length > 0 && (
+        <instancedMesh name="FarmGrass" ref={ref0} args={[geo0, mat0 as THREE.Material, placements0.length]} frustumCulled />
+      )}
+      {placements1.length > 0 && (
+        <instancedMesh name="FarmGrass" ref={ref1} args={[geo1, mat1 as THREE.Material, placements1.length]} frustumCulled />
+      )}
     </>
   );
 }
@@ -275,6 +286,15 @@ function CattleCows({ cattleTiles, cowScene, cowAnimations }: {
     }
 
     return () => {
+      for (const cow of cowsRef.current) {
+        cow.mixer.stopAllAction();
+        cow.mixer.uncacheRoot(cow.scene);
+        cow.scene.traverse((c) => {
+          if ((c as THREE.Mesh).isMesh) {
+            (c as THREE.Mesh).geometry?.dispose();
+          }
+        });
+      }
       while (group.children.length) group.remove(group.children[0]);
       cowsRef.current = [];
     };
@@ -282,11 +302,14 @@ function CattleCows({ cattleTiles, cowScene, cowAnimations }: {
 
   const { invalidate } = useThree();
 
-  // Drive cow animation at ~30 FPS via setInterval (independent of R3F frame loop)
+  // Drive cow animation: 30 FPS when walking, 2 FPS when idle (for timer countdown)
   useEffect(() => {
     if (cattleTiles.length === 0) return;
-    const id = setInterval(() => invalidate(), 1000 / ANIM_FPS);
-    return () => clearInterval(id);
+    const fastId = setInterval(() => {
+      if (cowsRef.current.some(c => c.phase === 'walk')) invalidate();
+    }, 1000 / ANIM_FPS);
+    const slowId = setInterval(() => invalidate(), 500);
+    return () => { clearInterval(fastId); clearInterval(slowId); };
   }, [cattleTiles.length, invalidate]);
 
   useFrame((_, delta) => {
@@ -341,32 +364,32 @@ function CattleCows({ cattleTiles, cowScene, cowAnimations }: {
 
 export default function FarmAnimals({ tiles }: Props) {
   const { scene: cowScene, animations: cowAnimations } = useGLTF(COW_MODEL) as any;
-  const [cattleTiles, setCattleTiles] = useState<TileInfo[]>([]);
 
-  // All field tiles (for grass) — stabilized to prevent unnecessary re-renders
-  const prevFieldKey = useRef('');
-  const [fieldTiles, setFieldTiles] = useState<TileInfo[]>([]);
-  useEffect(() => {
+  // Stable memoization: only returns new array when building IDs actually change
+  const prevFieldKeyRef = useRef('');
+  const prevFieldTilesRef = useRef<TileInfo[]>([]);
+  const fieldTiles = useMemo(() => {
     const fields = tiles.filter(
       (t) => t.building_type?.toLowerCase() === 'field' && t.building_id
     );
     const key = fields.map(t => t.building_id).sort().join(',');
-    if (key !== prevFieldKey.current) {
-      prevFieldKey.current = key;
-      setFieldTiles(fields);
-    }
+    if (key === prevFieldKeyRef.current) return prevFieldTilesRef.current;
+    prevFieldKeyRef.current = key;
+    prevFieldTilesRef.current = fields;
+    return fields;
   }, [tiles]);
 
-  // Identify cattle farms directly from tile output_type
-  const prevCattleKey = useRef('');
-  useEffect(() => {
-    if (fieldTiles.length === 0) { setCattleTiles([]); return; }
-    const result = fieldTiles.filter(t => (t.output_type ?? '').toLowerCase() === 'cattle');
+  const prevCattleKeyRef = useRef('');
+  const prevCattleTilesRef = useRef<TileInfo[]>([]);
+  const cattleTiles = useMemo(() => {
+    const result = fieldTiles.filter(t =>
+      t.building_name?.toLowerCase().startsWith('cattle')
+    );
     const key = result.map(t => t.tile_id).sort().join(',');
-    if (key !== prevCattleKey.current) {
-      prevCattleKey.current = key;
-      setCattleTiles(result);
-    }
+    if (key === prevCattleKeyRef.current) return prevCattleTilesRef.current;
+    prevCattleKeyRef.current = key;
+    prevCattleTilesRef.current = result;
+    return result;
   }, [fieldTiles]);
 
   const cattleTileIds = useMemo(

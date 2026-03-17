@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { getSupplyLinks } from '../api';
 import type { BuildingStatus } from '../types';
@@ -44,5 +45,11 @@ export function useAllPlayerSupplyLinks(buildings: BuildingStatus[]): SupplyRout
     }
   });
 
-  return routes;
+  // Stabilize reference: return same array if route IDs haven't changed
+  const prevRef = useRef<{ key: string; routes: SupplyRoute[] }>({ key: '', routes: [] });
+  const routeKey = routes.map(r => r.id).sort().join(',');
+  if (routeKey !== prevRef.current.key) {
+    prevRef.current = { key: routeKey, routes };
+  }
+  return prevRef.current.routes;
 }

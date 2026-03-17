@@ -84,16 +84,17 @@ function chunkRoads(placements: RoadPlacement[]): Map<string, RoadPlacement[]> {
   return chunks;
 }
 
+const _rotM = new THREE.Matrix4();
+const _posM = new THREE.Matrix4();
+const _mat = new THREE.Matrix4();
+
 /** Set instance matrices with rotation support */
 function applyMatrices(mesh: THREE.InstancedMesh, placements: RoadPlacement[], y: number) {
-  const rotM = new THREE.Matrix4();
-  const posM = new THREE.Matrix4();
-  const mat = new THREE.Matrix4();
   placements.forEach((p, i) => {
-    rotM.makeRotationY(p.rotation);
-    posM.makeTranslation(p.x + 0.5, y, p.z + 0.5);
-    mat.multiplyMatrices(posM, rotM);
-    mesh.setMatrixAt(i, mat);
+    _rotM.makeRotationY(p.rotation);
+    _posM.makeTranslation(p.x + 0.5, y, p.z + 0.5);
+    _mat.multiplyMatrices(_posM, _rotM);
+    mesh.setMatrixAt(i, _mat);
   });
   mesh.instanceMatrix.needsUpdate = true;
   mesh.computeBoundingSphere();

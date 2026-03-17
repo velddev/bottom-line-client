@@ -15,7 +15,7 @@ export default function TileTooltip3D({ hoveredTile, selectedTile }: TileTooltip
   const [wx, wz] = tileToWorld(tile.grid_x, tile.grid_y);
   const x = wx + 0.5;
   const z = wz + 0.5;
-  const y = tile.building_id ? 1.5 : 0.5;
+  const y = tile.building_id ? 1.0 : 0.5;
 
   const icon = tile.building_type
     ? BUILDING_ICONS[tile.building_type.toLowerCase()] ?? '🏢'
@@ -28,6 +28,7 @@ export default function TileTooltip3D({ hoveredTile, selectedTile }: TileTooltip
       distanceFactor={undefined}
       style={{ pointerEvents: 'none' }}
     >
+      <div style={{ transform: 'translateY(-50%)' }}>
       <div className="overlay-panel rounded-lg px-3 py-2 shadow-xl text-xs whitespace-nowrap">
         <div className="flex items-center gap-1.5">
           {icon && <span className="text-sm">{icon}</span>}
@@ -41,6 +42,7 @@ export default function TileTooltip3D({ hoveredTile, selectedTile }: TileTooltip
         {tile.is_for_sale && (
           <p className="text-cyan-400 mt-0.5">{fmtMoney(tile.purchase_price)}</p>
         )}
+      </div>
       </div>
     </Html>
   );
