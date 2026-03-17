@@ -934,7 +934,7 @@ export default function TilesScreen() {
 
         {selectedTile && (
           <Panel
-            className="absolute inset-x-0 bottom-0 max-h-[60vh] md:inset-x-auto md:max-h-none md:top-3 md:right-3 md:bottom-3 md:w-96 z-[1000] shadow-xl rounded-t-2xl md:rounded-t-lg"
+            className="absolute inset-x-0 bottom-0 max-h-[60vh] rounded-b-none rounded-t-2xl animate-slide-up md:animate-none md:inset-x-auto md:max-h-none md:top-3 md:right-3 md:bottom-3 md:w-96 md:rounded-b-lg md:rounded-t-lg z-[1002] md:z-[1000] shadow-xl"
             title={
               hasBuilding
                 ? `${BUILDING_ICONS[selectedTile.building_type?.toLowerCase() ?? ''] ?? '🏢'} ${selectedTile.building_name}`
