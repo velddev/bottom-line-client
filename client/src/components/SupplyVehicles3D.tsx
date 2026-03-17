@@ -153,29 +153,24 @@ function findRoadPath(fromWorld: [number, number], toWorld: [number, number]): [
 
 // ── Lane-offset waypoints ─────────────────────────────────────────────────────
 // Apply right-hand-drive lane offset to road-centre waypoints.
-// Each straight segment gets offset perpendicular to travel direction.
 
 function applyLaneOffset(pts: [number, number][]): THREE.Vector3[] {
   if (pts.length < 2) return pts.map(([x, z]) => new THREE.Vector3(x, CAR_Y, z));
 
   const result: THREE.Vector3[] = [];
-
   for (let i = 0; i < pts.length; i++) {
     const [cx, cz] = pts[i];
-
-    // Determine direction at this point (average of incoming and outgoing)
-    let dx = 0, dz = 0;
+    // Use outgoing direction for offset (or incoming at last point)
+    let dx: number, dz: number;
     if (i < pts.length - 1) {
-      dx += pts[i + 1][0] - cx;
-      dz += pts[i + 1][1] - cz;
-    }
-    if (i > 0) {
-      dx += cx - pts[i - 1][0];
-      dz += cz - pts[i - 1][1];
+      dx = pts[i + 1][0] - cx;
+      dz = pts[i + 1][1] - cz;
+    } else {
+      dx = cx - pts[i - 1][0];
+      dz = cz - pts[i - 1][1];
     }
     const len = Math.sqrt(dx * dx + dz * dz);
     if (len > 0.001) {
-      // Right-hand offset: perpendicular CCW in XZ plane → (-dz, dx)
       const ox = (-dz / len) * LANE_OFFSET;
       const oz = (dx / len) * LANE_OFFSET;
       result.push(new THREE.Vector3(cx + ox, CAR_Y, cz + oz));
@@ -183,17 +178,18 @@ function applyLaneOffset(pts: [number, number][]): THREE.Vector3[] {
       result.push(new THREE.Vector3(cx, CAR_Y, cz));
     }
   }
-
   return result;
 }
 
-// ── Smooth curve from waypoints ───────────────────────────────────────────────
-// Uses CatmullRomCurve3 for smooth turns at intersections.
+// ── Lane-offset + corner-rounded path builder ─────────────────────────────────
+// Instead of CatmullRom (which overshoots at 90° turns), we keep straight
+// segments straight and insert small circular arcs at each corner.
 
-const CURVE_DIVISIONS = 64; // samples per curve for even spacing
+const TURN_RADIUS = 0.3; // world units — how tight the corner rounding is
+const ARC_SEGMENTS = 6;  // segments per 90° arc
 
 interface SmoothPath {
-  points: THREE.Vector3[];   // evenly spaced sample points
+  points: THREE.Vector3[];
   totalLen: number;
 }
 
@@ -201,18 +197,57 @@ function buildSmoothPath(laneWaypoints: THREE.Vector3[]): SmoothPath {
   if (laneWaypoints.length < 2) {
     return { points: laneWaypoints, totalLen: 0 };
   }
-
-  // For 2 points, just use linear
   if (laneWaypoints.length === 2) {
-    const pts = [laneWaypoints[0].clone(), laneWaypoints[1].clone()];
-    return { points: pts, totalLen: laneWaypoints[0].distanceTo(laneWaypoints[1]) };
+    return {
+      points: [laneWaypoints[0].clone(), laneWaypoints[1].clone()],
+      totalLen: laneWaypoints[0].distanceTo(laneWaypoints[1]),
+    };
   }
 
-  const curve = new THREE.CatmullRomCurve3(laneWaypoints, false, 'centripetal', 0.35);
-  const pts = curve.getSpacedPoints(CURVE_DIVISIONS);
+  const result: THREE.Vector3[] = [];
+
+  for (let i = 0; i < laneWaypoints.length; i++) {
+    if (i === 0 || i === laneWaypoints.length - 1) {
+      // Start/end: add as-is
+      result.push(laneWaypoints[i].clone());
+      continue;
+    }
+
+    // Corner point — compute turn arc
+    const prev = laneWaypoints[i - 1];
+    const curr = laneWaypoints[i];
+    const next = laneWaypoints[i + 1];
+
+    const toPrev = new THREE.Vector3().subVectors(prev, curr).normalize();
+    const toNext = new THREE.Vector3().subVectors(next, curr).normalize();
+
+    // Limit radius to not exceed half the segment length
+    const distToPrev = prev.distanceTo(curr);
+    const distToNext = curr.distanceTo(next);
+    const maxR = Math.min(TURN_RADIUS, distToPrev * 0.4, distToNext * 0.4);
+
+    if (maxR < 0.01) {
+      result.push(curr.clone());
+      continue;
+    }
+
+    // Arc start and end points (pull back from corner along each segment)
+    const arcStart = new THREE.Vector3().addVectors(curr, toPrev.clone().multiplyScalar(maxR));
+    const arcEnd = new THREE.Vector3().addVectors(curr, toNext.clone().multiplyScalar(maxR));
+
+    // Interpolate the arc as a series of lerps through the corner
+    for (let s = 0; s <= ARC_SEGMENTS; s++) {
+      const t = s / ARC_SEGMENTS;
+      // Quadratic bezier: start → corner → end
+      const a = new THREE.Vector3().lerpVectors(arcStart, curr, t);
+      const b = new THREE.Vector3().lerpVectors(curr, arcEnd, t);
+      result.push(new THREE.Vector3().lerpVectors(a, b, t));
+    }
+  }
+
   let totalLen = 0;
-  for (let i = 0; i < pts.length - 1; i++) totalLen += pts[i].distanceTo(pts[i + 1]);
-  return { points: pts, totalLen };
+  for (let i = 0; i < result.length - 1; i++) totalLen += result[i].distanceTo(result[i + 1]);
+  return { points: result, totalLen };
 }
 
 // Module-level temporaries (safe: useFrame is single-threaded).
@@ -289,6 +324,7 @@ interface VehicleEntry {
   fwdPoints: THREE.Vector3[];
   revPoints: THREE.Vector3[];
   totalLen: number;
+  revTotalLen: number;
   tTravel: number;
   tripDuration: number;
   phase: number;
@@ -372,7 +408,7 @@ function VehicleGroupByModel({ modelUrl, vehicles }: { modelUrl: VehicleUrl; veh
         }
       } else {
         // Return travel along smooth curve
-        sampleSmoothPath(v.revPoints, v.totalLen, ((cycleT - T2) / v.tTravel) * v.totalLen);
+        sampleSmoothPath(v.revPoints, v.revTotalLen, ((cycleT - T2) / v.tTravel) * v.revTotalLen);
         posX = _outPos.x; posZ = _outPos.z;
         rotY = _outAngle;
       }
@@ -452,7 +488,8 @@ export default function SupplyVehicles3D({ routes }: Props) {
           id: `${r.id}-${i}`,
           fwdPoints: fwd.points,
           revPoints: rev.points,
-          totalLen: len,
+          totalLen: fwd.totalLen,
+          revTotalLen: rev.totalLen,
           tTravel: tT, tripDuration: trip, phase: i / CARS_PER_LINK, parkAngle,
           modelUrl: url, returnStart, departureAngle, reverseDirX,
         });
