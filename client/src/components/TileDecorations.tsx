@@ -15,6 +15,7 @@ function mulberry32(seed: number) {
 }
 
 const _tempMatrix = new THREE.Matrix4();
+const _tempScale = new THREE.Vector3();
 
 interface DecoPlacement {
   wx: number;
@@ -99,7 +100,7 @@ function DecoChunk({
       placements.forEach((p, i) => {
         _tempMatrix.identity();
         _tempMatrix.makeRotationY(p.rotation);
-        _tempMatrix.scale(new THREE.Vector3(p.scale, p.scale, p.scale));
+        _tempMatrix.scale(_tempScale.set(p.scale, p.scale, p.scale));
         _tempMatrix.setPosition(
           p.wx - cx * p.scale,
           -bounds.min.y * p.scale + 0.06,

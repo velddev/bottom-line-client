@@ -56,7 +56,7 @@ interface TileChunkProps {
   hoveredTile: TileInfo | null;
   geometry: THREE.PlaneGeometry;
   material: THREE.MeshStandardMaterial;
-  onTileEvent: (type: 'click' | 'hover' | 'leave', e: any) => void;
+  onTileEvent: (type: 'click' | 'hover' | 'leave', key: string | null) => void;
 }
 
 function TileChunk({
@@ -65,15 +65,22 @@ function TileChunk({
 }: TileChunkProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const tileIndexMap = useRef<Map<number, string>>(new Map());
+  const keyToIdxMap = useRef<Map<string, number>>(new Map());
+  const baseColors = useRef<Float32Array>(new Float32Array(0));
+  const prevSelectedKey = useRef<string | null>(null);
+  const prevHoveredKey = useRef<string | null>(null);
   const { invalidate } = useThree();
 
+  // Full rebuild: matrices + base colors (without selection/hover highlights)
   useEffect(() => {
     const mesh = meshRef.current;
     if (!mesh) return;
 
     tileIndexMap.current.clear();
+    keyToIdxMap.current.clear();
     const minGx = chunkX * RENDER_CHUNK;
     const minGy = chunkY * RENDER_CHUNK;
+    const colors = new Float32Array(TILES_PER_CHUNK * 3);
     let idx = 0;
 
     for (let dy = 0; dy < RENDER_CHUNK; dy++) {
@@ -85,36 +92,24 @@ function TileChunk({
 
         if (tile) {
           tileIndexMap.current.set(idx, key);
+          keyToIdxMap.current.set(key, idx);
           const [wx, wz] = tileToWorld(gx, gy);
           _tempMatrix.identity();
           _tempMatrix.makeRotationX(-Math.PI / 2);
           _tempMatrix.setPosition(wx + TILE_UNIT / 2, 0.01, wz + TILE_UNIT / 2);
           mesh.setMatrixAt(idx, _tempMatrix);
 
-          const isSelected = selectedTile?.tile_id === tile.tile_id;
-          const isHovered = hoveredTile?.tile_id === tile.tile_id;
-
-          if (isSelected) {
-            const base = tileColor(tile, myPlayerId);
-            const brighten = 0.25;
-            _tempColor.setRGB(
-              Math.min(1, base.r + brighten),
-              Math.min(1, base.g + brighten),
-              Math.min(1, base.b + brighten)
-            );
-            mesh.setColorAt(idx, _tempColor);
-          } else if (isHovered) {
-            mesh.setColorAt(idx, COLOR_HOVER);
-          } else {
-            const base = tileColor(tile, myPlayerId);
-            const variation = tileHash(gx, gy) * 0.06 - 0.03;
-            _tempColor.setRGB(
-              Math.min(1, Math.max(0, base.r + variation)),
-              Math.min(1, Math.max(0, base.g + variation * 1.5)),
-              Math.min(1, Math.max(0, base.b + variation * 0.5))
-            );
-            mesh.setColorAt(idx, _tempColor);
-          }
+          const base = tileColor(tile, myPlayerId);
+          const variation = tileHash(gx, gy) * 0.06 - 0.03;
+          _tempColor.setRGB(
+            Math.min(1, Math.max(0, base.r + variation)),
+            Math.min(1, Math.max(0, base.g + variation * 1.5)),
+            Math.min(1, Math.max(0, base.b + variation * 0.5))
+          );
+          mesh.setColorAt(idx, _tempColor);
+          colors[idx * 3] = _tempColor.r;
+          colors[idx * 3 + 1] = _tempColor.g;
+          colors[idx * 3 + 2] = _tempColor.b;
           idx++;
         }
       }
@@ -126,11 +121,66 @@ function TileChunk({
       mesh.setMatrixAt(i, _tempMatrix);
     }
 
+    baseColors.current = colors;
+    prevSelectedKey.current = null;
+    prevHoveredKey.current = null;
+
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
     invalidate();
-  }, [tiles, myPlayerId, selectedTile, hoveredTile, chunkX, chunkY, invalidate]);
+  }, [tiles, myPlayerId, chunkX, chunkY, invalidate]);
+
+  // Lightweight highlight update: only touches 2-4 instance colors
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh || !mesh.instanceColor || baseColors.current.length === 0) return;
+    const colors = baseColors.current;
+
+    const selectedKey = selectedTile ? `${selectedTile.grid_x}_${selectedTile.grid_y}` : null;
+    const hoveredKey = hoveredTile ? `${hoveredTile.grid_x}_${hoveredTile.grid_y}` : null;
+
+    // Revert previous highlights to base color
+    const revert = (key: string | null) => {
+      if (!key) return;
+      const idx = keyToIdxMap.current.get(key);
+      if (idx === undefined) return;
+      _tempColor.fromArray(colors, idx * 3);
+      mesh.setColorAt(idx, _tempColor);
+    };
+
+    if (prevSelectedKey.current !== selectedKey) revert(prevSelectedKey.current);
+    if (prevHoveredKey.current !== hoveredKey) revert(prevHoveredKey.current);
+
+    // Apply new highlights
+    if (selectedKey) {
+      const idx = keyToIdxMap.current.get(selectedKey);
+      if (idx !== undefined) {
+        const tile = tiles.get(selectedKey);
+        if (tile) {
+          const base = tileColor(tile, myPlayerId);
+          _tempColor.setRGB(
+            Math.min(1, base.r + 0.25),
+            Math.min(1, base.g + 0.25),
+            Math.min(1, base.b + 0.25)
+          );
+          mesh.setColorAt(idx, _tempColor);
+        }
+      }
+    }
+    if (hoveredKey && hoveredKey !== selectedKey) {
+      const idx = keyToIdxMap.current.get(hoveredKey);
+      if (idx !== undefined) {
+        mesh.setColorAt(idx, COLOR_HOVER);
+      }
+    }
+
+    prevSelectedKey.current = selectedKey;
+    prevHoveredKey.current = hoveredKey;
+
+    mesh.instanceColor.needsUpdate = true;
+    invalidate();
+  }, [selectedTile, hoveredTile, tiles, myPlayerId, invalidate]);
 
   const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
 
@@ -141,12 +191,12 @@ function TileChunk({
   const handlePointerMove = (e: any) => {
     e.stopPropagation?.();
     if (e.instanceId === undefined) {
-      onTileEvent('leave', e);
+      onTileEvent('leave', null);
       return;
     }
     const key = tileIndexMap.current.get(e.instanceId);
     if (key) {
-      onTileEvent('hover', { ...e, _tileKey: key });
+      onTileEvent('hover', key);
     }
   };
 
@@ -158,12 +208,12 @@ function TileChunk({
       if (dx * dx + dy * dy > 25) return;
     }
     if (e.instanceId === undefined) {
-      onTileEvent('click', { ...e, _tileKey: null });
+      onTileEvent('click', null);
       return;
     }
     const key = tileIndexMap.current.get(e.instanceId);
     if (key) {
-      onTileEvent('click', { ...e, _tileKey: key });
+      onTileEvent('click', key);
     }
   };
 
@@ -214,23 +264,25 @@ export default function TileGrid3D({
     return result;
   }, []);
 
-  const handleTileEvent = useCallback((type: 'click' | 'hover' | 'leave', e: any) => {
+  const selectedTileRef = useRef(selectedTile);
+  selectedTileRef.current = selectedTile;
+
+  const handleTileEvent = useCallback((type: 'click' | 'hover' | 'leave', key: string | null) => {
     if (type === 'leave') {
       onHover(null);
       return;
     }
-    const key: string | null = e?._tileKey ?? null;
     if (type === 'hover') {
       onHover(key ? tiles.get(key) ?? null : null);
     } else {
       const tile = key ? tiles.get(key) ?? null : null;
       if (tile) {
-        onSelect(selectedTile?.tile_id === tile.tile_id ? null : tile);
+        onSelect(selectedTileRef.current?.tile_id === tile.tile_id ? null : tile);
       } else {
         onSelect(null);
       }
     }
-  }, [tiles, selectedTile, onSelect, onHover]);
+  }, [tiles, onSelect, onHover]);
 
   return (
     <>

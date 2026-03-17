@@ -15,6 +15,7 @@ import {
 const _tempMatrix = new THREE.Matrix4();
 const _tempScale = new THREE.Vector3();
 const _projVec = new THREE.Vector3();
+const _fwd = new THREE.Vector3();
 
 // Preload all variant models
 ALL_MODEL_PATHS.forEach(p => useGLTF.preload(p));
@@ -202,32 +203,26 @@ function BuildingVariantGLB({
 
   const meshParts = useMemo(() => extractMeshes(scene), [scene]);
 
-  // Clone geometries so each component instance has independent attribute storage
-  // (useGLTF caches the model, so shared geometries would overwrite each other's aCompanyOwned)
-  const clonedParts = useMemo(() =>
-    meshParts.map(part => ({ ...part, geometry: part.geometry.clone() })),
-  [meshParts]);
-
   const processedMaterials = useMemo(() => {
-    return clonedParts.map(part => {
+    return meshParts.map(part => {
       if (Array.isArray(part.material)) {
         return part.material.map(m => injectCutoutShader(m, cutoutUniforms));
       }
       return injectCutoutShader(part.material, cutoutUniforms);
     });
-  }, [clonedParts, cutoutUniforms]);
+  }, [meshParts, cutoutUniforms]);
 
   const bounds = useMemo(() => {
     const box = new THREE.Box3();
-    clonedParts.forEach(p => {
+    meshParts.forEach(p => {
       p.geometry.computeBoundingBox();
       box.union(p.geometry.boundingBox!);
     });
     return box;
-  }, [clonedParts]);
+  }, [meshParts]);
 
   useEffect(() => {
-    if (clonedParts.length === 0) return;
+    if (meshParts.length === 0) return;
 
     const modelWidth = bounds.max.x - bounds.min.x;
     const modelDepth = bounds.max.z - bounds.min.z;
@@ -301,22 +296,21 @@ function BuildingVariantGLB({
       mesh.computeBoundingSphere();
     });
     invalidate();
-  }, [buildings, variant, clonedParts, bounds, highlightedPlayerIds, invalidate]);
+  }, [buildings, variant, meshParts, bounds, highlightedPlayerIds, invalidate]);
 
-  if (clonedParts.length === 0) return null;
+  if (meshParts.length === 0) return null;
 
   const maxCount = Math.max(buildings.length, 1);
 
   return (
     <group>
-      {clonedParts.map((part, idx) => (
+      {meshParts.map((part, idx) => (
         <instancedMesh
           key={idx}
           ref={el => { meshRefs.current[idx] = el; }}
           args={[part.geometry, processedMaterials[idx], maxCount]}
           castShadow
           receiveShadow
-          frustumCulled={false}
         />
       ))}
     </group>
@@ -363,13 +357,12 @@ export default function BuildingMeshes({ tiles, selectedTile, highlightedPlayerI
     if (hasConstructionRef.current) invalidate();
 
     // Update camera-relative depth/lateral directions for blocking test
-    const fwd = new THREE.Vector3();
-    camera.getWorldDirection(fwd);
+    camera.getWorldDirection(_fwd);
     const depthDir = cutoutUniforms.uCameraDepthDir.value;
     const lateralDir = cutoutUniforms.uCameraLateralDir.value;
     // Negate: fwd points INTO the scene, we need toward-camera so larger = closer
-    depthDir.set(-fwd.x, -fwd.z).normalize();
-    lateralDir.set(fwd.z, -fwd.x).normalize();
+    depthDir.set(-_fwd.x, -_fwd.z).normalize();
+    lateralDir.set(_fwd.z, -_fwd.x).normalize();
 
     const hasSelection = !!selectedTile?.building_id;
     const currentId = selectedTile?.building_id ?? null;
