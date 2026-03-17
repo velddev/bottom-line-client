@@ -15,6 +15,8 @@ interface CityScene3DProps {
   snapNextFocus?: boolean;
   /** Called when the visible tile bounds change (debounced). */
   onVisibleBoundsChange?: (bounds: { minX: number; maxX: number; minY: number; maxY: number }) => void;
+  /** World-space [x, z] to use as Q/E rotation pivot (e.g. selected tile). */
+  rotationPivot?: [number, number] | null;
 }
 
 function IsometricCamera() {
@@ -110,13 +112,15 @@ function KeyboardControls({ controlsRef }: { controlsRef: React.RefObject<any> }
   return null;
 }
 
-/** Q / E — rotate the camera 90° around the Y axis, orbiting the controls target.
- *  Disables MapControls during animation to avoid internal state conflicts. */
-function CameraRotation({ controlsRef }: { controlsRef: React.RefObject<any> }) {
+/** Q / E — rotate the camera 90° around the Y axis, orbiting the selected
+ *  tile (if any) or the screen center on the ground plane. */
+function CameraRotation({ controlsRef, rotationPivot }: { controlsRef: React.RefObject<any>; rotationPivot?: [number, number] | null }) {
   const { camera, invalidate } = useThree();
   const targetAzimuth = useRef(Math.PI / 4);
   const currentAzimuth = useRef(Math.PI / 4);
   const animating = useRef(false);
+  const rotationPivotRef = useRef(rotationPivot);
+  rotationPivotRef.current = rotationPivot;
 
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
@@ -126,26 +130,34 @@ function CameraRotation({ controlsRef }: { controlsRef: React.RefObject<any> }) 
       if (!controls) return;
       const key = e.key.toLowerCase();
       if (key === 'q' || key === 'e') {
-        // Snap controls.target to ground plane before rotating.
-        // screenSpacePanning drifts target.y off y=0; fix it so the
-        // orbit stays on the correct horizontal plane.
-        const dir = new THREE.Vector3();
-        camera.getWorldDirection(dir);
-        if (Math.abs(dir.y) > 1e-6) {
-          const t = -camera.position.y / dir.y;
-          const groundPivot = new THREE.Vector3(
-            camera.position.x + dir.x * t,
-            0,
-            camera.position.z + dir.z * t,
-          );
-          const horizontalDist = ISO_DISTANCE * Math.cos(ISO_ANGLE);
-          const dy = ISO_DISTANCE * Math.sin(ISO_ANGLE);
-          const dx = horizontalDist * Math.sin(currentAzimuth.current);
-          const dz = horizontalDist * Math.cos(currentAzimuth.current);
-          camera.position.set(groundPivot.x + dx, dy, groundPivot.z + dz);
-          controls.target.copy(groundPivot);
-          controls.update();
+        // Determine pivot: use selected tile if available, else ground-plane
+        // projection of camera center (fixes screenSpacePanning y-drift).
+        const pivot = rotationPivotRef.current;
+        let px: number, pz: number;
+        if (pivot) {
+          px = pivot[0];
+          pz = pivot[1];
+        } else {
+          const dir = new THREE.Vector3();
+          camera.getWorldDirection(dir);
+          if (Math.abs(dir.y) > 1e-6) {
+            const t = -camera.position.y / dir.y;
+            px = camera.position.x + dir.x * t;
+            pz = camera.position.z + dir.z * t;
+          } else {
+            px = controls.target.x;
+            pz = controls.target.z;
+          }
         }
+
+        // Snap camera + controls.target to this pivot
+        const horizontalDist = ISO_DISTANCE * Math.cos(ISO_ANGLE);
+        const dy = ISO_DISTANCE * Math.sin(ISO_ANGLE);
+        const dx = horizontalDist * Math.sin(currentAzimuth.current);
+        const dz = horizontalDist * Math.cos(currentAzimuth.current);
+        camera.position.set(px + dx, dy, pz + dz);
+        controls.target.set(px, 0, pz);
+        controls.update();
 
         targetAzimuth.current += key === 'q' ? -Math.PI / 2 : Math.PI / 2;
         animating.current = true;
@@ -170,9 +182,10 @@ function CameraRotation({ controlsRef }: { controlsRef: React.RefObject<any> }) 
       currentAzimuth.current += diff * t;
     }
 
-    // Use controls.target (follows mouse panning) projected to y=0
-    const px = controls.target.x;
-    const pz = controls.target.z;
+    // Pivot: use selected tile position if available, else controls.target on y=0
+    const rp = rotationPivotRef.current;
+    const px = rp ? rp[0] : controls.target.x;
+    const pz = rp ? rp[1] : controls.target.z;
     const dy = ISO_DISTANCE * Math.sin(ISO_ANGLE);
     const horizontalDist = ISO_DISTANCE * Math.cos(ISO_ANGLE);
     const dx = horizontalDist * Math.sin(currentAzimuth.current);
@@ -592,7 +605,7 @@ function SceneAnalysisInternal({ targetRef }: { targetRef: React.RefObject<HTMLD
   return null;
 }
 
-export default function CityScene3D({ children, focusWorldPos, focusZoom, focusBounds, snapNextFocus, onVisibleBoundsChange }: CityScene3DProps) {
+export default function CityScene3D({ children, focusWorldPos, focusZoom, focusBounds, snapNextFocus, onVisibleBoundsChange, rotationPivot }: CityScene3DProps) {
   const controlsRef = useRef<any>(null);
   const [showFps, setShowFps] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -683,7 +696,7 @@ export default function CityScene3D({ children, focusWorldPos, focusZoom, focusB
       >
         <IsometricCamera />
         <KeyboardControls controlsRef={controlsRef} />
-        <CameraRotation controlsRef={controlsRef} />
+        <CameraRotation controlsRef={controlsRef} rotationPivot={rotationPivot} />
         <CameraFocus controlsRef={controlsRef} focusWorldPos={focusWorldPos} focusZoom={focusZoom} focusBounds={focusBounds} snap={snapNextFocus} />
         {onVisibleBoundsChange && <VisibleBoundsTracker onChange={onVisibleBoundsChange} />}
         {showFps && <FrameCounterInternal targetRef={fpsRef} />}

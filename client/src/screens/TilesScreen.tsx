@@ -723,6 +723,14 @@ export default function TilesScreen() {
   const initialFocusDone = useRef(false);
   const [snapCamera, setSnapCamera] = useState(true);
   const [mapReady, setMapReady] = useState(false);
+
+  // Q/E rotation pivot: rotate around the center of the selected tile
+  const rotationPivot = useMemo<[number, number] | null>(() => {
+    if (!selectedTile) return null;
+    const [wx, wz] = tileToWorld(selectedTile.grid_x, selectedTile.grid_y);
+    return [wx + 0.5, wz + 0.5];
+  }, [selectedTile?.grid_x, selectedTile?.grid_y]);
+
   const focusWorldPos = useMemo<[number, number] | null>(() => {
     if (visibleCompanyIds.size > 0) {
       let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -809,7 +817,7 @@ export default function TilesScreen() {
           transition: 'opacity 0.5s ease-in',
         }}
       >
-        <CityScene3D focusWorldPos={focusWorldPos} focusBounds={focusBounds} snapNextFocus={snapCamera} onVisibleBoundsChange={handleVisibleBoundsChange}>
+        <CityScene3D focusWorldPos={focusWorldPos} focusBounds={focusBounds} snapNextFocus={snapCamera} onVisibleBoundsChange={handleVisibleBoundsChange} rotationPivot={rotationPivot}>
           <TileGrid3D
             tiles={tiles}
             myPlayerId={auth?.player_id ?? ''}
