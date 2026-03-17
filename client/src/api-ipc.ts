@@ -21,7 +21,20 @@ declare global {
 }
 
 function invoke<T>(channel: string, data?: unknown): Promise<T> {
-  return window.electronAPI!.invoke(channel, data) as Promise<T>;
+  return (window.electronAPI!.invoke(channel, data) as Promise<T>).catch((err) => {
+    const msg = (err as Error)?.message ?? '';
+    if (/invalid.*(api.?key|token)|unauthenticated/i.test(msg)) {
+      // Dynamic import to avoid circular dependency
+      import('./api-http').then(m => {
+        const cb = (m as { setOnAuthFailure?: (cb: () => void) => void }).setOnAuthFailure;
+        // Fallback: clear storage directly
+        localStorage.removeItem('bottomline_auth');
+        localStorage.removeItem('api_key');
+        window.location.reload();
+      });
+    }
+    throw err;
+  });
 }
 
 function apiKey(): string {

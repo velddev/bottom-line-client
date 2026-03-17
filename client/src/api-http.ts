@@ -23,6 +23,12 @@ function getApiBase(): string {
 
 const BASE = getApiBase();
 
+// Global auth-failure callback — set by AuthProvider to trigger logout on 401/403.
+let onAuthFailure: (() => void) | null = null;
+
+/** Register a callback invoked when the server rejects the API key. */
+export function setOnAuthFailure(cb: () => void) { onAuthFailure = cb; }
+
 function headers(): HeadersInit {
   const key = localStorage.getItem('api_key') ?? '';
   return {
@@ -41,7 +47,14 @@ async function req<T>(method: string, path: string, body?: unknown, params?: Rec
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error ?? 'Request failed');
+    const message = err.error ?? err.message ?? 'Request failed';
+
+    // Invalid/expired API key → boot to login
+    if (res.status === 401 || res.status === 403 || /invalid.*(api.?key|token)/i.test(message)) {
+      onAuthFailure?.();
+    }
+
+    throw new Error(message);
   }
   return normalizeResponse(await res.json()) as T;
 }

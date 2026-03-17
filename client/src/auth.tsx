@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { setOnAuthFailure } from './api-http';
 
 export interface Auth {
   player_id: string;
@@ -42,6 +43,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('api_key');
     setAuth(null);
   }, []);
+
+  // Boot to login screen when the server rejects the API key.
+  useEffect(() => {
+    setOnAuthFailure(logout);
+    return () => setOnAuthFailure(() => {});
+  }, [logout]);
 
   return (
     <AuthContext.Provider value={{ auth, login, logout }}>
