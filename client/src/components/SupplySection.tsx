@@ -161,7 +161,7 @@ function IngredientSupplyRow({
             {/* Add supplier button */}
             <button
               onClick={() => setShowPicker(true)}
-              className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors mt-0.5"
+              className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors mt-1"
             >
               <Plus size={11} />
               <span>Add supplier</span>
@@ -269,7 +269,7 @@ function StoreSupplySection({
         <div className="relative inline-block">
           <button
             onClick={() => setShowPicker(p => !p)}
-            className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors mt-1"
+            className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors mt-1"
           >
             <Plus size={11} />
             <span>Add item</span>
@@ -411,7 +411,7 @@ function ProductionSupplySection({
         <div className="relative inline-block mt-1">
           <button
             onClick={() => setShowPicker(p => !p)}
-            className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+            className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors"
           >
             <Plus size={11} />
             <span>Add ingredient</span>
@@ -511,7 +511,7 @@ function StoreAnalyticsPanel({ buildingId }: { buildingId: string }) {
     <div className="mt-4 border-t border-gray-200 pt-3">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+        className="flex items-center gap-1.5 text-xs bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-1.5 rounded-lg transition-colors font-medium"
       >
         <BarChart2 size={11} />
         <span>Performance</span>

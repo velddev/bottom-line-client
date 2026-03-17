@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, Package } from 'lucide-react';
+import { Settings, Package, Link, BarChart2 } from 'lucide-react';
+import Tabs from '../components/ui/Tabs';
 import { useAuth } from '../auth';
 import {
   listTiles, purchaseTile, listCities,
-  constructBuilding, configureBuilding, listRecipes, getInventory,
+  constructBuilding, configureBuilding, listRecipes, getInventory, getBuilding,
   listBuildings,
 } from '../api';
 import type { TileInfo, RecipeInfo, BuildingStatus, CityInfo } from '../types';
@@ -142,6 +143,122 @@ function InventoryModal({ buildingId, buildingName, onClose }: { buildingId: str
         </table>
       )}
     </Modal>
+  );
+}
+
+// ── Inline config tab ──────────────────────────────────────────────────────────
+function InlineConfig({ buildingId, buildingType }: { buildingId: string; buildingType: string }) {
+  const qc = useQueryClient();
+  const { data: bldg } = useQuery({ queryKey: ['building', buildingId], queryFn: () => getBuilding(buildingId) });
+  const { data: recipesResp } = useQuery({
+    queryKey: ['recipes', buildingType],
+    queryFn: () => listRecipes(buildingType),
+    enabled: !!buildingType,
+    staleTime: 300_000,
+  });
+  const [form, setForm] = useState({ recipe_id: '', workers_assigned: 1 });
+
+  // Sync form with current building data
+  useEffect(() => {
+    if (bldg) {
+      setForm({ recipe_id: bldg.active_recipe ?? '', workers_assigned: bldg.workers ?? 1 });
+    }
+  }, [bldg?.active_recipe, bldg?.workers]);
+
+  const mut = useMutation({
+    mutationFn: () => configureBuilding(buildingId, form.recipe_id, form.workers_assigned),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['building', buildingId] });
+      qc.invalidateQueries({ queryKey: ['buildings'] });
+    },
+  });
+
+  const selectedRecipe = (recipesResp?.recipes ?? []).find((r: RecipeInfo) => r.recipe_id === form.recipe_id);
+  if (!bldg) return <p className="text-gray-500 text-xs animate-pulse">Loading…</p>;
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Recipe</label>
+        <select
+          value={form.recipe_id}
+          onChange={(e) => setForm((f) => ({ ...f, recipe_id: e.target.value }))}
+          className="w-full bg-gray-100 border border-gray-300 text-gray-900 text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-indigo-500"
+        >
+          <option value="">— None —</option>
+          {(recipesResp?.recipes ?? []).map((r: RecipeInfo) => (
+            <option key={r.recipe_id} value={r.recipe_id}>{r.name} ({r.output_type}, {r.ticks_required}d)</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Workers</label>
+        <input
+          type="number"
+          min={0}
+          value={form.workers_assigned}
+          onChange={(e) => setForm((f) => ({ ...f, workers_assigned: parseInt(e.target.value) || 0 }))}
+          className="w-full bg-gray-100 border border-gray-300 text-gray-900 text-xs rounded px-2.5 py-1.5 font-mono focus:outline-none focus:border-indigo-500"
+        />
+      </div>
+
+      {selectedRecipe && (
+        <div className="bg-gray-100 rounded-lg p-3 text-xs space-y-1 border border-gray-200">
+          <p className="text-gray-700">Output: <span className="text-gray-900 font-medium">{selectedRecipe.output_min}–{selectedRecipe.output_max} {selectedRecipe.output_type}</span></p>
+          <p className="text-gray-700">Needs: {selectedRecipe.ingredients.map((i) => `${i.quantity}× ${i.resource_type}`).join(', ') || 'none'}</p>
+        </div>
+      )}
+
+      <button
+        onClick={() => mut.mutate()}
+        disabled={mut.isPending}
+        className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium py-2 rounded-lg transition-colors"
+      >
+        {mut.isPending ? 'Saving…' : 'Save Configuration'}
+      </button>
+      {mut.isError && <p className="text-rose-400 text-xs">{(mut.error as Error).message}</p>}
+      {mut.isSuccess && <p className="text-emerald-400 text-xs">✓ Saved</p>}
+    </div>
+  );
+}
+
+// ── Inline stock tab ──────────────────────────────────────────────────────────
+function InlineStock({ buildingId }: { buildingId: string }) {
+  const { data } = useQuery({ queryKey: ['inventory', buildingId], queryFn: () => getInventory(buildingId), refetchInterval: 30_000 });
+
+  if (!data) return <p className="text-gray-500 text-xs animate-pulse">Loading inventory…</p>;
+  if (data.items.length === 0) {
+    return (
+      <div className="text-center py-6">
+        <p className="text-2xl mb-2">📦</p>
+        <p className="text-gray-500 text-xs">No items in stock</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-gray-500 border-b border-gray-300">
+            {['Resource', 'Qty', 'Quality', 'Brand'].map((h) => (
+              <th key={h} className="text-left py-2 pr-3 font-medium text-[10px] uppercase tracking-wider">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.items.map((item, i) => (
+            <tr key={i} className="border-b border-gray-200 hover:bg-gray-100/40 transition-colors">
+              <td className="py-2 pr-3 text-gray-900 capitalize font-medium">{item.resource_type}</td>
+              <td className="py-2 pr-3 font-mono text-gray-700">{item.quantity.toFixed(1)}</td>
+              <td className="py-2 pr-3 font-mono text-gray-700">{item.quality.toFixed(2)}</td>
+              <td className="py-2 text-gray-500">{item.brand_id || '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -350,9 +467,6 @@ export default function TilesScreen() {
     onError: (err) => setFlash({ ok: false, msg: (err as Error).message }),
   });
 
-  const [configTarget, setConfigTarget] = useState<TileInfo | null>(null);
-  const [invTarget, setInvTarget] = useState<TileInfo | null>(null);
-
   // ── Placement mode ──────────────────────────────────────────────────────────
   const [activeBuildType, setActiveBuildType] = useState<BuildingCategory | null>(null);
   const [placementTarget, setPlacementTarget] = useState<TileInfo | null>(null);
@@ -414,7 +528,7 @@ export default function TilesScreen() {
     return () => window.removeEventListener('keydown', onKey);
   }, [activeBuildType]);
 
-  const [activeTab, setActiveTab] = useState<'supply' | 'info'>('supply');
+  const [activeTab, setActiveTab] = useState<'supply' | 'config' | 'stock'>('supply');
   useEffect(() => { setActiveTab('supply'); }, [selectedTile?.tile_id]);
 
   const isMine = !!selectedTile && selectedTile.owner_player_id === auth?.player_id;
@@ -613,7 +727,7 @@ export default function TilesScreen() {
 
         {selectedTile && (
           <Panel
-            className="absolute top-3 right-3 w-80 max-h-[calc(100%-1.5rem)] z-[1000]"
+            className="absolute top-3 right-3 bottom-3 w-96 z-[1000] shadow-xl"
             title={
               hasBuilding
                 ? `${BUILDING_ICONS[selectedTile.building_type?.toLowerCase() ?? ''] ?? '🏢'} ${selectedTile.building_name}`
@@ -621,34 +735,34 @@ export default function TilesScreen() {
             }
             onClose={() => { setSelectedTile(null); setShowBuildForm(false); }}
             subheader={
-              <div className="text-xs text-gray-600 flex items-center gap-2">
-                <span className="truncate">{selectedTile.owner_name || 'Unowned'}</span>
-                {isMine && hasBuilding && <StatusBadge status={selectedTile.building_status} />}
-                {isMine && hasBuilding && selectedTile.building_status === 'UnderConstruction' && constructionTicksRemaining > 0 && (
-                  <EtaCountdown ticks={constructionTicksRemaining} nextTickAt={nextTickAt} />
-                )}
-                {isMine && hasBuilding && selectedTile.building_status === 'Producing' && productionTicksRemaining > 0 && (
-                  <EtaCountdown ticks={productionTicksRemaining} nextTickAt={nextTickAt} className="text-emerald-500 text-xs font-mono" />
-                )}
-                {selectedTile.is_for_sale && (
-                  <span className="text-cyan-400 shrink-0">{fmtMoney(selectedTile.purchase_price)}</span>
+              <div className="flex flex-col gap-1.5">
+                <div className="text-xs text-gray-600 flex items-center gap-2">
+                  <span className="truncate">{selectedTile.owner_name || 'Unowned'}</span>
+                  {isMine && hasBuilding && <StatusBadge status={selectedTile.building_status} />}
+                  {isMine && hasBuilding && selectedTile.building_status === 'UnderConstruction' && constructionTicksRemaining > 0 && (
+                    <EtaCountdown ticks={constructionTicksRemaining} nextTickAt={nextTickAt} />
+                  )}
+                  {isMine && hasBuilding && selectedTile.building_status === 'Producing' && productionTicksRemaining > 0 && (
+                    <EtaCountdown ticks={productionTicksRemaining} nextTickAt={nextTickAt} className="text-emerald-500 text-xs font-mono" />
+                  )}
+                  {selectedTile.is_for_sale && (
+                    <span className="text-cyan-400 shrink-0">{fmtMoney(selectedTile.purchase_price)}</span>
+                  )}
+                </div>
+                {isMine && hasBuilding && !isGovBuilding && !isResidential && (
+                  <Tabs
+                    tabs={[
+                      { value: 'supply' as const, label: <span className="flex items-center gap-1"><Link size={11} /> Supply</span> },
+                      { value: 'config' as const, label: <span className="flex items-center gap-1"><Settings size={11} /> Config</span> },
+                      { value: 'stock' as const, label: <span className="flex items-center gap-1"><Package size={11} /> Stock</span> },
+                    ]}
+                    value={activeTab}
+                    onChange={setActiveTab}
+                  />
                 )}
               </div>
             }
-            footer={
-              isMine && hasBuilding && !isGovBuilding ? (
-                <div className="flex gap-2">
-                  <button onClick={() => setConfigTarget(selectedTile)}
-                    className="flex-1 flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-1.5 rounded transition-colors">
-                    <Settings size={12} /> Config
-                  </button>
-                  <button onClick={() => setInvTarget(selectedTile)}
-                    className="flex-1 flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-1.5 rounded transition-colors">
-                    <Package size={12} /> Stock
-                  </button>
-                </div>
-              ) : undefined
-            }
+            bodyClassName="p-4 space-y-3 flex-1 overflow-y-auto"
           >
             {/* Purchase */}
             {selectedTile.is_for_sale && auth && (
@@ -695,8 +809,8 @@ export default function TilesScreen() {
               )
             )}
 
-            {/* Building supply section */}
-            {isMine && hasBuilding && !isGovBuilding && (
+            {/* ── Tab: Supply ─────────────────────────────────────────────── */}
+            {isMine && hasBuilding && !isGovBuilding && activeTab === 'supply' && (
               <SupplySection
                 buildingId={selectedTile.building_id}
                 buildingType={selectedTile.building_type?.toLowerCase() ?? ''}
@@ -704,19 +818,17 @@ export default function TilesScreen() {
               />
             )}
 
-            {isMine && hasBuilding && !isGovBuilding && activeTab === 'info' && (
-              <div className="space-y-2 text-xs">
-                <p className="text-gray-700">Type: <span className="text-gray-900 capitalize">{selectedTile.building_type?.toLowerCase()}</span></p>
-                <p className="text-gray-700 flex items-center gap-2">
-                  Status: <StatusBadge status={selectedTile.building_status} />
-                  {selectedTile.building_status === 'UnderConstruction' && constructionTicksRemaining > 0 && (
-                    <span className="text-gray-500">ready in <EtaCountdown ticks={constructionTicksRemaining} nextTickAt={nextTickAt} /></span>
-                  )}
-                  {selectedTile.building_status === 'Producing' && productionTicksRemaining > 0 && (
-                    <span className="text-gray-500">done in <EtaCountdown ticks={productionTicksRemaining} nextTickAt={nextTickAt} className="text-emerald-500 text-xs font-mono" /></span>
-                  )}
-                </p>
-              </div>
+            {/* ── Tab: Config ─────────────────────────────────────────────── */}
+            {isMine && hasBuilding && !isGovBuilding && activeTab === 'config' && (
+              <InlineConfig
+                buildingId={selectedTile.building_id}
+                buildingType={selectedTile.building_type?.toLowerCase() ?? ''}
+              />
+            )}
+
+            {/* ── Tab: Stock ──────────────────────────────────────────────── */}
+            {isMine && hasBuilding && !isGovBuilding && activeTab === 'stock' && (
+              <InlineStock buildingId={selectedTile.building_id} />
             )}
 
             {/* Government landmark — politics panel */}
@@ -755,23 +867,6 @@ export default function TilesScreen() {
         )}
     </div>
 
-      {configTarget?.building_id && (
-        <ConfigureModal
-          buildingId={configTarget.building_id}
-          buildingType={configTarget.building_type?.toLowerCase() ?? ''}
-          buildingName={configTarget.building_name}
-          currentRecipe=""
-          currentWorkers={1}
-          onClose={() => setConfigTarget(null)}
-        />
-      )}
-      {invTarget?.building_id && (
-        <InventoryModal
-          buildingId={invTarget.building_id}
-          buildingName={invTarget.building_name}
-          onClose={() => setInvTarget(null)}
-        />
-      )}
       {placementTarget && activeBuildType && (
         <BuildConfirmDialog
           tile={placementTarget}
