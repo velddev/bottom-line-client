@@ -62,7 +62,7 @@ export interface IApiService {
   getSupplyLinks(buildingId: string): Promise<{ links: SupplyLinkInfo[] }>;
   addSupplyLink(buildingId: string, resourceType: string, supplierBuildingId: string): Promise<{ supply_link_id: string }>;
   removeSupplyLink(linkId: string): Promise<{ success: boolean }>;
-  listPotentialSuppliers(cityId: string, resourceType: string): Promise<{ suppliers: PotentialSupplier[] }>;
+  listPotentialSuppliers(cityId: string, resourceType: string, buildingId?: string): Promise<{ suppliers: PotentialSupplier[] }>;
   getAutoSellConfigs(buildingId: string): Promise<{ configs: AutoSellConfigInfo[] }>;
   setAutoSellConfig(buildingId: string, resource_type: string, price_per_unit: number, is_enabled: boolean): Promise<{ success: boolean }>;
   getBuildingSales(buildingId: string, historyTicks?: number): Promise<GetBuildingSalesResponse>;

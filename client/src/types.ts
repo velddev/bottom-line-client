@@ -345,6 +345,8 @@ export interface PotentialSupplier {
   owner_name: string;
   price_per_unit: number;
   quantity_available: number;
+  transport_cost_per_unit: number;
+  distance_tiles: number;
 }
 
 export interface AutoSellConfigInfo {

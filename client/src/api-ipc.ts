@@ -224,9 +224,9 @@ export function createIpcApi(): IApiService {
     removeSupplyLink: (linkId) =>
       invoke<{ success: boolean }>('api:removeSupplyLink', { supply_link_id: linkId, apiKey: apiKey() }),
 
-    listPotentialSuppliers: (cityId, resourceType) =>
+    listPotentialSuppliers: (cityId, resourceType, buildingId) =>
       invoke<{ suppliers: PotentialSupplier[] }>('api:listPotentialSuppliers', {
-        city_id: cityId, resource_type: resourceType, apiKey: apiKey(),
+        city_id: cityId, resource_type: resourceType, building_id: buildingId ?? '', apiKey: apiKey(),
       }),
 
     getAutoSellConfigs: (buildingId) =>

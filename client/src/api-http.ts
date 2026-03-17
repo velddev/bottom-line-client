@@ -354,9 +354,12 @@ export function createHttpApi(): IApiService {
     removeSupplyLink: (linkId) =>
       del<{ success: boolean }>(`/supply-links/${linkId}`),
 
-    listPotentialSuppliers: (cityId, resourceType) =>
-      get<{ suppliers: PotentialSupplier[] }>(
-        `/cities/${cityId}/suppliers/${enumVal(RESOURCE_TYPE, resourceType) ?? resourceType}`),
+    listPotentialSuppliers: (cityId, resourceType, buildingId) => {
+      const rtVal = enumVal(RESOURCE_TYPE, resourceType) ?? resourceType;
+      const qs = buildingId ? `?building_id=${buildingId}` : '';
+      return get<{ suppliers: PotentialSupplier[] }>(
+        `/cities/${cityId}/suppliers/${rtVal}${qs}`);
+    },
 
     getAutoSellConfigs: (buildingId) =>
       get<{ configs: AutoSellConfigInfo[] }>(`/buildings/${buildingId}/auto-sell`),

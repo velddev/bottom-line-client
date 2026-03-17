@@ -27,8 +27,8 @@ function SupplierPickerModal({
   const qc = useQueryClient();
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['potential-suppliers', cityId, resourceType],
-    queryFn: () => listPotentialSuppliers(cityId, resourceType),
+    queryKey: ['potential-suppliers', cityId, resourceType, buildingId],
+    queryFn: () => listPotentialSuppliers(cityId, resourceType, buildingId),
     staleTime: 30_000,
     retry: false,
   });
@@ -70,11 +70,14 @@ function SupplierPickerModal({
                 <div>
                   <p className="text-gray-900 text-xs font-medium">{s.building_name}</p>
                   <p className="text-gray-500 text-xs">
-                    {s.owner_name} · ({s.tile_x},{s.tile_y})
+                    {s.owner_name} · {s.distance_tiles > 0 ? `${s.distance_tiles.toFixed(0)} tiles` : `(${s.tile_x},${s.tile_y})`}
                   </p>
                 </div>
                 <div className="text-right shrink-0 ml-2">
                   <p className="text-emerald-400 text-xs font-mono">{fmtMoney(s.price_per_unit)}/u</p>
+                  {s.transport_cost_per_unit > 0 && (
+                    <p className="text-amber-500 text-xs font-mono">+{fmtMoney(s.transport_cost_per_unit)} transport</p>
+                  )}
                   <p className="text-gray-500 text-xs">{s.quantity_available.toFixed(0)} avail</p>
                 </div>
               </div>
