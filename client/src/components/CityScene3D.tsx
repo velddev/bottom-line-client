@@ -112,15 +112,28 @@ function KeyboardControls({ controlsRef }: { controlsRef: React.RefObject<any> }
   return null;
 }
 
-/** Q / E — rotate the camera 90° around the Y axis, orbiting the selected
- *  tile (if any) or the screen center on the ground plane. */
+/** Q / E — rotate the camera 90° around the Y axis.
+ *  With a selected tile: orbits camera AND lookAt target around the tile,
+ *  keeping the tile at its current screen position.
+ *  Without: orbits around the ground-plane screen center. */
 function CameraRotation({ controlsRef, rotationPivot }: { controlsRef: React.RefObject<any>; rotationPivot?: [number, number] | null }) {
   const { camera, invalidate } = useThree();
-  const targetAzimuth = useRef(Math.PI / 4);
-  const currentAzimuth = useRef(Math.PI / 4);
+
+  // ISO viewing direction azimuth (updated after each rotation completes)
+  const isoAzimuth = useRef(Math.PI / 4);
   const animating = useRef(false);
   const rotationPivotRef = useRef(rotationPivot);
   rotationPivotRef.current = rotationPivot;
+
+  // Rotation animation state: rotCurrent interpolates from 0 toward rotTarget
+  const rotCurrent = useRef(0);
+  const rotTarget = useRef(0);
+
+  // Captured at the start of a rotation sequence
+  const pivotRef = useRef<[number, number]>([0, 0]);       // point we orbit around
+  const isoBaseRef = useRef(0);                             // ISO azimuth at start
+  const targetOffsetRef = useRef<[number, number]>([0, 0]); // controls.target − pivot
+  const targetYRef = useRef(0);                             // controls.target.y at start
 
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
@@ -130,37 +143,60 @@ function CameraRotation({ controlsRef, rotationPivot }: { controlsRef: React.Ref
       if (!controls) return;
       const key = e.key.toLowerCase();
       if (key === 'q' || key === 'e') {
-        // Determine pivot: use selected tile if available, else ground-plane
-        // projection of camera center (fixes screenSpacePanning y-drift).
-        const pivot = rotationPivotRef.current;
-        let px: number, pz: number;
-        if (pivot) {
-          px = pivot[0];
-          pz = pivot[1];
+        const step = key === 'q' ? -Math.PI / 2 : Math.PI / 2;
+
+        if (animating.current) {
+          // Already rotating: just extend the target
+          rotTarget.current += step;
         } else {
-          const dir = new THREE.Vector3();
-          camera.getWorldDirection(dir);
-          if (Math.abs(dir.y) > 1e-6) {
-            const t = -camera.position.y / dir.y;
-            px = camera.position.x + dir.x * t;
-            pz = camera.position.z + dir.z * t;
+          const pivot = rotationPivotRef.current;
+          if (pivot) {
+            // Tile pivot: capture ISO azimuth relative to controls.target
+            // and the target's offset from the tile.
+            // Preserve target.y (may have drifted via screenSpacePanning)
+            // to avoid a position snap.
+            pivotRef.current = pivot;
+            isoBaseRef.current = Math.atan2(
+              camera.position.x - controls.target.x,
+              camera.position.z - controls.target.z,
+            );
+            targetOffsetRef.current = [
+              controls.target.x - pivot[0],
+              controls.target.z - pivot[1],
+            ];
+            targetYRef.current = controls.target.y;
           } else {
-            px = controls.target.x;
-            pz = controls.target.z;
+            // No tile: use ground-plane screen center as pivot
+            const dir = new THREE.Vector3();
+            camera.getWorldDirection(dir);
+            let cx: number, cz: number;
+            if (Math.abs(dir.y) > 1e-6) {
+              const t = -camera.position.y / dir.y;
+              cx = camera.position.x + dir.x * t;
+              cz = camera.position.z + dir.z * t;
+            } else {
+              cx = controls.target.x;
+              cz = controls.target.z;
+            }
+            pivotRef.current = [cx, cz];
+            isoBaseRef.current = isoAzimuth.current;
+            targetOffsetRef.current = [0, 0];
+            targetYRef.current = 0;
+            // Snap controls.target to ground plane
+            controls.target.set(cx, 0, cz);
+            const h = ISO_DISTANCE * Math.cos(ISO_ANGLE);
+            const dy = ISO_DISTANCE * Math.sin(ISO_ANGLE);
+            camera.position.set(
+              cx + h * Math.sin(isoAzimuth.current), dy,
+              cz + h * Math.cos(isoAzimuth.current),
+            );
+            controls.update();
           }
+
+          rotCurrent.current = 0;
+          rotTarget.current = step;
+          animating.current = true;
         }
-
-        // Snap camera + controls.target to this pivot
-        const horizontalDist = ISO_DISTANCE * Math.cos(ISO_ANGLE);
-        const dy = ISO_DISTANCE * Math.sin(ISO_ANGLE);
-        const dx = horizontalDist * Math.sin(currentAzimuth.current);
-        const dz = horizontalDist * Math.cos(currentAzimuth.current);
-        camera.position.set(px + dx, dy, pz + dz);
-        controls.target.set(px, 0, pz);
-        controls.update();
-
-        targetAzimuth.current += key === 'q' ? -Math.PI / 2 : Math.PI / 2;
-        animating.current = true;
         invalidate();
       }
     };
@@ -173,33 +209,41 @@ function CameraRotation({ controlsRef, rotationPivot }: { controlsRef: React.Ref
     const controls = controlsRef.current;
     if (!controls) return;
 
-    const diff = targetAzimuth.current - currentAzimuth.current;
+    const diff = rotTarget.current - rotCurrent.current;
     const done = Math.abs(diff) < 0.001;
     if (done) {
-      currentAzimuth.current = targetAzimuth.current;
+      rotCurrent.current = rotTarget.current;
     } else {
       const t = 1 - Math.pow(1e-8, Math.min(delta, 1 / 30));
-      currentAzimuth.current += diff * t;
+      rotCurrent.current += diff * t;
     }
 
-    // Pivot: use selected tile position if available, else controls.target on y=0
-    const rp = rotationPivotRef.current;
-    const px = rp ? rp[0] : controls.target.x;
-    const pz = rp ? rp[1] : controls.target.z;
-    const dy = ISO_DISTANCE * Math.sin(ISO_ANGLE);
-    const horizontalDist = ISO_DISTANCE * Math.cos(ISO_ANGLE);
-    const dx = horizontalDist * Math.sin(currentAzimuth.current);
-    const dz = horizontalDist * Math.cos(currentAzimuth.current);
+    const rd = rotCurrent.current;
+    const cosD = Math.cos(rd);
+    const sinD = Math.sin(rd);
 
-    camera.position.set(px + dx, dy, pz + dz);
-    camera.lookAt(px, 0, pz);
+    // Rotate the lookAt target around the pivot
+    const [pvX, pvZ] = pivotRef.current;
+    const [offX, offZ] = targetOffsetRef.current;
+    const lookX = pvX + offX * cosD + offZ * sinD;
+    const lookZ = pvZ - offX * sinD + offZ * cosD;
+
+    // Camera at ISO offset from the rotated lookAt target
+    const isoAz = isoBaseRef.current + rd;
+    const lookY = targetYRef.current;
+    const camY = lookY + ISO_DISTANCE * Math.sin(ISO_ANGLE);
+    const h = ISO_DISTANCE * Math.cos(ISO_ANGLE);
+    camera.position.set(lookX + h * Math.sin(isoAz), camY, lookZ + h * Math.cos(isoAz));
+    camera.lookAt(lookX, lookY, lookZ);
     camera.updateProjectionMatrix();
 
     if (done) {
-      // Sync MapControls with final camera state
-      controls.target.set(px, 0, pz);
+      isoAzimuth.current = isoAz;
+      controls.target.set(lookX, lookY, lookZ);
       controls.update();
       animating.current = false;
+      rotCurrent.current = 0;
+      rotTarget.current = 0;
     }
 
     invalidate();
