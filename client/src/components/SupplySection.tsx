@@ -504,12 +504,14 @@ function AutoSellRow({ buildingId, resourceType }: { buildingId: string; resourc
   const config = (data?.configs ?? []).find((c: { resource_type: string }) => c.resource_type === resourceType);
   const [price, setPrice] = useState('');
 
-  // Sync price from server once loaded
+  // Sync price from server when building/resource changes or data loads
   useEffect(() => {
-    if (config?.price_per_unit != null && price === '') {
+    if (config?.price_per_unit != null) {
       setPrice((config.price_per_unit / 100).toFixed(2));
+    } else {
+      setPrice('');
     }
-  }, [config?.price_per_unit]);
+  }, [config?.price_per_unit, buildingId, resourceType]);
 
   const mut = useMutation({
     mutationFn: ({ enabled, priceCents }: { enabled: boolean; priceCents: number }) =>
