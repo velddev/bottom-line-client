@@ -64,6 +64,7 @@ function Row({ label, value, indent, total, colorBySign, dim }: {
   label: string; value: number;
   indent?: boolean; total?: boolean; colorBySign?: boolean; dim?: boolean;
 }) {
+  if (value === 0 && !total) return null;
   const labelCls = total
     ? 'font-semibold text-gray-900'
     : dim ? 'text-gray-500' : indent ? 'text-gray-700 pl-4' : 'text-gray-700';
