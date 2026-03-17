@@ -102,13 +102,20 @@
 ::-webkit-scrollbar-thumb  { background: rgb(var(--gray-300)); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgb(var(--gray-400)); }
 
-/* ── Mobile bottom sheet slide-up ──────────────────────────────────────── */
-@keyframes slide-up {
-  from { transform: translateY(100%); opacity: 0; }
+/* ── Mobile bottom sheet animations ────────────────────────────────────── */
+@keyframes sheet-in {
+  from { transform: translateY(12px); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
 }
-.animate-slide-up {
-  animation: slide-up 0.25s ease-out both;
+@keyframes sheet-out {
+  from { transform: translateY(0);    opacity: 1; }
+  to   { transform: translateY(12px); opacity: 0; }
+}
+.animate-sheet-in {
+  animation: sheet-in 0.2s ease-out both;
+}
+.animate-sheet-out {
+  animation: sheet-out 0.15s ease-in both;
 }
 
 /* ── Leaflet overrides ──────────────────────────────────────────────────── */

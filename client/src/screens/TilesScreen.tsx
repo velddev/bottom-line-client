@@ -452,6 +452,30 @@ export default function TilesScreen() {
   const [hoveredTile, setHoveredTile] = useState<TileInfo | null>(null);
   const [visibleCompanyIds, setVisibleCompanyIds] = useState<Set<string>>(new Set());
 
+  // Panel close animation: keep panel mounted during exit animation
+  const [panelClosing, setPanelClosing] = useState(false);
+  const panelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [displayedTile, setDisplayedTile] = useState<TileInfo | null>(null);
+
+  // When selectedTile changes, manage enter/exit states
+  useEffect(() => {
+    if (panelTimeoutRef.current) {
+      clearTimeout(panelTimeoutRef.current);
+      panelTimeoutRef.current = null;
+    }
+    if (selectedTile) {
+      setPanelClosing(false);
+      setDisplayedTile(selectedTile);
+    } else if (displayedTile) {
+      setPanelClosing(true);
+      panelTimeoutRef.current = setTimeout(() => {
+        setDisplayedTile(null);
+        setPanelClosing(false);
+      }, 150); // matches sheet-out duration
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTile]);
+
   // Persist selected tile position in URL query params (?x=..&y=..)
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTileRestoredRef = useRef(false);
@@ -711,6 +735,8 @@ export default function TilesScreen() {
 
   const isMine = !!selectedTile && selectedTile.owner_player_id === auth?.player_id;
   const hasBuilding = !!selectedTile?.building_id;
+  // panelTile: used for rendering the Panel — keeps data during close animation
+  const panelTile = selectedTile ?? displayedTile;
   const selectedBldInfo = hasBuilding
     ? myBuildings.find((b) => b.building_id === selectedTile!.building_id)
     : undefined;
@@ -932,28 +958,28 @@ export default function TilesScreen() {
         </div>
       )}
 
-        {selectedTile && (
+        {displayedTile && (
           <Panel
-            className="absolute inset-x-0 bottom-0 max-h-[60vh] rounded-b-none rounded-t-2xl animate-slide-up md:animate-none md:inset-x-auto md:max-h-none md:top-3 md:right-3 md:bottom-3 md:w-96 md:rounded-b-lg md:rounded-t-lg z-[1002] md:z-[1000] shadow-xl"
+            className={`absolute inset-x-0 bottom-0 max-h-[60vh] rounded-b-none rounded-t-2xl ${panelClosing ? 'animate-sheet-out' : 'animate-sheet-in'} md:animate-none md:inset-x-auto md:max-h-none md:top-3 md:right-3 md:bottom-3 md:w-96 md:rounded-b-lg md:rounded-t-lg z-[1002] md:z-[1000] shadow-xl`}
             title={
               hasBuilding
-                ? `${BUILDING_ICONS[selectedTile.building_type?.toLowerCase() ?? ''] ?? '🏢'} ${selectedTile.building_name}`
-                : `Tile (${selectedTile.grid_x}, ${selectedTile.grid_y})`
+                ? `${BUILDING_ICONS[panelTile!.building_type?.toLowerCase() ?? ''] ?? '🏢'} ${panelTile!.building_name}`
+                : `Tile (${panelTile!.grid_x}, ${panelTile!.grid_y})`
             }
             onClose={() => { setSelectedTile(null); setShowBuildForm(false); }}
             subheader={
               <div className="flex flex-col gap-1.5">
                 <div className="text-xs text-gray-600 flex items-center gap-2">
-                  <span className="truncate">{selectedTile.owner_name || 'Unowned'}</span>
-                  {isMine && hasBuilding && <StatusBadge status={selectedTile.building_status} />}
-                  {isMine && hasBuilding && selectedTile.building_status === 'UnderConstruction' && constructionTicksRemaining > 0 && (
+                  <span className="truncate">{panelTile!.owner_name || 'Unowned'}</span>
+                  {isMine && hasBuilding && <StatusBadge status={panelTile!.building_status} />}
+                  {isMine && hasBuilding && panelTile!.building_status === 'UnderConstruction' && constructionTicksRemaining > 0 && (
                     <EtaCountdown ticks={constructionTicksRemaining} nextTickAt={nextTickAt} />
                   )}
-                  {isMine && hasBuilding && selectedTile.building_status === 'Producing' && productionTicksRemaining > 0 && (
+                  {isMine && hasBuilding && panelTile!.building_status === 'Producing' && productionTicksRemaining > 0 && (
                     <EtaCountdown ticks={productionTicksRemaining} nextTickAt={nextTickAt} className="text-emerald-500 text-xs font-mono" />
                   )}
-                  {selectedTile.is_for_sale && (
-                    <span className="text-cyan-400 shrink-0">{fmtMoney(selectedTile.purchase_price)}</span>
+                  {panelTile!.is_for_sale && (
+                    <span className="text-cyan-400 shrink-0">{fmtMoney(panelTile!.purchase_price)}</span>
                   )}
                 </div>
                 {isMine && hasBuilding && !isGovBuilding && !isResidential && (
@@ -973,10 +999,10 @@ export default function TilesScreen() {
             bodyClassName="p-4 space-y-3 flex-1 overflow-y-auto"
           >
             {/* Purchase */}
-            {selectedTile.is_for_sale && auth && (
+            {panelTile!.is_for_sale && auth && (
               <button disabled={isPurchasing} onClick={handlePurchase}
                 className="w-full bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 text-gray-900 text-xs font-semibold py-2 rounded transition-colors">
-                {isPurchasing ? 'Buying…' : `Buy for ${fmtMoney(selectedTile.purchase_price)}`}
+                {isPurchasing ? 'Buying…' : `Buy for ${fmtMoney(panelTile!.purchase_price)}`}
               </button>
             )}
 
@@ -1020,8 +1046,8 @@ export default function TilesScreen() {
             {/* ── Tab: Supply ─────────────────────────────────────────────── */}
             {isMine && hasBuilding && !isGovBuilding && activeTab === 'supply' && (
               <SupplySection
-                buildingId={selectedTile.building_id}
-                buildingType={selectedTile.building_type?.toLowerCase() ?? ''}
+                buildingId={panelTile!.building_id}
+                buildingType={panelTile!.building_type?.toLowerCase() ?? ''}
                 cityId={cityId}
               />
             )}
@@ -1029,30 +1055,30 @@ export default function TilesScreen() {
             {/* ── Tab: Config ─────────────────────────────────────────────── */}
             {isMine && hasBuilding && !isGovBuilding && activeTab === 'config' && (
               <InlineConfig
-                buildingId={selectedTile.building_id}
-                buildingType={selectedTile.building_type?.toLowerCase() ?? ''}
+                buildingId={panelTile!.building_id}
+                buildingType={panelTile!.building_type?.toLowerCase() ?? ''}
               />
             )}
 
             {/* ── Tab: Stock ──────────────────────────────────────────────── */}
             {isMine && hasBuilding && !isGovBuilding && activeTab === 'stock' && (
-              <InlineStock buildingId={selectedTile.building_id} />
+              <InlineStock buildingId={panelTile!.building_id} />
             )}
 
             {/* ── Tab: Insights (stores only) ────────────────────────────── */}
             {isMine && hasBuilding && isStore && activeTab === 'insights' && (
-              <StoreInsightsPanel buildingId={selectedTile.building_id} />
+              <StoreInsightsPanel buildingId={panelTile!.building_id} />
             )}
 
             {/* Government landmark — politics panel */}
             {isLandmark && <PoliticsPanel />}
             {isBank     && <BankPanel />}
-            {isResidential && selectedTile && (
+            {isResidential && panelTile && (
               <ResidentialPanel
-                buildingType={selectedTile.building_type}
-                populationCapacity={selectedTile.population_capacity}
-                buildingName={selectedTile.building_name}
-                ownerName={selectedTile.building_player_name || selectedTile.owner_name}
+                buildingType={panelTile.building_type}
+                populationCapacity={panelTile.population_capacity}
+                buildingName={panelTile.building_name}
+                ownerName={panelTile.building_player_name || panelTile.owner_name}
                 isOwned={isMine}
                 building={selectedBldInfo}
               />
