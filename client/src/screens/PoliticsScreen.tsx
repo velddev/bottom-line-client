@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Vote, Settings } from 'lucide-react';
 import { getGovernment, getElection, runForElection, enactPolicy, castVote } from '../api';
 import { useAuth } from '../auth';
-import { fmtPct, fmtMoney } from '../types';
+import { fmtPct, fmtMoney, tickToDate } from '../types';
 import Modal, { Field, Input } from '../components/Modal';
 
 function TaxBar({ label, value }: { label: string; value: number }) {
@@ -151,7 +151,7 @@ export default function PoliticsScreen() {
                   <p className="text-gray-500 text-xs mb-0.5">Current Ruler</p>
                   <p className="text-gray-900 font-semibold">{gov.ruling_player_name || 'AI Government'}</p>
                   {isRuler && <span className="text-indigo-400 text-xs">← You</span>}
-                  <p className="text-gray-600 text-xs">Term: Day {gov.term_start_tick} – Day {gov.term_end_tick}</p>
+                  <p className="text-gray-600 text-xs">Term: {tickToDate(gov.term_start_tick)} – {tickToDate(gov.term_end_tick)}</p>
                 </div>
 
                 <div className="space-y-2">
@@ -207,7 +207,7 @@ export default function PoliticsScreen() {
                     {inVoting ? 'Voting ends' : 'Voting starts'} t{inVoting ? election.voting_end : election.voting_start}
                   </span>
                   {election.last_polled_tick > 0 && (
-                    <span className="text-gray-700 text-xs">· polled Day {election.last_polled_tick}</span>
+                    <span className="text-gray-700 text-xs">· polled {tickToDate(election.last_polled_tick)}</span>
                   )}
                 </div>
 

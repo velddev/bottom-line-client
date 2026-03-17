@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Radio, X, ChevronDown, Filter } from 'lucide-react';
 import type { GameEvent } from '../types';
-import { fmtMoney } from '../types';
+import { fmtMoney, tickToDate } from '../types';
 import { api } from '../api';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ function describe(e: GameEvent): EventEntry {
   if (e.tick_completed) {
     return {
       icon: '🕐', category: 'system',
-      headline: `Day ${e.tick} processed`,
+      headline: `${tickToDate(e.tick)} processed`,
       cls: 'text-gray-500',
     };
   }
@@ -133,7 +133,7 @@ function describe(e: GameEvent): EventEntry {
     return {
       icon: '🗳️', category: 'politics',
       headline: 'Election season begins',
-      detail: `Campaign phase • Voting starts in ${ticksUntil} day${ticksUntil !== 1 ? 's' : ''} (Day ${voting_start_tick})`,
+      detail: `Campaign phase • Voting starts in ${ticksUntil} day${ticksUntil !== 1 ? 's' : ''} (${tickToDate(voting_start_tick)})`,
       cls: 'text-amber-400',
     };
   }
@@ -346,7 +346,7 @@ export default function EventLogOverlay({ cityId, apiKey }: { cityId: string; ap
                     {entry.detail && (
                       <p className="text-[11px] text-gray-500 mt-0.5 leading-snug break-words">{entry.detail}</p>
                     )}
-                    <p className="text-[10px] text-gray-700 mt-0.5 font-mono">Day {e.tick}</p>
+                    <p className="text-[10px] text-gray-700 mt-0.5 font-mono">{tickToDate(e.tick)}</p>
                   </div>
                 </div>
               );

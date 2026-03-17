@@ -442,3 +442,10 @@ export function fmtPct(n: number): string {
 export function fmtQuality(q: number): string {
   return q.toFixed(2);
 }
+
+const EPOCH = new Date(2000, 0, 1); // Jan 1, 2000
+export function tickToDate(tick: number): string {
+  const d = new Date(EPOCH);
+  d.setDate(d.getDate() + tick);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}

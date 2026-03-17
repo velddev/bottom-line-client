@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProfile, listBuildings, listResearch, getCityStats, getInventory, listOfferings, cancelOffering, purchase, getDemandUtilization } from '../api';
-import { fmtMoney, fmtPct, fmtQuality, resourceColor, BUILDING_ICONS, type DemandUtilizationPoint } from '../types';
+import { fmtMoney, fmtPct, fmtQuality, resourceColor, BUILDING_ICONS, tickToDate, type DemandUtilizationPoint } from '../types';
 import { useAuth } from '../auth';
 import { Building2, FlaskConical, Package, ShoppingCart, X } from 'lucide-react';
 import MarketShareChart from '../components/MarketShareChart';
@@ -158,7 +158,7 @@ export default function DashboardScreen() {
             </div>
             <div>
               <p className="text-gray-700 uppercase tracking-wider mb-0.5">Day</p>
-              <p className="text-gray-900 font-semibold font-mono">#{city.current_tick}</p>
+              <p className="text-gray-900 font-semibold font-mono">{tickToDate(city.current_tick)}</p>
             </div>
           </div>
         </div>

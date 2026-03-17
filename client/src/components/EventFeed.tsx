@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Radio } from 'lucide-react';
 import type { GameEvent } from '../types';
-import { fmtMoney } from '../types';
+import { fmtMoney, tickToDate } from '../types';
 import { api } from '../api';
 
 function describeEvent(e: GameEvent): { icon: string; text: string; cls: string } {
   if (e.tick_completed)
-    return { icon: '🕐', text: `Day ${e.tick} complete`, cls: 'text-gray-600' };
+    return { icon: '🕐', text: `${tickToDate(e.tick)} complete`, cls: 'text-gray-600' };
   if (e.resource_produced)
     return { icon: '🏭', text: `Produced ${e.resource_produced.quantity.toFixed(1)}× ${e.resource_produced.resource_type} (Q${e.resource_produced.quality.toFixed(2)})`, cls: 'text-slate-700' };
   if (e.trade_completed)

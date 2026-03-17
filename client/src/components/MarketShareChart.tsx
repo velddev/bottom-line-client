@@ -5,7 +5,7 @@ import {
   Legend, ResponsiveContainer,
 } from 'recharts';
 import { getMarketShare, getDemandUtilization } from '../api';
-import { fmtMoney } from '../types';
+import { fmtMoney, tickToDate } from '../types';
 import type { DemandUtilizationPoint } from '../types';
 
 const CONSUMER_RESOURCES = ['food', 'meat', 'leather'];
@@ -183,7 +183,7 @@ export default function MarketShareChart({ cityId, historyTicks = 30 }: Props) {
                 if (name === 'Unfulfilled') return [`${v.toFixed(1)} units`, '⬜ Unfulfilled'];
                 return [`${v.toFixed(1)} units`, name];
               }}
-              labelFormatter={(label) => `Day ${label}`}
+              labelFormatter={(label) => tickToDate(Number(label))}
             />
             <Legend
               wrapperStyle={{ fontSize: 11, paddingTop: 8 }}

@@ -5,13 +5,13 @@ import { getChatMessages, sendChatMessage, findPlayerByHandle } from '../api';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import type { ChatMessage, ChatMessageEvent, GameEvent } from '../types';
-import { fmtMoney } from '../types';
+import { fmtMoney, tickToDate } from '../types';
 import AlertBubble from './ui/AlertBubble';
 
 // ── Event description helper (same logic as EventLogOverlay) ──────────────────
 function describeEvent(e: GameEvent): { icon: string; text: string; cls: string } {
   if (e.tick_completed)
-    return { icon: '🕐', text: `Day ${e.tick} complete`, cls: 'text-gray-500' };
+    return { icon: '🕐', text: `${tickToDate(e.tick)} complete`, cls: 'text-gray-500' };
   if (e.resource_produced)
     return { icon: '🏭', text: `Produced ${e.resource_produced.quantity.toFixed(1)}× ${e.resource_produced.resource_type}`, cls: 'text-slate-700' };
   if (e.trade_completed)

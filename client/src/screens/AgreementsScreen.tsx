@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import { listAgreements, createAgreement, respondAgreement, cancelAgreement } from '../api';
 import { useAuth } from '../auth';
-import { fmtPct, fmtMoney } from '../types';
+import { fmtPct, fmtMoney, tickToDate } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 
 const RESOURCES = ['grain', 'water', 'animal_feed', 'cattle', 'meat', 'leather', 'food'];
@@ -120,7 +120,7 @@ export default function AgreementsScreen() {
                       <span className={`px-1.5 py-0.5 rounded ${STATUS_COLORS[a.status] ?? 'text-gray-600'}`}>{a.status}</span>
                     </td>
                     <td className="px-3 py-2.5 text-gray-600">{flags.join(', ') || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{a.expires_at_tick ? `Day ${a.expires_at_tick}` : '∞'}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{a.expires_at_tick ? tickToDate(a.expires_at_tick) : '∞'}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {tab === 'buyer' && a.status === 'pending' && (

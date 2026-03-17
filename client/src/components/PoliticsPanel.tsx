@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Vote, Settings } from 'lucide-react';
 import { getGovernment, getElection, runForElection, enactPolicy } from '../api';
 import { useAuth } from '../auth';
-import { fmtPct } from '../types';
+import { fmtPct, tickToDate } from '../types';
 import Modal, { Field, Input } from './Modal';
 
 function TaxBar({ label, value }: { label: string; value: number }) {
@@ -102,7 +102,7 @@ export default function PoliticsPanel() {
             </div>
             <p className="text-gray-900 text-sm font-semibold">{gov.ruling_player_name || 'AI Government'}</p>
             {isRuler && <span className="text-indigo-400 text-xs">← You</span>}
-            <p className="text-gray-600 text-xs mt-0.5">Term: Day {gov.term_start_tick} – Day {gov.term_end_tick}</p>
+            <p className="text-gray-600 text-xs mt-0.5">Term: {tickToDate(gov.term_start_tick)} – {tickToDate(gov.term_end_tick)}</p>
           </div>
 
           <div className="space-y-2">
