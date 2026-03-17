@@ -5,6 +5,7 @@ import type {
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
   SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
   CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, StoreInsightsResponse,
+  UtilitiesResponse,
 } from './types';
 import type { IApiService } from './api-interface';
 
@@ -194,6 +195,9 @@ export function createIpcApi(): IApiService {
 
     listCityBuildings: (city_id) =>
       invoke<{ buildings: CityBuildingInfo[] }>('api:listCityBuildings', { city_id }),
+
+    getUtilities: (city_id) =>
+      invoke<UtilitiesResponse>('api:getUtilities', { city_id }),
 
     // ─── Tiles ──────────────────────────────────────────────────────────────
     listTiles: (city_id, min_x, min_y, max_x, max_y) =>

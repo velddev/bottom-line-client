@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProfile, listBuildings, listResearch, getCityStats, getInventory, listOfferings, cancelOffering, purchase, getDemandUtilization } from '../api';
-import { fmtMoney, fmtPct, fmtQuality, resourceColor, BUILDING_ICONS, tickToDate, type DemandUtilizationPoint } from '../types';
+import { getProfile, listBuildings, listResearch, getCityStats, getInventory, listOfferings, cancelOffering, purchase, getDemandUtilization, getUtilities } from '../api';
+import { fmtMoney, fmtPct, fmtQuality, resourceColor, BUILDING_ICONS, tickToDate, type DemandUtilizationPoint, type UtilityInfo } from '../types';
 import { useAuth } from '../auth';
-import { Building2, FlaskConical, Package, ShoppingCart, X } from 'lucide-react';
+import { Building2, FlaskConical, Package, ShoppingCart, X, Zap, Droplets } from 'lucide-react';
 import MarketShareChart from '../components/MarketShareChart';
 import EtaCountdown from '../components/EtaCountdown';
 import { useTickRefresh } from '../hooks/useTickRefresh';
@@ -69,6 +69,14 @@ export default function DashboardScreen() {
       return acc;
     }, {})
   );
+
+  const { data: utilitiesResp } = useQuery({
+    queryKey: ['utilities', auth?.city_id],
+    queryFn: () => getUtilities(auth!.city_id),
+    enabled: !!auth?.city_id,
+    refetchInterval: 60_000,
+  });
+  const utilities = utilitiesResp?.utilities ?? [];
 
   const [buyTarget, setBuyTarget] = useState<typeof offerings[0] | null>(null);
   const [buyForm, setBuyForm] = useState({ building_id: '', quantity: '' });
@@ -160,6 +168,69 @@ export default function DashboardScreen() {
               <p className="text-gray-700 uppercase tracking-wider mb-0.5">Day</p>
               <p className="text-gray-900 font-semibold font-mono">{tickToDate(city.current_tick)}</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Utilities */}
+      {utilities.length > 0 && (
+        <div className="bg-gray-200 border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Zap size={14} className="text-amber-400" />
+            <h2 className="text-sm font-semibold text-gray-900">City Utilities</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {utilities.map((u) => {
+              const icon = u.name === 'Electricity' ? <Zap size={16} className="text-amber-400" /> : <Droplets size={16} className="text-cyan-400" />;
+              const utilizationColor = u.is_overloaded ? 'text-rose-400' : u.utilization_pct > 60 ? 'text-amber-400' : 'text-emerald-400';
+              return (
+                <div key={u.name} className="bg-gray-100 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    {icon}
+                    <span className="text-sm font-semibold text-gray-900">{u.name}</span>
+                    {u.is_overloaded && (
+                      <span className="text-[10px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-medium">OVERLOADED</span>
+                    )}
+                  </div>
+                  <div className="space-y-1.5 text-xs">
+                    {u.capacity > 0 && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Consumption</span>
+                          <span className="text-gray-900 font-mono">{Math.round(u.consumption).toLocaleString()} / {u.capacity.toLocaleString()} units</span>
+                        </div>
+                        <div className="w-full bg-gray-300 rounded-full h-1.5">
+                          <div
+                            className={`h-1.5 rounded-full transition-all ${u.is_overloaded ? 'bg-rose-400' : u.utilization_pct > 60 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                            style={{ width: `${Math.min(u.utilization_pct, 100)}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Grid Utilization</span>
+                          <span className={`font-semibold font-mono ${utilizationColor}`}>{u.utilization_pct.toFixed(1)}%</span>
+                        </div>
+                      </>
+                    )}
+                    {u.capacity === 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Consumption</span>
+                        <span className="text-gray-900 font-mono">{Math.round(u.consumption).toLocaleString()} units/tick</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Rate</span>
+                      <span className="text-gray-900 font-mono">{fmtMoney(u.effective_rate_cents)}/unit</span>
+                    </div>
+                    {u.is_overloaded && u.effective_rate_cents !== u.rate_cents && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Base Rate</span>
+                        <span className="text-gray-500 font-mono line-through">{fmtMoney(u.rate_cents)}/unit</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

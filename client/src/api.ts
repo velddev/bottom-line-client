@@ -65,6 +65,7 @@ export const repayDebt: IApiService['repayDebt'] = (...args) => api.repayDebt(..
 export const listCities: IApiService['listCities'] = () => api.listCities();
 export const getCityStats: IApiService['getCityStats'] = (...args) => api.getCityStats(...args);
 export const listCityBuildings: IApiService['listCityBuildings'] = (...args) => api.listCityBuildings(...args);
+export const getUtilities: IApiService['getUtilities'] = (...args) => api.getUtilities(...args);
 export const listTiles: IApiService['listTiles'] = (...args) => api.listTiles(...args);
 export const getTile: IApiService['getTile'] = (...args) => api.getTile(...args);
 export const purchaseTile: IApiService['purchaseTile'] = (...args) => api.purchaseTile(...args);

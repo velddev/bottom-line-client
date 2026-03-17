@@ -5,6 +5,7 @@ import type {
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
   SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
   CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, StoreInsightsResponse,
+  UtilitiesResponse,
 } from './types';
 
 export interface IApiService {
@@ -54,6 +55,7 @@ export interface IApiService {
   listCities(): Promise<{ cities: CityInfo[] }>;
   getCityStats(city_id: string): Promise<CityStats>;
   listCityBuildings(city_id: string): Promise<{ buildings: CityBuildingInfo[] }>;
+  getUtilities(city_id: string): Promise<UtilitiesResponse>;
   listTiles(city_id: string, min_x: number, min_y: number, max_x: number, max_y: number): Promise<ListTilesResponse>;
   getTile(tile_id: string): Promise<TileInfo>;
   purchaseTile(tile_id: string): Promise<{ tile_id: string; new_balance: number }>;

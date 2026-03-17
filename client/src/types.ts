@@ -175,6 +175,20 @@ export interface CityStats extends CityInfo {
   player_count: number;
 }
 
+export interface UtilityInfo {
+  name: string;
+  consumption: number;
+  capacity: number;
+  rate_cents: number;
+  utilization_pct: number;
+  is_overloaded: boolean;
+  effective_rate_cents: number;
+}
+
+export interface UtilitiesResponse {
+  utilities: UtilityInfo[];
+}
+
 export interface CityBuildingInfo {
   building_id: string;
   name: string;
