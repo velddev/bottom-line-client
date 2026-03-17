@@ -32,18 +32,25 @@ interface CutoutUniforms {
   uSelectedScreenMax: { value: THREE.Vector2 };
   uCutoutProgress:    { value: number };
   uCompanyActive:     { value: number };
+  uTime:              { value: number };
 }
 
 const CUTOUT_VERTEX_PREAMBLE = /* glsl */ `
   uniform vec3  uSelectedPos;
   uniform float uHasSelection;
+  uniform float uTime;
   attribute float aCompanyOwned;
+  attribute float aUnderConstruction;
   varying float vBlocking;
   varying float vCompanyOwned;
+  varying float vUnderConstruction;
+  varying float vWorldY;
 `;
 
 const CUTOUT_VERTEX_BODY = /* glsl */ `
   vCompanyOwned = aCompanyOwned;
+  vUnderConstruction = aUnderConstruction;
+  vWorldY = (instanceMatrix * vec4(position, 1.0)).y;
   vBlocking = 0.0;
   if (uHasSelection > 0.5) {
     vec3 iPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
@@ -61,13 +68,26 @@ const CUTOUT_FRAG_PREAMBLE = /* glsl */ `
   uniform vec2  uSelectedScreenMax;
   uniform float uCutoutProgress;
   uniform float uCompanyActive;
+  uniform float uTime;
   varying float vBlocking;
   varying float vCompanyOwned;
+  varying float vUnderConstruction;
+  varying float vWorldY;
 `;
 
+// Construction effect: pulsing dither with height-based reveal
 // Company mode: dither-discard all non-owned buildings.
 // Selected-building mode: capsule SDF dissolve for blocking buildings.
 const CUTOUT_FRAG_BODY = /* glsl */ `
+  // Under-construction: pulsing dither effect
+  if (vUnderConstruction > 0.5) {
+    float pulse = sin(uTime * 3.0) * 0.15 + 0.55;
+    float igNoise = fract(52.9829189 * fract(0.06711056 * gl_FragCoord.x + 0.00583715 * gl_FragCoord.y));
+    if (igNoise > pulse) discard;
+    // Blue-ish tint for construction
+    gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.38, 0.65, 0.98), 0.35);
+  }
+
   // Company highlight: dissolve all non-owned buildings
   if (uCompanyActive > 0.5 && vCompanyOwned < 0.5) {
     float igNoise = fract(52.9829189 * fract(0.06711056 * gl_FragCoord.x + 0.00583715 * gl_FragCoord.y));
@@ -107,6 +127,7 @@ function injectCutoutShader(original: THREE.Material, uniforms: CutoutUniforms):
     shader.uniforms.uSelectedScreenMax = uniforms.uSelectedScreenMax;
     shader.uniforms.uCutoutProgress    = uniforms.uCutoutProgress;
     shader.uniforms.uCompanyActive     = uniforms.uCompanyActive;
+    shader.uniforms.uTime              = uniforms.uTime;
 
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
@@ -212,9 +233,11 @@ function BuildingVariantGLB({
 
     const maxCount = Math.max(buildings.length, 1);
     const ownedData = new Float32Array(maxCount);
+    const constructionData = new Float32Array(maxCount);
     const hasHighlight = highlightedPlayerIds && highlightedPlayerIds.size > 0;
     buildings.forEach((tile, i) => {
       ownedData[i] = (hasHighlight && highlightedPlayerIds.has(tile.owner_player_id)) ? 1.0 : 0.0;
+      constructionData[i] = tile.building_status === 'UnderConstruction' ? 1.0 : 0.0;
     });
 
     meshRefs.current.forEach(mesh => {
@@ -258,6 +281,16 @@ function BuildingVariantGLB({
           new THREE.InstancedBufferAttribute(ownedData, 1));
       }
 
+      // Set per-instance construction attribute for shader
+      const existingConst = mesh.geometry.getAttribute('aUnderConstruction') as THREE.InstancedBufferAttribute | undefined;
+      if (existingConst && existingConst.count === maxCount) {
+        existingConst.set(constructionData);
+        existingConst.needsUpdate = true;
+      } else {
+        mesh.geometry.setAttribute('aUnderConstruction',
+          new THREE.InstancedBufferAttribute(constructionData, 1));
+      }
+
       mesh.instanceMatrix.needsUpdate = true;
       mesh.computeBoundingSphere();
     });
@@ -296,6 +329,7 @@ export default function BuildingMeshes({ tiles, selectedTile, highlightedPlayerI
     uSelectedScreenMax: { value: new THREE.Vector2(0, 0) },
     uCutoutProgress:    { value: 0 },
     uCompanyActive:     { value: 0 },
+    uTime:              { value: 0 },
   }), []);
 
   // Update company highlight uniform
@@ -309,12 +343,17 @@ export default function BuildingMeshes({ tiles, selectedTile, highlightedPlayerI
   const lastWzRef = useRef(0);
   const progressRef = useRef(0);
   const lastBuildingIdRef = useRef<string | null>(null);
+  const hasConstructionRef = useRef(false);
 
   // Trigger re-render when selection changes (needed for demand frameloop)
   useEffect(() => { invalidate(); }, [selectedTile, invalidate]);
 
   // Animate the cutout capsule in/out and project the bounding box
   useFrame(({ camera, size, gl }, delta) => {
+    // Update construction animation time
+    cutoutUniforms.uTime.value += delta;
+    if (hasConstructionRef.current) invalidate();
+
     const hasSelection = !!selectedTile?.building_id;
     const currentId = selectedTile?.building_id ?? null;
 
@@ -373,8 +412,10 @@ export default function BuildingMeshes({ tiles, selectedTile, highlightedPlayerI
 
   const buildingGroups = useMemo(() => {
     const groups: Record<string, { variant: ModelVariant; tiles: TileInfo[] }> = {};
+    let anyConstruction = false;
     for (const [, tile] of tiles) {
       if (!tile.building_id || !tile.building_type) continue;
+      if (tile.building_status === 'UnderConstruction') anyConstruction = true;
       const type = tile.building_type.toLowerCase();
       const variants = VARIANT_MAP[type];
       if (!variants || variants.length === 0) continue;
@@ -383,6 +424,7 @@ export default function BuildingMeshes({ tiles, selectedTile, highlightedPlayerI
       if (!groups[key]) groups[key] = { variant: variants[idx], tiles: [] };
       groups[key].tiles.push(tile);
     }
+    hasConstructionRef.current = anyConstruction;
     return groups;
   }, [tiles]);
 

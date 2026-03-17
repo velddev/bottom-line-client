@@ -19,11 +19,13 @@ function tileHash(gx: number, gy: number): number {
 }
 const WARNING_STATUSES = new Set(['MissingResources', 'Paused']);
 
-const COLOR_PLAYER  = new THREE.Color('#4ade80');
-const COLOR_WARNING = new THREE.Color('#f59e0b');
-const COLOR_DEFAULT = new THREE.Color('#86c280');
-const COLOR_HOVER   = new THREE.Color('#a3d99c');
+const COLOR_PLAYER       = new THREE.Color('#4ade80');
+const COLOR_WARNING      = new THREE.Color('#f59e0b');
+const COLOR_CONSTRUCTION = new THREE.Color('#60a5fa'); // blue-400 for under construction
+const COLOR_DEFAULT      = new THREE.Color('#86c280');
+const COLOR_HOVER        = new THREE.Color('#a3d99c');
 function tileColor(tile: TileInfo, myPlayerId: string): THREE.Color {
+  if (tile.building_status === 'UnderConstruction') return COLOR_CONSTRUCTION;
   if (tile.owner_player_id === myPlayerId) {
     if (WARNING_STATUSES.has(tile.building_status)) return COLOR_WARNING;
     return COLOR_PLAYER;
