@@ -270,7 +270,44 @@ export default function DashboardScreen() {
         </div>
       )}
 
-      {/* Market share chart */}
+      {/* Demand utilization — quick summary across all resources */}
+      {latestDemand.length > 0 && (
+        <div className="bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-200">
+            <h2 className="text-sm font-semibold text-gray-900">📊 Demand Overview (this tick)</h2>
+          </div>
+          <div className="grid grid-cols-3 gap-px bg-gray-300">
+            {latestDemand.map((p) => {
+              const pct = p.utilization_pct;
+              const unmet = Math.max(0, p.total_demand - p.fulfilled_demand);
+              return (
+                <div key={p.resource_type} className="bg-gray-200 px-3 py-2.5">
+                  <p className={`text-[10px] font-semibold uppercase tracking-wider capitalize ${resourceColor(p.resource_type)}`}>
+                    {p.resource_type.replace(/_/g, ' ')}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex-1 h-2 bg-gray-300 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${pct >= 80 ? 'bg-emerald-500' : pct >= 40 ? 'bg-yellow-400' : 'bg-rose-500'}`}
+                        style={{ width: `${Math.min(100, pct)}%` }}
+                      />
+                    </div>
+                    <span className={`font-mono text-xs font-bold ${pct >= 80 ? 'text-emerald-600' : pct >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>
+                      {pct.toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between mt-0.5 text-[9px] text-gray-500">
+                    <span>{p.fulfilled_demand.toFixed(0)} / {p.total_demand.toFixed(0)}</span>
+                    {unmet > 0 && <span className="text-rose-500">{unmet.toFixed(0)} unmet</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Market share chart — detailed per-resource view with unfulfilled demand */}
       {auth?.city_id && <MarketShareChart cityId={auth.city_id} />}
 
       {/* City market — live offerings */}
@@ -332,47 +369,6 @@ export default function DashboardScreen() {
           </div>
         )}
       </div>
-
-      {/* Demand utilization */}
-      {latestDemand.length > 0 && (
-        <div className="bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-200">
-            <h2 className="text-sm font-semibold text-gray-900">Citizen Demand Utilization</h2>
-          </div>
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-gray-600 border-b border-gray-200">
-                {['Resource', 'Demand', 'Fulfilled', 'Utilization'].map((h) => (
-                  <th key={h} className="text-left px-4 py-2 font-medium uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {latestDemand.map((p) => {
-                const pct = p.utilization_pct;
-                const barColor = pct >= 80 ? 'bg-emerald-500' : pct >= 40 ? 'bg-yellow-400' : 'bg-rose-500';
-                return (
-                  <tr key={p.resource_type} className="border-b border-gray-200">
-                    <td className={`px-4 py-2 capitalize font-medium ${resourceColor(p.resource_type)}`}>{p.resource_type.replace(/_/g, ' ')}</td>
-                    <td className="px-4 py-2 text-gray-700 font-mono">{p.total_demand.toFixed(1)}</td>
-                    <td className="px-4 py-2 text-gray-700 font-mono">{p.fulfilled_demand.toFixed(1)}</td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-24 h-1.5 bg-gray-300 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(100, pct)}%` }} />
-                        </div>
-                        <span className={`font-mono text-xs ${pct >= 80 ? 'text-emerald-400' : pct >= 40 ? 'text-yellow-400' : 'text-rose-400'}`}>
-                          {pct.toFixed(1)}%
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
 
       {buyTarget && (
         <Modal
