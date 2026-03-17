@@ -21,8 +21,7 @@ function AppRoutes() {
   return (
     <>
       {!assetsReady && <PreloadScreen onReady={() => setAssetsReady(true)} />}
-      <div className={assetsReady ? '' : 'invisible'}>
-        <HashRouter>
+      <HashRouter>
           <Layout>
             <Routes>
               <Route path="/"             element={<Navigate to="/dashboard" replace />} />
@@ -37,7 +36,6 @@ function AppRoutes() {
             </Routes>
           </Layout>
         </HashRouter>
-      </div>
     </>
   );
 }
