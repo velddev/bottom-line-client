@@ -6,7 +6,7 @@ import { useAuth } from '../auth';
 import { fmtPct, fmtMoney, tickToDate } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 
-const RESOURCES = ['grain', 'water', 'animal_feed', 'cattle', 'meat', 'leather', 'food'];
+const RESOURCES = ['grain', 'animal_feed', 'cattle', 'meat', 'leather', 'food'];
 const STATUS_COLORS: Record<string, string> = {
   pending:  'text-amber-400 bg-amber-900/20',
   accepted: 'text-emerald-400 bg-emerald-900/20',

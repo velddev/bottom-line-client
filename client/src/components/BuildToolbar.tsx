@@ -5,7 +5,7 @@ import type { BuildingCategory } from '../utils/tilePlacement';
 const CATEGORIES: { type: BuildingCategory; label: string; desc: string }[] = [
   { type: 'store', label: 'Store', desc: 'Sells goods directly to citizens. Place near residential areas for maximum foot traffic.' },
   { type: 'factory', label: 'Factory', desc: 'Processes raw materials into finished goods. Turns grain into food, cattle into leather, etc.' },
-  { type: 'field', label: 'Field', desc: 'Grows raw resources like grain and cattle. Requires water. Best placed away from the city center.' },
+  { type: 'field', label: 'Field', desc: 'Grows raw resources like grain and cattle. Best placed away from the city center.' },
 ];
 
 interface Props {

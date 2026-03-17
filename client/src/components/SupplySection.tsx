@@ -9,7 +9,7 @@ import {
 import type { RecipeInfo, SupplyLinkInfo, PotentialSupplier, SalesTick } from '../types';
 import { fmtMoney, fmtQuality } from '../types';
 
-const ALL_RESOURCES = ['food', 'grain', 'water', 'animal_feed', 'cattle', 'meat', 'leather'];
+const ALL_RESOURCES = ['food', 'grain', 'animal_feed', 'cattle', 'meat', 'leather'];
 const CONSUMER_GOODS = ['food', 'meat', 'leather'];
 
 // ── Supplier picker modal ─────────────────────────────────────────────────────

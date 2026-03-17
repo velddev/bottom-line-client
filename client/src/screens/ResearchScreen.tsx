@@ -5,7 +5,7 @@ import { listResearch, startResearch, pauseResearch } from '../api';
 import Modal, { Field, Input } from '../components/Modal';
 import { fmtMoney } from '../types';
 
-const RESOURCES = ['grain', 'water', 'animal_feed', 'cattle', 'meat', 'leather', 'food'];
+const RESOURCES = ['grain', 'animal_feed', 'cattle', 'meat', 'leather', 'food'];
 
 export default function ResearchScreen() {
   const qc = useQueryClient();

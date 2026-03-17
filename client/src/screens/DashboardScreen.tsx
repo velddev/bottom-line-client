@@ -9,10 +9,10 @@ import EtaCountdown from '../components/EtaCountdown';
 import { useTickRefresh } from '../hooks/useTickRefresh';
 import Modal, { Field, Input, Select } from '../components/Modal';
 
-const RESOURCES = ['grain', 'water', 'animal_feed', 'cattle', 'meat', 'leather', 'food'];
+const RESOURCES = ['grain', 'animal_feed', 'cattle', 'meat', 'leather', 'food'];
 
 const RESOURCE_ICONS: Record<string, string> = {
-  water: '💧', grain: '🌾', animal_feed: '🌿', cattle: '🐄',
+  grain: '🌾', animal_feed: '🌿', cattle: '🐄',
   meat: '🥩', leather: '🪨', food: '🍞',
 };
 
