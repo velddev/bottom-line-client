@@ -1,7 +1,7 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { LogOut, Settings, LayoutDashboard, BarChart3, FileText, FlaskConical, Megaphone, Map } from 'lucide-react';
+import { LogOut, Settings, LayoutDashboard, BarChart3, FileText, FlaskConical, Megaphone, Map, Ellipsis } from 'lucide-react';
 import { useAuth } from '../auth';
 import { getProfile, getCityStats } from '../api';
 import { fmtMoney } from '../types';
@@ -15,6 +15,18 @@ const NAV = [
   { to: '/research',     label: 'Research',     icon: FlaskConical },
   { to: '/marketing',    label: 'Marketing',    icon: Megaphone },
   { to: '/map',          label: 'City Map',     icon: Map },
+];
+
+const MOBILE_NAV = [
+  { to: '/dashboard',   label: 'Home',   icon: LayoutDashboard },
+  { to: '/map',         label: 'Map',    icon: Map },
+  { to: '/performance', label: 'Stats',  icon: BarChart3 },
+];
+
+const MOBILE_MORE_NAV = [
+  { to: '/agreements',  label: 'Agreements',  icon: FileText },
+  { to: '/research',    label: 'Research',    icon: FlaskConical },
+  { to: '/marketing',   label: 'Marketing',   icon: Megaphone },
 ];
 
 function TickCountdown({ nextTickAt }: { nextTickAt: number }) {
@@ -53,6 +65,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const { nextTickAt } = useTickRefresh();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -139,23 +152,53 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* ── Mobile bottom tab bar ──────────────────────────────────────────── */}
-      <nav className="md:hidden shrink-0 bg-gray-100 border-t border-gray-200 flex items-center justify-around px-1 pb-[env(safe-area-inset-bottom)] z-[500]">
-        {NAV.map(({ to, label, icon: Icon }) => (
+      <nav className="md:hidden shrink-0 bg-gray-100 border-t border-gray-200 flex items-center justify-around px-1 pb-[env(safe-area-inset-bottom)] z-[500] relative">
+        {/* "More" popup */}
+        {moreOpen && (
+          <>
+            <div className="fixed inset-0 z-[498]" onClick={() => setMoreOpen(false)} />
+            <div className="absolute bottom-full mb-1 right-2 bg-gray-200 border border-gray-300 rounded-lg shadow-xl z-[499] py-1 min-w-[160px]">
+              {MOBILE_MORE_NAV.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={() => setMoreOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                      isActive ? 'text-indigo-400 bg-gray-100' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`
+                  }
+                >
+                  <Icon size={14} />
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          </>
+        )}
+        {MOBILE_NAV.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-0.5 py-2 px-2 text-[10px] transition-colors ${
-                isActive
-                  ? 'text-indigo-400'
-                  : 'text-gray-500'
+              `flex flex-col items-center gap-0.5 py-2 px-3 text-[10px] transition-colors ${
+                isActive ? 'text-indigo-400' : 'text-gray-500'
               }`
             }
           >
-            <Icon size={18} />
+            <Icon size={20} />
             <span>{label}</span>
           </NavLink>
         ))}
+        <button
+          onClick={() => setMoreOpen(o => !o)}
+          className={`flex flex-col items-center gap-0.5 py-2 px-3 text-[10px] transition-colors ${
+            moreOpen ? 'text-indigo-400' : 'text-gray-500'
+          }`}
+        >
+          <Ellipsis size={20} />
+          <span>More</span>
+        </button>
       </nav>
 
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
