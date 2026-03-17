@@ -1,5 +1,5 @@
-import { useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useRef, useMemo, useEffect } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { tileToWorld, BLOCK_SIZE, ROAD_WIDTH, GAME_GRID } from './cityGrid';
@@ -286,6 +286,8 @@ function VehicleGroupByModel({ modelUrl, all }: { modelUrl: VehicleUrl; all: Veh
   );
 }
 
+const MIN_FPS = 30;
+
 // ── Public component ──────────────────────────────────────────────────────────
 interface Props { routes: SupplyRoute[] }
 
@@ -313,6 +315,18 @@ export default function SupplyVehicles3D({ routes }: Props) {
   }, [routes]);
 
   if (all.length === 0) return null;
+
+  return <VehicleRenderer all={all} />;
+}
+
+function VehicleRenderer({ all }: { all: VehicleEntry[] }) {
+  const { invalidate } = useThree();
+
+  // Drive render loop at MIN_FPS when vehicles are on screen
+  useEffect(() => {
+    const id = setInterval(() => invalidate(), 1000 / MIN_FPS);
+    return () => clearInterval(id);
+  }, [invalidate]);
 
   return (
     <>
