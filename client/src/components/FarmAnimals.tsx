@@ -383,7 +383,7 @@ export default function FarmAnimals({ tiles }: Props) {
   const prevCattleTilesRef = useRef<TileInfo[]>([]);
   const cattleTiles = useMemo(() => {
     const result = fieldTiles.filter(t =>
-      (t.building_output_types ?? []).some(o => o.toLowerCase() === 'cattle')
+      t.building_name?.toLowerCase().startsWith('cattle')
     );
     const key = result.map(t => t.tile_id).sort().join(',');
     if (key === prevCattleKeyRef.current) return prevCattleTilesRef.current;

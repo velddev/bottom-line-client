@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Settings, Package, Link, BarChart2, Lightbulb } from 'lucide-react';
 import Tabs from '../components/ui/Tabs';
@@ -451,6 +452,10 @@ export default function TilesScreen() {
   const [hoveredTile, setHoveredTile] = useState<TileInfo | null>(null);
   const [visibleCompanyIds, setVisibleCompanyIds] = useState<Set<string>>(new Set());
 
+  // Persist selected tile position in URL query params (?x=..&y=..)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTileRestoredRef = useRef(false);
+
   const toggleCompanyVisibility = useCallback((playerId: string) => {
     setVisibleCompanyIds(prev => {
       const next = new Set(prev);
@@ -551,6 +556,7 @@ export default function TilesScreen() {
             is_government_port:           tc.isGovernmentPort ?? false,
             active_recipe:                tc.activeRecipe ?? '',
             output_type:                  tc.outputType ?? '',
+            building_output_types:        (tc.buildingOutputTypes ?? []).map((s: string) => s.replace(/^RESOURCE_TYPE_/i, '').toLowerCase()),
           };
 
           // Skip update if tile data hasn't changed
@@ -655,7 +661,13 @@ export default function TilesScreen() {
       }
     }
     setSelectedTile(tile);
-  }, [activeBuildType, auth?.player_id]);
+    // Persist tile position in URL
+    if (tile) {
+      setSearchParams({ x: String(tile.grid_x), y: String(tile.grid_y) }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  }, [activeBuildType, auth?.player_id, setSearchParams]);
 
   // Handle placement confirmation (purchase if needed + build)
   async function handlePlacementConfirm(name: string) {
@@ -772,10 +784,30 @@ export default function TilesScreen() {
     return { minX, maxX, minZ, maxZ };
   }, [visibleCompanyIds, tiles]);
 
-  // On first load, center on a player-owned tile (if any)
+  // On first load, restore tile from URL params or center on a player-owned tile
   useEffect(() => {
     if (initialFocusDone.current || tiles.size === 0 || !auth?.player_id) return;
     initialFocusDone.current = true;
+
+    // Priority 1: restore from URL query params
+    if (!urlTileRestoredRef.current) {
+      urlTileRestoredRef.current = true;
+      const urlX = searchParams.get('x');
+      const urlY = searchParams.get('y');
+      if (urlX !== null && urlY !== null) {
+        const key = `${urlX}_${urlY}`;
+        const tile = tiles.get(key);
+        if (tile) {
+          setSelectedTile(tile);
+          setFocusTile(tile);
+          requestAnimationFrame(() => setSnapCamera(false));
+          setTimeout(() => setMapReady(true), 200);
+          return;
+        }
+      }
+    }
+
+    // Priority 2: player-owned tile with a building
     let found = false;
     for (const tile of tiles.values()) {
       if (tile.owner_player_id === auth.player_id && tile.building_id) {
