@@ -413,11 +413,11 @@ function StoreInsightsPanel({ buildingId }: { buildingId: string }) {
 
       {/* Tips */}
       {insights.tips.length > 0 && (
-        <div className="border border-amber-200 bg-amber-50 rounded-lg p-3">
-          <p className="text-xs font-semibold text-amber-800 mb-2">💡 Tips</p>
+        <div className="border border-indigo-400/30 bg-indigo-900 rounded-lg p-3">
+          <p className="text-xs font-semibold text-indigo-400 mb-2">💡 Tips</p>
           <ul className="space-y-1.5">
             {insights.tips.map((tip, i) => (
-              <li key={i} className="text-[11px] text-amber-700 leading-snug">
+              <li key={i} className="text-[11px] text-gray-700 leading-snug">
                 {tip}
               </li>
             ))}
