@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, Package, Link, BarChart2 } from 'lucide-react';
+import { Settings, Package, Link, BarChart2, Lightbulb } from 'lucide-react';
 import Tabs from '../components/ui/Tabs';
 import { useAuth } from '../auth';
 import {
   listTiles, purchaseTile, listCities,
   constructBuilding, configureBuilding, listRecipes, getInventory, getBuilding,
-  listBuildings,
+  listBuildings, getStoreInsights,
 } from '../api';
-import type { TileInfo, RecipeInfo, BuildingStatus, CityInfo } from '../types';
+import type { TileInfo, RecipeInfo, BuildingStatus, CityInfo, StoreInsightsResponse, ResourceInsight } from '../types';
 import { BUILDING_ICONS, BUILDING_TYPES, fmtMoney } from '../types';
 import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
@@ -258,6 +258,172 @@ function InlineStock({ buildingId }: { buildingId: string }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ── Store Insights Panel ──────────────────────────────────────────────────────
+
+function PriceBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+  return (
+    <div className="flex items-center gap-2 text-[10px]">
+      <span className="w-16 text-gray-500 shrink-0">{label}</span>
+      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="w-14 text-right font-mono text-gray-700">{fmtMoney(value)}</span>
+    </div>
+  );
+}
+
+function ResourceInsightCard({ ri }: { ri: ResourceInsight }) {
+  const priceMax = Math.max(ri.your_price_cents, ri.fair_price_cents, ri.market_avg_cents) * 1.2;
+  const qualityPct = ri.median_quality > 0
+    ? Math.min((ri.your_quality / ri.median_quality) * 100, 200)
+    : 0;
+  const brandPct = Math.min(ri.your_brand_share * 100, 100);
+  const demandCapture = ri.daily_demand > 0
+    ? Math.min((ri.your_last_sale / ri.daily_demand) * 100, 100)
+    : 0;
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-3 space-y-2">
+      <p className="text-xs font-semibold text-gray-800 capitalize">{ri.resource_type}</p>
+
+      {/* Price comparison */}
+      <div className="space-y-1">
+        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Price</p>
+        <PriceBar label="Your price" value={ri.your_price_cents} max={priceMax} color="bg-indigo-500" />
+        <PriceBar label="Fair value" value={ri.fair_price_cents} max={priceMax} color="bg-emerald-500" />
+        <PriceBar label="Market avg" value={ri.market_avg_cents} max={priceMax} color="bg-amber-500" />
+      </div>
+
+      {/* Quality & Brand */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Quality</p>
+          <div className="flex items-center gap-1.5">
+            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${qualityPct >= 100 ? 'bg-emerald-500' : qualityPct >= 70 ? 'bg-amber-500' : 'bg-red-500'}`}
+                style={{ width: `${Math.min(qualityPct, 100)}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-mono text-gray-700">{ri.your_quality.toFixed(2)}</span>
+          </div>
+          <p className="text-[9px] text-gray-400 mt-0.5">Median: {ri.median_quality.toFixed(2)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Brand</p>
+          <div className="flex items-center gap-1.5">
+            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${brandPct >= 20 ? 'bg-purple-500' : brandPct >= 5 ? 'bg-amber-500' : 'bg-red-400'}`}
+                style={{ width: `${Math.max(brandPct, 2)}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-mono text-gray-700">{(ri.your_brand_share * 100).toFixed(1)}%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Demand capture */}
+      <div>
+        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Demand capture</p>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full ${demandCapture >= 20 ? 'bg-emerald-500' : demandCapture >= 5 ? 'bg-amber-500' : 'bg-red-500'}`}
+              style={{ width: `${Math.max(demandCapture, 1)}%` }}
+            />
+          </div>
+          <span className="text-[10px] font-mono text-gray-700">{demandCapture.toFixed(1)}%</span>
+        </div>
+        <p className="text-[9px] text-gray-400 mt-0.5">
+          Sold {ri.your_last_sale.toFixed(1)} / {ri.daily_demand.toFixed(1)} nearby demand
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function StoreInsightsPanel({ buildingId }: { buildingId: string }) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['store-insights', buildingId],
+    queryFn: () => getStoreInsights(buildingId),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
+  if (isLoading) return <p className="text-gray-500 text-xs animate-pulse">Analyzing store performance…</p>;
+  if (isError || !data) return <p className="text-red-400 text-xs">Failed to load insights.</p>;
+
+  const insights = data as StoreInsightsResponse;
+
+  return (
+    <div className="space-y-4">
+      {/* Nearby population summary */}
+      <div className="border border-gray-200 rounded-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold text-gray-800">👥 Catchment Area</p>
+          <span className="text-xs font-mono text-indigo-600">{insights.nearby_population.toLocaleString()} citizens</span>
+        </div>
+
+        {insights.nearby_population === 0 ? (
+          <p className="text-[10px] text-gray-500">No citizens live within shopping distance (8 tiles).</p>
+        ) : (
+          <div className="space-y-1">
+            {insights.nearby_by_class.map((cp) => {
+              const pct = insights.nearby_population > 0
+                ? (cp.count / insights.nearby_population) * 100
+                : 0;
+              return (
+                <div key={cp.citizen_class} className="flex items-center gap-2 text-[10px]">
+                  <span className="w-24 text-gray-600 capitalize">{cp.citizen_class.replace(/_/g, ' ')}</span>
+                  <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="w-10 text-right font-mono text-gray-700">{cp.count}</span>
+                  <span className="w-16 text-right text-gray-400">{fmtMoney(cp.daily_budget_cents)}/day</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {insights.competitor_count > 0 && (
+          <p className="text-[10px] text-gray-500 mt-2">
+            🏪 {insights.competitor_count} competing store{insights.competitor_count !== 1 ? 's' : ''} nearby
+          </p>
+        )}
+      </div>
+
+      {/* Per-resource insights */}
+      {insights.resource_insights.length > 0 ? (
+        insights.resource_insights.map((ri) => (
+          <ResourceInsightCard key={ri.resource_type} ri={ri} />
+        ))
+      ) : (
+        <div className="text-center py-4">
+          <p className="text-2xl mb-2">🏷️</p>
+          <p className="text-gray-500 text-xs">No items listed for sale. Enable auto-sell to see insights.</p>
+        </div>
+      )}
+
+      {/* Tips */}
+      {insights.tips.length > 0 && (
+        <div className="border border-amber-200 bg-amber-50 rounded-lg p-3">
+          <p className="text-xs font-semibold text-amber-800 mb-2">💡 Tips</p>
+          <ul className="space-y-1.5">
+            {insights.tips.map((tip, i) => (
+              <li key={i} className="text-[11px] text-amber-700 leading-snug">
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -528,7 +694,7 @@ export default function TilesScreen() {
     return () => window.removeEventListener('keydown', onKey);
   }, [activeBuildType]);
 
-  const [activeTab, setActiveTab] = useState<'supply' | 'config' | 'stock'>('supply');
+  const [activeTab, setActiveTab] = useState<'supply' | 'config' | 'stock' | 'insights'>('supply');
   useEffect(() => { setActiveTab('supply'); }, [selectedTile?.tile_id]);
 
   const isMine = !!selectedTile && selectedTile.owner_player_id === auth?.player_id;
@@ -539,6 +705,7 @@ export default function TilesScreen() {
   const isLandmark = selectedTile?.building_type?.toLowerCase() === 'landmark';
   const isBank = selectedTile?.building_type?.toLowerCase() === 'bank';
   const isResidential = selectedTile?.building_type?.toLowerCase().startsWith('residential');
+  const isStore = selectedTile?.building_type?.toLowerCase() === 'store';
   const isGovBuilding = isLandmark || isBank;
 
   // Remaining construction ticks — prefer myBuildings data, fall back to tile data
@@ -755,6 +922,7 @@ export default function TilesScreen() {
                       { value: 'supply' as const, label: <span className="flex items-center gap-1"><Link size={11} /> Supply</span> },
                       { value: 'config' as const, label: <span className="flex items-center gap-1"><Settings size={11} /> Config</span> },
                       { value: 'stock' as const, label: <span className="flex items-center gap-1"><Package size={11} /> Stock</span> },
+                      ...(isStore ? [{ value: 'insights' as const, label: <span className="flex items-center gap-1"><Lightbulb size={11} /> Insights</span> }] : []),
                     ]}
                     value={activeTab}
                     onChange={setActiveTab}
@@ -829,6 +997,11 @@ export default function TilesScreen() {
             {/* ── Tab: Stock ──────────────────────────────────────────────── */}
             {isMine && hasBuilding && !isGovBuilding && activeTab === 'stock' && (
               <InlineStock buildingId={selectedTile.building_id} />
+            )}
+
+            {/* ── Tab: Insights (stores only) ────────────────────────────── */}
+            {isMine && hasBuilding && isStore && activeTab === 'insights' && (
+              <StoreInsightsPanel buildingId={selectedTile.building_id} />
             )}
 
             {/* Government landmark — politics panel */}

@@ -368,6 +368,34 @@ export interface CompanyTickSnapshot {
   balance_after_tick: number;
 }
 
+// ── Store Insights ───────────────────────────────────────────────────────
+
+export interface ClassPopulation {
+  citizen_class: string;
+  count: number;
+  daily_budget_cents: number;
+}
+
+export interface ResourceInsight {
+  resource_type: string;
+  your_price_cents: number;
+  fair_price_cents: number;
+  market_avg_cents: number;
+  your_quality: number;
+  median_quality: number;
+  your_brand_share: number;
+  daily_demand: number;
+  your_last_sale: number;
+}
+
+export interface StoreInsightsResponse {
+  nearby_population: number;
+  nearby_by_class: ClassPopulation[];
+  resource_insights: ResourceInsight[];
+  tips: string[];
+  competitor_count: number;
+}
+
 // ─── UI helpers ───────────────────────────────────────────────────────────
 
 export const BUILDING_TYPES = ['factory', 'field', 'store', 'warehouse'] as const;

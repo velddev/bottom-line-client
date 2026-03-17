@@ -4,7 +4,7 @@ import type {
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
   SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
-  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation,
+  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, StoreInsightsResponse,
 } from './types';
 
 export interface IApiService {
@@ -64,6 +64,7 @@ export interface IApiService {
   getAutoSellConfigs(buildingId: string): Promise<{ configs: AutoSellConfigInfo[] }>;
   setAutoSellConfig(buildingId: string, resource_type: string, price_per_unit: number, is_enabled: boolean): Promise<{ success: boolean }>;
   getBuildingSales(buildingId: string, historyTicks?: number): Promise<GetBuildingSalesResponse>;
+  getStoreInsights(buildingId: string): Promise<StoreInsightsResponse>;
   setRent(buildingId: string, rentPerUnitCents: number): Promise<{ success: boolean; rent_per_unit_cents: number }>;
   renovate(buildingId: string): Promise<{ success: boolean; renovation_cost_cents: number; renovation_ticks: number }>;
   // ─── Chat ─────────────────────────────────────────────────────────────────

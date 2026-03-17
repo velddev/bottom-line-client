@@ -4,7 +4,7 @@ import type {
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
   SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
-  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation,
+  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, StoreInsightsResponse,
 } from './types';
 import type { IApiService } from './api-interface';
 
@@ -366,6 +366,9 @@ export function createHttpApi(): IApiService {
 
     getBuildingSales: (buildingId, historyTicks = 20) =>
       get<GetBuildingSalesResponse>(`/buildings/${buildingId}/sales`, { history_ticks: String(historyTicks) }),
+
+    getStoreInsights: (buildingId) =>
+      get<StoreInsightsResponse>(`/buildings/${buildingId}/insights`),
 
     setRent: (buildingId, rentPerUnitCents) =>
       put<{ success: boolean; rent_per_unit_cents: number }>(`/buildings/${buildingId}/rent`, {

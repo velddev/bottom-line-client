@@ -4,7 +4,7 @@ import type {
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
   SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
-  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation,
+  CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, StoreInsightsResponse,
 } from './types';
 import type { IApiService } from './api-interface';
 
@@ -235,6 +235,9 @@ export function createIpcApi(): IApiService {
 
     getBuildingSales: (buildingId, historyTicks = 20) =>
       invoke<GetBuildingSalesResponse>('api:getBuildingSales', { building_id: buildingId, history_ticks: historyTicks, apiKey: apiKey() }),
+
+    getStoreInsights: (buildingId) =>
+      invoke<StoreInsightsResponse>('api:getStoreInsights', { building_id: buildingId, apiKey: apiKey() }),
 
     setRent: (buildingId, rentPerUnitCents) =>
       invoke<{ success: boolean; rent_per_unit_cents: number }>('api:setRent', {
