@@ -191,7 +191,7 @@ export default function PerformanceScreen() {
                   <Row label="Total Revenue"       value={totalRevenue}     total />
 
                   <SectionLabel label="Expenses" />
-                  <Row label="Consumer Tax"        value={totalConTax}     indent />
+                  <Row label="Sale Tax"            value={totalConTax}     indent />
                   <Row label="Land Tax"            value={totalLandTax}    indent />
                   <Row label="Supply Purchases"    value={totalSupplyBuys} indent />
                   <Row label="Marketing"           value={totalMarketing}  indent />

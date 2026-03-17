@@ -107,7 +107,7 @@ export default function PoliticsPanel() {
 
           <div className="space-y-2">
             <p className="text-gray-600 text-xs uppercase tracking-wider">Tax Rates</p>
-            <TaxBar label="Consumer Tax"  value={gov.consumer_tax_rate}  />
+            <TaxBar label="Sale Tax"  value={gov.consumer_tax_rate}  />
             <TaxBar label="Profit Tax"    value={gov.profit_tax_rate}    />
             <TaxBar label="Land Tax"      value={gov.land_tax_rate}      />
             <TaxBar label="Employee Tax"  value={gov.employee_tax_rate}  />
@@ -200,7 +200,7 @@ export default function PoliticsPanel() {
             Warning: Tax changes directly affect city GDP and your approval ratings.
           </p>
           {[
-            { key: 'consumer_tax_rate', label: 'Consumer Tax Rate (%)' },
+            { key: 'consumer_tax_rate', label: 'Sale Tax Rate (%)' },
             { key: 'profit_tax_rate',   label: 'Profit Tax Rate (%)'   },
             { key: 'land_tax_rate',     label: 'Land Tax Rate (%)'     },
             { key: 'employee_tax_rate', label: 'Employee Tax Rate (%)'  },
