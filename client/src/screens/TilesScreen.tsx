@@ -896,9 +896,9 @@ export default function TilesScreen() {
         </CityScene3D>
       </div>
 
-      {/* Left overlay column: buildings (top, flex-1) + chat (bottom, shrink-0) */}
+      {/* Left overlay column: buildings (top, flex-1) + chat (bottom, shrink-0) — desktop only */}
       <div
-        className="absolute top-3 left-3 bottom-4 z-[1001] flex flex-col gap-2 pointer-events-none items-start"
+        className="hidden md:flex absolute top-3 left-3 bottom-4 z-[1001] flex-col gap-2 pointer-events-none items-start"
         style={{
           opacity: mapReady ? 1 : 0,
           transform: mapReady ? 'translateX(0)' : 'translateX(-1rem)',
@@ -934,7 +934,7 @@ export default function TilesScreen() {
 
         {selectedTile && (
           <Panel
-            className="absolute top-3 right-3 bottom-3 w-96 z-[1000] shadow-xl"
+            className="absolute inset-x-0 bottom-0 max-h-[60vh] md:inset-x-auto md:max-h-none md:top-3 md:right-3 md:bottom-3 md:w-96 z-[1000] shadow-xl rounded-t-2xl md:rounded-t-lg"
             title={
               hasBuilding
                 ? `${BUILDING_ICONS[selectedTile.building_type?.toLowerCase() ?? ''] ?? '🏢'} ${selectedTile.building_name}`
@@ -1062,11 +1062,10 @@ export default function TilesScreen() {
 
         {/* Build toolbar (bottom-center) */}
         <div
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1001]"
+          className="absolute bottom-2 left-2 right-2 md:left-1/2 md:right-auto md:-translate-x-1/2 md:bottom-4 z-[1001]"
           style={{
             opacity: mapReady ? 1 : 0,
-            transform: mapReady ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(1rem)',
-            transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
+            transition: 'opacity 0.5s ease-out',
           }}
         >
           <BuildToolbar activeBuildType={activeBuildType} onSelect={setActiveBuildType} />
@@ -1075,7 +1074,7 @@ export default function TilesScreen() {
         {/* Placement mode hint */}
         {activeBuildType && !placementTarget && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1001] bg-gray-200 text-gray-700 text-xs px-4 py-2 rounded-lg border border-gray-300 shadow-xl">
-            Click a highlighted tile to place your building · <span className="text-indigo-400">ESC</span> to cancel
+            Tap a highlighted tile to place your building · <span className="text-indigo-400 hidden md:inline">ESC</span><span className="md:hidden">tap elsewhere</span> to cancel
           </div>
         )}
     </div>

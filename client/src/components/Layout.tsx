@@ -1,7 +1,7 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { LogOut, Settings } from 'lucide-react';
+import { LogOut, Settings, LayoutDashboard, BarChart3, FileText, FlaskConical, Megaphone, Map } from 'lucide-react';
 import { useAuth } from '../auth';
 import { getProfile, getCityStats } from '../api';
 import { fmtMoney } from '../types';
@@ -9,12 +9,12 @@ import { useTickRefresh } from '../hooks/useTickRefresh';
 import SettingsModal from './SettingsModal';
 
 const NAV = [
-  { to: '/dashboard',    label: 'Dashboard'    },
-  { to: '/performance',  label: 'Performance'  },
-  { to: '/agreements',   label: 'Agreements'   },
-  { to: '/research',     label: 'Research'     },
-  { to: '/marketing',    label: 'Marketing'    },
-  { to: '/map',          label: 'City Map'     },
+  { to: '/dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
+  { to: '/performance',  label: 'Performance',  icon: BarChart3 },
+  { to: '/agreements',   label: 'Agreements',   icon: FileText },
+  { to: '/research',     label: 'Research',     icon: FlaskConical },
+  { to: '/marketing',    label: 'Marketing',    icon: Megaphone },
+  { to: '/map',          label: 'City Map',     icon: Map },
 ];
 
 function TickCountdown({ nextTickAt }: { nextTickAt: number }) {
@@ -83,8 +83,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <span className="text-indigo-400 font-bold text-sm tracking-widest">VENTURED</span>
         </NavLink>
 
-        {/* Nav links */}
-        <nav className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto">
+        {/* Nav links — hidden on mobile */}
+        <nav className="hidden md:flex items-center gap-1 flex-1 min-w-0 overflow-x-auto">
           {NAV.map(({ to, label }) => (
             <NavLink
               key={to}
@@ -101,6 +101,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </NavLink>
           ))}
         </nav>
+        {/* Spacer on mobile (nav hidden) */}
+        <div className="flex-1 md:hidden" />
 
         {/* Right: tick timer + city info + balance + logout */}
         <div className="flex items-center gap-4 shrink-0 text-xs">
@@ -135,6 +137,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <main className={`flex-1 min-h-0 ${(isMapPage || isChatPage) ? 'overflow-hidden flex flex-col' : isPerformancePage ? 'overflow-hidden flex flex-col p-6' : 'overflow-y-auto p-6'}`}>
         {children}
       </main>
+
+      {/* ── Mobile bottom tab bar ──────────────────────────────────────────── */}
+      <nav className="md:hidden shrink-0 bg-gray-100 border-t border-gray-200 flex items-center justify-around px-1 pb-[env(safe-area-inset-bottom)] z-[500]">
+        {NAV.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) =>
+              `flex flex-col items-center gap-0.5 py-2 px-2 text-[10px] transition-colors ${
+                isActive
+                  ? 'text-indigo-400'
+                  : 'text-gray-500'
+              }`
+            }
+          >
+            <Icon size={18} />
+            <span>{label}</span>
+          </NavLink>
+        ))}
+      </nav>
 
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
