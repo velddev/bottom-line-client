@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, X, ChevronDown, ChevronUp, BarChart2, Droplets } from 'lucide-react';
+import { Plus, X, ChevronDown, ChevronUp, BarChart2, Droplets, Zap } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getBuilding, listRecipes, getSupplyLinks, addSupplyLink,
@@ -203,6 +203,49 @@ function WaterUtilityRow({
           {waterRateCents !== null && (
             <span className="font-mono text-xs text-cyan-600 dark:text-cyan-400 shrink-0">
               {fmtMoney(waterRateCents)}/u
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Base electricity consumption per tick by building type ─────────────────────
+const BASE_ELECTRICITY: Record<string, number> = {
+  factory: 30, store: 15, warehouse: 10, bank: 10,
+  field: 5, landmark: 5,
+  residential_low: 5, residential_medium: 10, residential_high: 15,
+};
+
+// ── Electricity utility row (shown on every building) ─────────────────────────
+function ElectricityUtilityRow({
+  buildingType,
+  electricityRateCents,
+}: {
+  buildingType: string;
+  electricityRateCents: number | null;
+}) {
+  const baseConsumption = BASE_ELECTRICITY[buildingType] ?? 5;
+  return (
+    <div className="mb-3">
+      <div className="w-full flex items-center justify-between text-xs font-semibold text-gray-700 mb-1.5">
+        <span className="flex items-center gap-1 capitalize">
+          <Zap size={12} className="text-amber-400" />
+          electricity
+          <span className="text-gray-500 font-normal ml-1">× {baseConsumption} kWh/day</span>
+        </span>
+      </div>
+      <div className="pl-2">
+        <div className="flex items-center gap-1.5 text-xs bg-amber-100/40 dark:bg-amber-900/20 rounded px-2 py-1">
+          <Zap size={12} className="text-amber-400" />
+          <span className="flex-1 text-gray-700 truncate">
+            City Power Grid
+            <span className="text-gray-500 ml-1 font-normal">— utility</span>
+          </span>
+          {electricityRateCents !== null && (
+            <span className="font-mono text-xs text-amber-600 dark:text-amber-400 shrink-0">
+              {fmtMoney(electricityRateCents)}/kWh
             </span>
           )}
         </div>
@@ -659,18 +702,17 @@ export default function SupplySection({
 
   const links: SupplyLinkInfo[] = supplyLinksResp?.links ?? [];
 
-  // Fetch water rate for cost calculations
-  const hasWaterRecipe = (recipesResp?.recipes ?? []).some(
-    (r: RecipeInfo) => r.ingredients?.some((i: { resource_type: string }) => i.resource_type === 'water')
-  );
+  // Fetch utilities (electricity is always needed, water only for recipes)
   const { data: utilitiesData } = useQuery({
     queryKey: ['utilities', cityId],
     queryFn: () => getUtilities(cityId),
     staleTime: 60_000,
-    enabled: hasWaterRecipe,
   });
   const waterRateCents = utilitiesData?.utilities?.find(
     (u: { name: string }) => u.name.toLowerCase() === 'water'
+  )?.rate_cents ?? null;
+  const electricityRateCents = utilitiesData?.utilities?.find(
+    (u: { name: string }) => u.name.toLowerCase() === 'electricity'
   )?.rate_cents ?? null;
 
   if (!bldg) return <p className="text-gray-600 text-xs animate-pulse">Loading…</p>;
@@ -679,6 +721,7 @@ export default function SupplySection({
   if (buildingType === 'store') {
     return (
       <div>
+        <ElectricityUtilityRow buildingType={buildingType} electricityRateCents={electricityRateCents} />
         <StoreSupplySection buildingId={buildingId} cityId={cityId} links={links} />
         <StoreAnalyticsPanel buildingId={buildingId} />
       </div>
@@ -689,17 +732,23 @@ export default function SupplySection({
 
   if (!recipe) {
     return (
-      <RecipePicker
-        buildingId={buildingId}
-        buildingType={buildingType}
-        currentWorkers={bldg.workers}
-        recipes={recipesResp?.recipes ?? []}
-      />
+      <div>
+        <ElectricityUtilityRow buildingType={buildingType} electricityRateCents={electricityRateCents} />
+        <RecipePicker
+          buildingId={buildingId}
+          buildingType={buildingType}
+          currentWorkers={bldg.workers}
+          recipes={recipesResp?.recipes ?? []}
+        />
+      </div>
     );
   }
 
   return (
     <div>
+      {/* Electricity utility (every building) */}
+      <ElectricityUtilityRow buildingType={buildingType} electricityRateCents={electricityRateCents} />
+
       {/* Recipe summary + auto-sell */}
       <div className="mb-3 pb-3 border-b border-gray-200">
         <p className="text-xs text-gray-500">
