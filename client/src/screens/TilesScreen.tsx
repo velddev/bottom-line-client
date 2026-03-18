@@ -762,6 +762,12 @@ export default function TilesScreen() {
   const [snapCamera, setSnapCamera] = useState(true);
   const [mapReady, setMapReady] = useState(false);
 
+  // Reveal map as soon as the 3D scene mounts (roads/border render without tiles)
+  useEffect(() => {
+    const t = setTimeout(() => setMapReady(true), 300);
+    return () => clearTimeout(t);
+  }, []);
+
   // Q/E rotation pivot: rotate around the center of the selected tile
   const rotationPivot = useMemo<[number, number] | null>(() => {
     if (!selectedTile) return null;
@@ -827,7 +833,6 @@ export default function TilesScreen() {
           setSelectedTile(tile);
           setFocusTile(tile);
           requestAnimationFrame(() => setSnapCamera(false));
-          setTimeout(() => setMapReady(true), 200);
           return;
         }
       }
@@ -855,8 +860,6 @@ export default function TilesScreen() {
     if (found) {
       requestAnimationFrame(() => setSnapCamera(false));
     }
-    // Reveal map after a brief delay for models to render
-    setTimeout(() => setMapReady(true), 200);
   }, [tiles, auth?.player_id]);
 
   const handleCompanyListSelect = useCallback((tile: TileInfo) => {
