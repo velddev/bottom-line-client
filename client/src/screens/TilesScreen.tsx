@@ -22,7 +22,7 @@ import CityScene3D from '../components/CityScene3D';
 import TileGrid3D from '../components/TileGrid3D';
 import Badge from '../components/ui/Badge';
 import BuildingMeshes from '../components/BuildingMeshes';
-import TileTooltip3D from '../components/TileTooltip3D';
+
 import RoadNetwork3D from '../components/RoadNetwork3D';
 import TileDecorations from '../components/TileDecorations';
 import MapBorder from '../components/MapBorder';
@@ -918,10 +918,6 @@ export default function TilesScreen() {
               gridY={hoveredTile.grid_y}
             />
           )}
-          <TileTooltip3D
-            hoveredTile={hoveredTile}
-            selectedTile={selectedTile}
-          />
         </CityScene3D>
       </div>
 
