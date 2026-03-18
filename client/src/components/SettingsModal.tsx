@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Sun, Moon, Paintbrush, KeyRound, Copy, Check, Eye, EyeOff } from 'lucide-react';
+import { X, Sun, Moon, Paintbrush, KeyRound, Copy, Check, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { useTheme, type ColorMode } from '../hooks/useTheme';
 import { useAuth } from '../auth';
 
@@ -192,6 +192,19 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           <div className="flex-1 overflow-y-auto p-5 min-h-0">
             {tab === 'appearance' && <AppearanceTab />}
             {tab === 'account'    && <AccountTab />}
+          </div>
+
+          {/* Discord community link */}
+          <div className="border-t border-gray-300 px-5 py-3">
+            <a
+              href="https://discord.gg/eNc7d9Z5eu"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-xs text-gray-500 hover:text-indigo-500 transition-colors"
+            >
+              <MessageCircle size={14} />
+              <span>Join our Community!</span>
+            </a>
           </div>
         </div>
 
