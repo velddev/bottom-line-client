@@ -119,6 +119,7 @@ export default function PerformanceScreen() {
 
   const totalStoreRev    = sum('store_revenue_cents');
   const totalSupplySales = sum('supply_line_sales_cents');
+  const totalRentalInc   = sum('rental_income_cents');
   const totalRevenue     = sum('total_revenue_cents');
   const totalConTax      = sum('consumer_tax_cents');
   const totalLandTax     = sum('land_tax_cents');
@@ -128,6 +129,8 @@ export default function PerformanceScreen() {
   const totalLoanInt     = sum('loan_interest_cents');
   const totalTransport   = sum('transport_fees_cents');
   const totalUtility     = sum('utility_cost_cents');
+  const totalUpkeep      = sum('upkeep_cents');
+  const totalRentalTax   = sum('rental_tax_cents');
   const totalExpenses    = sum('total_expenses_cents');
   const totalProfit      = sum('net_profit_cents');
 
@@ -187,6 +190,7 @@ export default function PerformanceScreen() {
                   <SectionLabel label="Revenue" />
                   <Row label="Store Sales"         value={totalStoreRev}    indent />
                   <Row label="Supply Line Sales"   value={totalSupplySales} indent />
+                  <Row label="Rental Income"       value={totalRentalInc}   indent />
                   <Divider />
                   <Row label="Total Revenue"       value={totalRevenue}     total />
 
@@ -199,6 +203,8 @@ export default function PerformanceScreen() {
                   <Row label="Loan Interest"       value={totalLoanInt}    indent />
                   <Row label="Transport"           value={totalTransport}  indent />
                   <Row label="Utility Costs"       value={totalUtility}    indent />
+                  <Row label="Building Upkeep"     value={totalUpkeep}     indent />
+                  <Row label="Rental Tax"          value={totalRentalTax}  indent />
                   <Divider />
                   <Row label="Total Expenses"      value={totalExpenses}   total />
 

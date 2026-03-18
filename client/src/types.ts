@@ -371,6 +371,7 @@ export interface CompanyTickSnapshot {
   tick: number;
   store_revenue_cents: number;
   supply_line_sales_cents: number;
+  rental_income_cents: number;
   consumer_tax_cents: number;
   land_tax_cents: number;
   supply_purchases_cents: number;
@@ -378,12 +379,14 @@ export interface CompanyTickSnapshot {
   research_spend_cents: number;
   loan_interest_cents: number;
   transport_fees_cents: number;
+  utility_cost_cents: number;
+  upkeep_cents: number;
+  rental_tax_cents: number;
   total_revenue_cents: number;
   total_expenses_cents: number;
   net_profit_cents: number;
   balance_before_tick: number;
   balance_after_tick: number;
-  utility_cost_cents: number;
 }
 
 // ── Store Insights ───────────────────────────────────────────────────────

@@ -1150,6 +1150,7 @@ message CompanyTickSnapshot {
   // Revenue
   int64 store_revenue_cents           = 2;   // net received from citizen store sales
   int64 supply_line_sales_cents       = 3;   // received when others bought from your buildings
+  int64 rental_income_cents           = 17;  // gross rental income from residential buildings
 
   // Expenses
   int64 consumer_tax_cents            = 4;   // withheld from gross store sales
@@ -1159,6 +1160,9 @@ message CompanyTickSnapshot {
   int64 research_spend_cents          = 8;   // research project budget deducted
   int64 loan_interest_cents           = 9;   // loan interest payments
   int64 transport_fees_cents          = 15;  // distance-based supply-chain transport fees (to gov treasury)
+  int64 utility_cost_cents            = 16;  // electricity + water utility charges
+  int64 upkeep_cents                  = 18;  // residential building maintenance costs
+  int64 rental_tax_cents              = 19;  // income tax on rental income
 
   // Totals
   int64 total_revenue_cents           = 10;
