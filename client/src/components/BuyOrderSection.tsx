@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Trash2, ChevronDown, ChevronUp, BarChart2, Droplets, Zap } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, BarChart2, Droplets, Zap } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getBuilding, listRecipes, getBuyOrders, setBuyOrder,
@@ -8,20 +8,14 @@ import {
 } from '../api';
 import type { RecipeInfo, BuyOrderInfo, SalesTick } from '../types';
 import { fmtMoney } from '../types';
+import { Button, Badge, EmptyState, Spinner } from './ui';
 
-const ALL_RESOURCES = ['food', 'grain', 'animal_feed', 'cattle', 'meat', 'leather'];
 const CONSUMER_GOODS = ['food', 'meat', 'leather'];
 
 const MATCH_PREF_LABELS: Record<string, string> = {
   lowest_price: 'Lowest Price',
   highest_quality: 'Highest Quality',
   best_value: 'Best Value',
-};
-
-const VISIBILITY_LABELS: Record<string, string> = {
-  public: 'Public',
-  private: 'Private',
-  within_company: 'Company Only',
 };
 
 // ── Single buy order row ──────────────────────────────────────────────────────
@@ -72,27 +66,29 @@ function BuyOrderRow({
   };
 
   return (
-    <div className="bg-gray-100/50 rounded-lg px-3 py-2 mb-2">
+    <div className="bg-gray-200 border border-gray-300 rounded-lg px-3 py-2 mb-2">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs font-semibold text-gray-700 capitalize">{order.resource_type}</span>
+        <span className="text-xs font-semibold text-gray-900 capitalize">{order.resource_type}</span>
         <div className="flex items-center gap-2">
-          <button
-            disabled={updateMut.isPending}
-            onClick={() => {
-              const next = !isActive;
-              setIsActive(next);
-              updateMut.mutate({ active: next });
-            }}
-            className={`px-2 py-0.5 text-[10px] rounded font-medium transition-colors ${
-              isActive ? 'bg-emerald-600 text-white' : 'bg-gray-300 text-gray-600'
-            }`}
+          <Badge
+            variant={isActive ? 'success' : 'paused'}
+            className="cursor-pointer select-none"
           >
-            {isActive ? 'Active' : 'Paused'}
-          </button>
+            <button
+              disabled={updateMut.isPending}
+              onClick={() => {
+                const next = !isActive;
+                setIsActive(next);
+                updateMut.mutate({ active: next });
+              }}
+            >
+              {isActive ? 'Active' : 'Paused'}
+            </button>
+          </Badge>
           <button
             disabled={removeMut.isPending}
             onClick={() => removeMut.mutate()}
-            className="text-gray-400 hover:text-rose-500 transition-colors"
+            className="text-gray-500 hover:text-rose-400 transition-colors disabled:opacity-40"
             title="Remove buy order"
           >
             <Trash2 size={12} />
@@ -100,8 +96,8 @@ function BuyOrderRow({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <label className="text-[10px] text-gray-500">
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="text-[10px] uppercase tracking-wider text-gray-600">
           Max price
           <input
             type="number"
@@ -110,10 +106,10 @@ function BuyOrderRow({
             value={maxPrice}
             onChange={e => setMaxPrice(e.target.value)}
             onBlur={savePriceQty}
-            className="ml-1 w-16 px-1.5 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+            className="block mt-0.5 w-16 px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
           />
         </label>
-        <label className="text-[10px] text-gray-500">
+        <label className="text-[10px] uppercase tracking-wider text-gray-600">
           Qty/tick
           <input
             type="number"
@@ -122,10 +118,10 @@ function BuyOrderRow({
             value={qty}
             onChange={e => setQty(e.target.value)}
             onBlur={savePriceQty}
-            className="ml-1 w-14 px-1.5 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+            className="block mt-0.5 w-14 px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
           />
         </label>
-        <label className="text-[10px] text-gray-500">
+        <label className="text-[10px] uppercase tracking-wider text-gray-600">
           Match
           <select
             value={matchPref}
@@ -133,7 +129,7 @@ function BuyOrderRow({
               setMatchPref(e.target.value);
               updateMut.mutate({ match: e.target.value });
             }}
-            className="ml-1 px-1 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+            className="block mt-0.5 px-1 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
           >
             {Object.entries(MATCH_PREF_LABELS).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
@@ -154,9 +150,11 @@ function BuyOrderRow({
 function CreateBuyOrderInline({
   buildingId,
   availableResources,
+  onClose,
 }: {
   buildingId: string;
   availableResources: string[];
+  onClose: () => void;
 }) {
   const qc = useQueryClient();
   const [resource, setResource] = useState(availableResources[0] ?? '');
@@ -177,6 +175,7 @@ function CreateBuyOrderInline({
       ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['buy-orders', buildingId] });
+      onClose();
     },
   });
 
@@ -185,33 +184,33 @@ function CreateBuyOrderInline({
   const valid = resource && !isNaN(priceCents) && priceCents > 0 && !isNaN(quantity) && quantity > 0;
 
   return (
-    <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 mt-2">
-      <p className="text-[10px] text-indigo-600 font-semibold mb-1.5">NEW BUY ORDER</p>
+    <div className="bg-gray-200 border border-dashed border-gray-300 rounded-lg px-3 py-2 mt-2">
+      <p className="text-[10px] uppercase tracking-wider text-indigo-400 font-semibold mb-2">New Buy Order</p>
       <div className="flex items-end gap-2 flex-wrap">
-        <label className="text-[10px] text-gray-500">
+        <label className="text-[10px] uppercase tracking-wider text-gray-600">
           Resource
           <select
             value={resource}
             onChange={e => setResource(e.target.value)}
-            className="block mt-0.5 px-1 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500 capitalize"
+            className="block mt-0.5 px-1 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500 capitalize"
           >
             {availableResources.map(r => (
               <option key={r} value={r} className="capitalize">{r}</option>
             ))}
           </select>
         </label>
-        <label className="text-[10px] text-gray-500">
-          Max price (€)
+        <label className="text-[10px] uppercase tracking-wider text-gray-600">
+          Max price
           <input
             type="number"
             min="0.01"
             step="0.01"
             value={maxPrice}
             onChange={e => setMaxPrice(e.target.value)}
-            className="block mt-0.5 w-16 px-1.5 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+            className="block mt-0.5 w-16 px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
           />
         </label>
-        <label className="text-[10px] text-gray-500">
+        <label className="text-[10px] uppercase tracking-wider text-gray-600">
           Qty/tick
           <input
             type="number"
@@ -219,28 +218,27 @@ function CreateBuyOrderInline({
             step="1"
             value={qty}
             onChange={e => setQty(e.target.value)}
-            className="block mt-0.5 w-14 px-1.5 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+            className="block mt-0.5 w-14 px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
           />
         </label>
-        <label className="text-[10px] text-gray-500">
+        <label className="text-[10px] uppercase tracking-wider text-gray-600">
           Match
           <select
             value={matchPref}
             onChange={e => setMatchPref(e.target.value)}
-            className="block mt-0.5 px-1 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+            className="block mt-0.5 px-1 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
           >
             {Object.entries(MATCH_PREF_LABELS).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
         </label>
-        <button
-          disabled={mut.isPending || !valid}
-          onClick={() => mut.mutate()}
-          className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors disabled:opacity-40 font-medium"
-        >
-          {mut.isPending ? 'Creating…' : 'Create'}
-        </button>
+        <div className="flex gap-1">
+          <Button size="sm" loading={mut.isPending} disabled={!valid} onClick={() => mut.mutate()}>
+            Create
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
+        </div>
       </div>
       {mut.isError && (
         <p className="text-rose-400 text-[10px] mt-1">{(mut.error as Error).message}</p>
@@ -259,7 +257,7 @@ function AutoSellOfferingRow({
 }) {
   const qc = useQueryClient();
   const [price, setPrice] = useState('0.10');
-  const [enabled, setEnabled] = useState(false);
+  const [listed, setListed] = useState(false);
 
   const mut = useMutation({
     mutationFn: () =>
@@ -271,7 +269,7 @@ function AutoSellOfferingRow({
         true,
       ),
     onSuccess: () => {
-      setEnabled(true);
+      setListed(true);
       qc.invalidateQueries({ queryKey: ['offerings'] });
     },
   });
@@ -280,8 +278,8 @@ function AutoSellOfferingRow({
   const validPrice = !isNaN(priceCents) && priceCents > 0;
 
   return (
-    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
-      <span className="text-xs text-gray-500 shrink-0">Auto-sell at</span>
+    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-300">
+      <span className="text-xs text-gray-600 shrink-0">Auto-sell at</span>
       <input
         type="number"
         min="0.01"
@@ -291,15 +289,15 @@ function AutoSellOfferingRow({
         onChange={e => setPrice(e.target.value)}
         className="w-20 px-2 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 placeholder-gray-400 outline-none focus:border-indigo-500"
       />
-      <button
-        disabled={mut.isPending || !validPrice}
+      <Button
+        size="sm"
+        variant={listed ? 'secondary' : 'primary'}
+        loading={mut.isPending}
+        disabled={!validPrice}
         onClick={() => mut.mutate()}
-        className={`px-2 py-0.5 text-xs rounded transition-colors disabled:opacity-40 ${
-          enabled ? 'bg-emerald-700 hover:bg-emerald-600 text-white' : 'bg-gray-200 hover:bg-gray-600 text-gray-700'
-        }`}
       >
-        {enabled ? 'Listed' : 'Create Listing'}
-      </button>
+        {listed ? 'Listed' : 'Create Listing'}
+      </Button>
     </div>
   );
 }
@@ -310,20 +308,20 @@ function WaterUtilityRow({ quantity, waterRateCents }: { quantity: number; water
     <div className="mb-3">
       <div className="w-full flex items-center justify-between text-xs font-semibold text-gray-700 mb-1.5">
         <span className="flex items-center gap-1 capitalize">
-          <Droplets size={12} className="text-cyan-500" />
+          <Droplets size={12} className="text-cyan-400" />
           water
           <span className="text-gray-500 font-normal ml-1">× {quantity} per run</span>
         </span>
       </div>
       <div className="pl-2">
-        <div className="flex items-center gap-1.5 text-xs bg-cyan-100/40 dark:bg-cyan-900/20 rounded px-2 py-1">
-          <span className="text-cyan-500 text-xs">⚡</span>
+        <div className="flex items-center gap-1.5 text-xs bg-cyan-900/20 rounded px-2 py-1">
+          <Droplets size={11} className="text-cyan-400" />
           <span className="flex-1 text-gray-700 truncate">
             City Water Works
             <span className="text-gray-500 ml-1 font-normal">— utility</span>
           </span>
           {waterRateCents !== null && (
-            <span className="font-mono text-xs text-cyan-600 dark:text-cyan-400 shrink-0">
+            <span className="font-mono text-xs text-cyan-400 shrink-0">
               {fmtMoney(waterRateCents)}/u
             </span>
           )}
@@ -352,14 +350,14 @@ function ElectricityUtilityRow({ buildingType, electricityRateCents }: { buildin
         </span>
       </div>
       <div className="pl-2">
-        <div className="flex items-center gap-1.5 text-xs bg-amber-100/40 dark:bg-amber-900/20 rounded px-2 py-1">
-          <Zap size={12} className="text-amber-400" />
+        <div className="flex items-center gap-1.5 text-xs bg-amber-900/20 rounded px-2 py-1">
+          <Zap size={11} className="text-amber-400" />
           <span className="flex-1 text-gray-700 truncate">
             City Power Grid
             <span className="text-gray-500 ml-1 font-normal">— utility</span>
           </span>
           {electricityRateCents !== null && (
-            <span className="font-mono text-xs text-amber-600 dark:text-amber-400 shrink-0">
+            <span className="font-mono text-xs text-amber-400 shrink-0">
               {fmtMoney(electricityRateCents)}/kWh
             </span>
           )}
@@ -395,12 +393,12 @@ function RecipePicker({
   );
 
   if (recipes.length === 0) {
-    return <p className="text-gray-500 text-xs">No recipes available for this building type.</p>;
+    return <EmptyState icon="📋" message="No recipes available for this building type." />;
   }
 
   return (
     <div>
-      <p className="text-xs text-gray-500 mb-2">Select a recipe to configure supply</p>
+      <p className="text-xs text-gray-600 mb-2">Select a recipe to configure orders</p>
       <input
         value={search}
         onChange={e => setSearch(e.target.value)}
@@ -413,26 +411,26 @@ function RecipePicker({
             key={r.recipe_id}
             disabled={configureMut.isPending}
             onClick={() => configureMut.mutate(r.recipe_id)}
-            className="w-full text-left px-3 py-2 rounded bg-gray-100/50 hover:bg-gray-200 transition-colors disabled:opacity-50 relative"
+            className="w-full text-left px-3 py-2 rounded bg-gray-200 hover:bg-gray-300 border border-gray-300 transition-colors disabled:opacity-40 relative"
           >
             {configureMut.isPending && configureMut.variables === r.recipe_id && (
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs animate-pulse">saving…</span>
+              <span className="absolute right-2 top-1/2 -translate-y-1/2"><Spinner size="sm" /></span>
             )}
             <div className="flex items-center justify-between">
               <span className="text-gray-900 text-xs font-medium capitalize">{r.output_type}</span>
-              <span className="text-gray-500 text-xs">
+              <span className="text-gray-600 text-xs font-mono">
                 ×{r.output_min}–{r.output_max} / {r.ticks_required}d
               </span>
             </div>
             {r.ingredients.length > 0 && (
-              <p className="text-gray-600 text-xs mt-0.5">
+              <p className="text-gray-500 text-xs mt-0.5">
                 Needs: {r.ingredients.map(i => `${i.resource_type} ×${i.quantity}`).join(', ')}
               </p>
             )}
           </button>
         ))}
         {filtered.length === 0 && (
-          <p className="text-gray-600 text-xs px-1">No matches</p>
+          <p className="text-gray-500 text-xs px-1">No matches</p>
         )}
       </div>
       {configureMut.isError && (
@@ -458,31 +456,43 @@ function BuyOrdersList({
 
   return (
     <div>
-      <p className="text-xs text-gray-500 mb-2 font-medium">
-        BUY ORDERS
-        <span className="font-normal ml-1 text-gray-600">— automatically purchase from market</span>
+      <p className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-2">
+        Buy Orders
+        <span className="font-normal normal-case tracking-normal ml-1 text-gray-500">— auto-purchase from market</span>
       </p>
 
       {orders.length === 0 && !showCreate && (
-        <p className="text-gray-600 text-xs italic mb-2">No buy orders — resources won't be purchased automatically</p>
+        <EmptyState
+          icon="📦"
+          message="No buy orders — resources won't be purchased automatically."
+          border="dashed"
+          action={
+            remaining.length > 0 ? (
+              <Button size="sm" icon={<Plus size={12} />} onClick={() => setShowCreate(true)}>
+                Add buy order
+              </Button>
+            ) : undefined
+          }
+          className="py-5"
+        />
       )}
 
       {orders.map(o => (
         <BuyOrderRow key={o.buy_order_id} order={o} buildingId={buildingId} />
       ))}
 
-      {remaining.length > 0 && !showCreate && (
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors mt-1"
-        >
-          <Plus size={11} />
-          <span>Add buy order</span>
-        </button>
+      {orders.length > 0 && remaining.length > 0 && !showCreate && (
+        <Button size="sm" icon={<Plus size={12} />} onClick={() => setShowCreate(true)} className="mt-1">
+          Add buy order
+        </Button>
       )}
 
       {showCreate && remaining.length > 0 && (
-        <CreateBuyOrderInline buildingId={buildingId} availableResources={remaining} />
+        <CreateBuyOrderInline
+          buildingId={buildingId}
+          availableResources={remaining}
+          onClose={() => setShowCreate(false)}
+        />
       )}
     </div>
   );
@@ -510,21 +520,25 @@ function StoreAnalyticsPanel({ buildingId }: { buildingId: string }) {
   const resources = Object.keys(byResource);
 
   return (
-    <div className="mt-4 border-t border-gray-200 pt-3">
-      <button
+    <div className="mt-4 border-t border-gray-300 pt-3">
+      <Button
+        size="sm"
+        variant="secondary"
+        icon={<BarChart2 size={11} />}
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 text-xs bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-1.5 rounded-lg transition-colors font-medium"
       >
-        <BarChart2 size={11} />
-        <span>Performance</span>
-        {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-      </button>
+        Performance {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+      </Button>
 
       {open && (
         <div className="mt-2">
-          {isLoading && <p className="text-xs text-gray-600 animate-pulse">Loading…</p>}
+          {isLoading && (
+            <div className="flex items-center gap-2 text-gray-500 text-xs">
+              <Spinner size="sm" /> Loading…
+            </div>
+          )}
           {!isLoading && ticks.length === 0 && (
-            <p className="text-xs text-gray-600">No sales recorded yet.</p>
+            <p className="text-xs text-gray-500">No sales recorded yet.</p>
           )}
           {resources.map(res => {
             const rows = byResource[res].slice(0, 10);
@@ -532,27 +546,27 @@ function StoreAnalyticsPanel({ buildingId }: { buildingId: string }) {
             const totalRev   = rows.reduce((s, r) => s + r.revenue_cents, 0);
             return (
               <div key={res} className="mb-3">
-                <p className="text-xs font-medium text-gray-700 mb-1 capitalize">{res}</p>
+                <p className="text-xs font-semibold text-gray-900 mb-1 capitalize">{res}</p>
                 <div className="text-xs text-gray-500 flex gap-4 mb-1">
                   <span>Last {rows.length} days</span>
                   <span>Units: <span className="text-gray-900 font-mono">{totalUnits.toFixed(1)}</span></span>
-                  <span>Revenue: <span className="text-green-400 font-mono">{fmtMoney(totalRev)}</span></span>
+                  <span>Revenue: <span className="text-emerald-400 font-mono">{fmtMoney(totalRev)}</span></span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[10px] text-gray-500">
                     <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-0.5 pr-3">Day</th>
-                        <th className="text-right pr-3">Units sold</th>
-                        <th className="text-right">Revenue</th>
+                      <tr className="border-b border-gray-300">
+                        <th className="text-left py-0.5 pr-3 uppercase tracking-wider">Day</th>
+                        <th className="text-right pr-3 uppercase tracking-wider">Units sold</th>
+                        <th className="text-right uppercase tracking-wider">Revenue</th>
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map(r => (
-                        <tr key={r.tick} className="border-b border-gray-200">
-                          <td className="py-0.5 pr-3 font-mono">{r.tick}</td>
+                        <tr key={r.tick} className="border-b border-gray-300/40">
+                          <td className="py-0.5 pr-3 font-mono text-gray-700">{r.tick}</td>
                           <td className="text-right pr-3 font-mono text-gray-900">{r.sale_volume.toFixed(2)}</td>
-                          <td className="text-right font-mono text-green-400">{fmtMoney(r.revenue_cents)}</td>
+                          <td className="text-right font-mono text-emerald-400">{fmtMoney(r.revenue_cents)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -606,7 +620,13 @@ export default function BuyOrderSection({
     (u: { name: string }) => u.name.toLowerCase() === 'electricity'
   )?.rate_cents ?? null;
 
-  if (!bldg) return <p className="text-gray-600 text-xs animate-pulse">Loading…</p>;
+  if (!bldg) {
+    return (
+      <div className="flex items-center gap-2 text-gray-500 text-xs">
+        <Spinner size="sm" /> Loading…
+      </div>
+    );
+  }
 
   // Stores: buy consumer goods
   if (buildingType === 'store') {
@@ -647,10 +667,10 @@ export default function BuyOrderSection({
       <ElectricityUtilityRow buildingType={buildingType} electricityRateCents={electricityRateCents} />
 
       {/* Recipe summary + auto-sell offering */}
-      <div className="mb-3 pb-3 border-b border-gray-200">
-        <p className="text-xs text-gray-500">
-          Produces <span className="text-gray-900 font-medium">{recipe.output_type}</span>
-          <span className="text-gray-600 ml-1">× {recipe.output_min}–{recipe.output_max} / {recipe.ticks_required}d</span>
+      <div className="mb-3 pb-3 border-b border-gray-300">
+        <p className="text-xs text-gray-600">
+          Produces <span className="text-gray-900 font-semibold capitalize">{recipe.output_type}</span>
+          <span className="text-gray-500 ml-1 font-mono">× {recipe.output_min}–{recipe.output_max} / {recipe.ticks_required}d</span>
         </p>
         <AutoSellOfferingRow buildingId={buildingId} resourceType={recipe.output_type} />
       </div>
