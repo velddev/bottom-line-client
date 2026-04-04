@@ -5,8 +5,6 @@ import Layout from './components/Layout';
 import PreloadScreen from './components/PreloadScreen';
 import AuthScreen from './screens/AuthScreen';
 import DashboardScreen from './screens/DashboardScreen';
-import ResearchScreen from './screens/ResearchScreen';
-import MarketingScreen from './screens/MarketingScreen';
 import TilesScreen from './screens/TilesScreen';
 import PerformanceScreen from './screens/PerformanceScreen';
 import ChatScreen from './screens/ChatScreen';
@@ -26,8 +24,6 @@ function AppRoutes() {
               <Route path="/"             element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard"    element={<DashboardScreen />} />
               <Route path="/performance"  element={<PerformanceScreen />} />
-              <Route path="/research"     element={<ResearchScreen />} />
-              <Route path="/marketing"    element={<MarketingScreen />} />
               <Route path="/map"          element={<TilesScreen />} />
               <Route path="/chat"         element={<ChatScreen />} />
               <Route path="*"             element={<Navigate to="/dashboard" replace />} />

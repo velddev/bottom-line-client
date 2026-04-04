@@ -1,7 +1,7 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { LogOut, Settings, LayoutDashboard, BarChart3, FlaskConical, Megaphone, Map, Ellipsis } from 'lucide-react';
+import { LogOut, Settings, LayoutDashboard, BarChart3, Map, Ellipsis } from 'lucide-react';
 import { useAuth } from '../auth';
 import { getProfile, getCityStats } from '../api';
 import { fmtMoney } from '../types';
@@ -11,8 +11,6 @@ import SettingsModal from './SettingsModal';
 const NAV = [
   { to: '/dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
   { to: '/performance',  label: 'Performance',  icon: BarChart3 },
-  { to: '/research',     label: 'Research',     icon: FlaskConical },
-  { to: '/marketing',    label: 'Marketing',    icon: Megaphone },
   { to: '/map',          label: 'City Map',     icon: Map },
 ];
 
@@ -22,10 +20,7 @@ const MOBILE_NAV = [
   { to: '/performance', label: 'Stats',  icon: BarChart3 },
 ];
 
-const MOBILE_MORE_NAV = [
-  { to: '/research',    label: 'Research',    icon: FlaskConical },
-  { to: '/marketing',   label: 'Marketing',   icon: Megaphone },
-];
+const MOBILE_MORE_NAV: { to: string; label: string; icon: typeof LayoutDashboard }[] = [];
 
 function TickCountdown({ nextTickAt }: { nextTickAt: number }) {
   const [secsLeft, setSecsLeft] = useState(() =>
