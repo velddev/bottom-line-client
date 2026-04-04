@@ -1,9 +1,9 @@
 import type {
   PlayerProfile, BuildingStatus, RecipeInfo, Offering,
-  AgreementSummary, ResearchProgress, BrandSummary, BrandValueResponse,
+  BuyOrderInfo, ResearchProgress, BrandSummary, BrandValueResponse,
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
-  SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
+  GetBuildingSalesResponse,
   CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, StoreInsightsResponse,
   UtilitiesResponse,
 } from './types';
@@ -116,6 +116,18 @@ const BUILDING_TYPE: Record<string, string> = {
   warehouse: 'BUILDING_TYPE_WAREHOUSE',
   landmark:  'BUILDING_TYPE_LANDMARK',
   bank:      'BUILDING_TYPE_BANK',
+};
+
+const MATCH_PREFERENCE: Record<string, string> = {
+  lowest_price:     'MATCH_PREFERENCE_LOWEST_PRICE',
+  highest_quality:  'MATCH_PREFERENCE_HIGHEST_QUALITY',
+  best_value:       'MATCH_PREFERENCE_BEST_VALUE',
+};
+
+const ORDER_VISIBILITY: Record<string, string> = {
+  public:         'ORDER_VISIBILITY_PUBLIC',
+  private:        'ORDER_VISIBILITY_PRIVATE',
+  within_company: 'ORDER_VISIBILITY_WITHIN_COMPANY',
 };
 
 function enumVal(map: Record<string, string>, val: string | undefined): string | undefined {
@@ -236,18 +248,30 @@ export function createHttpApi(): IApiService {
         history_ticks: String(history_ticks),
       }),
 
-    // ─── Trade Agreements ───────────────────────────────────────────────────
-    listAgreements: (role?) =>
-      get<{ agreements: AgreementSummary[] }>('/agreements', role ? { role } : {}),
+    // ─── Buy Orders (replaces supply links + agreements) ──────────────────
+    getBuyOrders: (buildingId) =>
+      get<{ orders: BuyOrderInfo[] }>(`/buildings/${buildingId}/buy-orders`),
 
-    createAgreement: (data) =>
-      post<{ agreement_id: string }>('/agreements', { ...data, msrp_price: Math.round(data.msrp_price * 100) }),
+    setBuyOrder: (buildingId, resource_type, max_price_per_unit, quantity_per_tick, visibility, match_preference, is_active) =>
+      put<{ buy_order_id: string }>(`/buildings/${buildingId}/buy-orders`, {
+        resource_type:      enumVal(RESOURCE_TYPE, resource_type),
+        max_price_per_unit,
+        quantity_per_tick,
+        visibility:         enumVal(ORDER_VISIBILITY, visibility) ?? 'ORDER_VISIBILITY_PUBLIC',
+        match_preference:   enumVal(MATCH_PREFERENCE, match_preference) ?? 'MATCH_PREFERENCE_LOWEST_PRICE',
+        is_active,
+      }),
 
-    respondAgreement: (id, response) =>
-      put<{ success: boolean }>(`/agreements/${id}/response`, { response }),
+    removeBuyOrder: (buyOrderId) =>
+      del<{ success: boolean }>(`/buy-orders/${buyOrderId}`),
 
-    cancelAgreement: (id) =>
-      del<{ success: boolean }>(`/agreements/${id}`),
+    createOffering: (buildingId, resource_type, price_per_unit, visibility = 'public', is_auto_managed = false) =>
+      post<{ offering_id: string }>(`/buildings/${buildingId}/offerings`, {
+        resource_type:    enumVal(RESOURCE_TYPE, resource_type),
+        price_per_unit,
+        visibility:       enumVal(ORDER_VISIBILITY, visibility) ?? 'ORDER_VISIBILITY_PUBLIC',
+        is_auto_managed,
+      }),
 
     // ─── Research ───────────────────────────────────────────────────────────
     listResearch: () =>
@@ -340,36 +364,6 @@ export function createHttpApi(): IApiService {
 
     purchaseTile: (tile_id) =>
       post<{ tile_id: string; new_balance: number }>(`/tiles/${tile_id}/purchase`, {}),
-
-    // ─── Supply Links ───────────────────────────────────────────────────────
-    getSupplyLinks: (buildingId) =>
-      get<{ links: SupplyLinkInfo[] }>(`/buildings/${buildingId}/supply-links`),
-
-    addSupplyLink: (buildingId, resourceType, supplierBuildingId) =>
-      post<{ supply_link_id: string }>(`/buildings/${buildingId}/supply-links`, {
-        resource_type:        enumVal(RESOURCE_TYPE, resourceType),
-        supplier_building_id: supplierBuildingId,
-      }),
-
-    removeSupplyLink: (linkId) =>
-      del<{ success: boolean }>(`/supply-links/${linkId}`),
-
-    listPotentialSuppliers: (cityId, resourceType, buildingId) => {
-      const rtVal = enumVal(RESOURCE_TYPE, resourceType) ?? resourceType;
-      const qs = buildingId ? `?building_id=${buildingId}` : '';
-      return get<{ suppliers: PotentialSupplier[] }>(
-        `/cities/${cityId}/suppliers/${rtVal}${qs}`);
-    },
-
-    getAutoSellConfigs: (buildingId) =>
-      get<{ configs: AutoSellConfigInfo[] }>(`/buildings/${buildingId}/auto-sell`),
-
-    setAutoSellConfig: (buildingId, resource_type, price_per_unit, is_enabled) =>
-      put<{ success: boolean }>(`/buildings/${buildingId}/auto-sell`, {
-        resource_type: enumVal(RESOURCE_TYPE, resource_type),
-        price_per_unit,
-        is_enabled,
-      }),
 
     getBuildingSales: (buildingId, historyTicks = 20) =>
       get<GetBuildingSalesResponse>(`/buildings/${buildingId}/sales`, { history_ticks: String(historyTicks) }),

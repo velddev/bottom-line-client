@@ -1,9 +1,9 @@
 import type {
   PlayerProfile, BuildingStatus, RecipeInfo, Offering,
-  AgreementSummary, ResearchProgress, BrandSummary, BrandValueResponse,
+  BuyOrderInfo, ResearchProgress, BrandSummary, BrandValueResponse,
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
-  SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
+  GetBuildingSalesResponse,
   CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, StoreInsightsResponse,
   UtilitiesResponse,
 } from './types';
@@ -106,22 +106,23 @@ export function createIpcApi(): IApiService {
     getMarketShare: (city_id, resource_type = '', history_ticks = 20) =>
       invoke<MarketShareResponse>('api:getMarketShare', { city_id, resource_type, history_ticks, apiKey: apiKey() }),
 
-    // ─── Trade Agreements ───────────────────────────────────────────────────
-    listAgreements: (role?) =>
-      invoke<{ agreements: AgreementSummary[] }>('api:listAgreements', { role, apiKey: apiKey() }),
+    // ─── Buy Orders (replaces supply links + agreements) ──────────────────
+    getBuyOrders: (buildingId) =>
+      invoke<{ orders: BuyOrderInfo[] }>('api:getBuyOrders', { building_id: buildingId, apiKey: apiKey() }),
 
-    createAgreement: (data) =>
-      invoke<{ agreement_id: string }>('api:createAgreement', {
-        ...data,
-        msrp_price: Math.round(data.msrp_price * 100),
-        apiKey: apiKey(),
+    setBuyOrder: (buildingId, resource_type, max_price_per_unit, quantity_per_tick, visibility, match_preference, is_active) =>
+      invoke<{ buy_order_id: string }>('api:setBuyOrder', {
+        building_id: buildingId, resource_type, max_price_per_unit, quantity_per_tick,
+        visibility, match_preference, is_active, apiKey: apiKey(),
       }),
 
-    respondAgreement: (id, response) =>
-      invoke<{ success: boolean }>('api:respondAgreement', { agreement_id: id, response, apiKey: apiKey() }),
+    removeBuyOrder: (buyOrderId) =>
+      invoke<{ success: boolean }>('api:removeBuyOrder', { buy_order_id: buyOrderId, apiKey: apiKey() }),
 
-    cancelAgreement: (id) =>
-      invoke<{ success: boolean }>('api:cancelAgreement', { agreement_id: id, apiKey: apiKey() }),
+    createOffering: (buildingId, resource_type, price_per_unit, visibility = 'public', is_auto_managed = false) =>
+      invoke<{ offering_id: string }>('api:createOffering', {
+        building_id: buildingId, resource_type, price_per_unit, visibility, is_auto_managed, apiKey: apiKey(),
+      }),
 
     // ─── Research ───────────────────────────────────────────────────────────
     listResearch: () =>
@@ -208,34 +209,6 @@ export function createIpcApi(): IApiService {
 
     purchaseTile: (tile_id) =>
       invoke<{ tile_id: string; new_balance: number }>('api:purchaseTile', { tile_id, apiKey: apiKey() }),
-
-    // ─── Supply Links ───────────────────────────────────────────────────────
-    getSupplyLinks: (buildingId) =>
-      invoke<{ links: SupplyLinkInfo[] }>('api:getSupplyLinks', { building_id: buildingId, apiKey: apiKey() }),
-
-    addSupplyLink: (buildingId, resourceType, supplierBuildingId) =>
-      invoke<{ supply_link_id: string }>('api:addSupplyLink', {
-        building_id: buildingId,
-        resource_type: resourceType,
-        supplier_building_id: supplierBuildingId,
-        apiKey: apiKey(),
-      }),
-
-    removeSupplyLink: (linkId) =>
-      invoke<{ success: boolean }>('api:removeSupplyLink', { supply_link_id: linkId, apiKey: apiKey() }),
-
-    listPotentialSuppliers: (cityId, resourceType, buildingId) =>
-      invoke<{ suppliers: PotentialSupplier[] }>('api:listPotentialSuppliers', {
-        city_id: cityId, resource_type: resourceType, building_id: buildingId ?? '', apiKey: apiKey(),
-      }),
-
-    getAutoSellConfigs: (buildingId) =>
-      invoke<{ configs: AutoSellConfigInfo[] }>('api:getAutoSellConfigs', { building_id: buildingId, apiKey: apiKey() }),
-
-    setAutoSellConfig: (buildingId, resource_type, price_per_unit, is_enabled) =>
-      invoke<{ success: boolean }>('api:setAutoSellConfig', {
-        building_id: buildingId, resource_type, price_per_unit, is_enabled, apiKey: apiKey(),
-      }),
 
     getBuildingSales: (buildingId, historyTicks = 20) =>
       invoke<GetBuildingSalesResponse>('api:getBuildingSales', { building_id: buildingId, history_ticks: historyTicks, apiKey: apiKey() }),

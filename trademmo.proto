@@ -52,17 +52,7 @@ enum BuildingStatus {
   BUILDING_STATUS_IDLE               = 2; // configured but not producing
   BUILDING_STATUS_PRODUCING          = 3; // actively producing this tick
   BUILDING_STATUS_PAUSED             = 4; // manually paused by the owner
-  BUILDING_STATUS_MISSING_RESOURCES  = 5; // supply chain could not fill requirements
-}
-
-// Status of a trade agreement.
-enum AgreementStatus {
-  AGREEMENT_STATUS_UNSPECIFIED = 0;
-  AGREEMENT_STATUS_PENDING     = 1; // awaiting buyer acceptance
-  AGREEMENT_STATUS_ACTIVE      = 2; // accepted; terms in effect
-  AGREEMENT_STATUS_REJECTED    = 3; // buyer rejected
-  AGREEMENT_STATUS_CANCELLED   = 4; // creator or buyer cancelled
-  AGREEMENT_STATUS_EXPIRED     = 5; // reached expires_at_tick without renewal
+  BUILDING_STATUS_MISSING_RESOURCES  = 5; // buy orders could not fill requirements
 }
 
 // Lifecycle phase of a city election.
@@ -94,88 +84,6 @@ enum CitizenClass {
   CITIZEN_CLASS_POINT_ONE_PERCENT = 6; // elite — $500/day
 }
 
-
-// ─────────────────────────────────────────────────────────────────────────
-// agreement.proto
-// ─────────────────────────────────────────────────────────────────────────
-service TradeAgreementService {
-  rpc Create  (CreateAgreementRequest)  returns (CreateAgreementResponse) {
-  }
-  rpc Respond (RespondAgreementRequest) returns (RespondAgreementResponse) {
-    option (google.api.http) = { put: "/v1/agreements/{agreement_id}/response" body: "*" };
-  }
-  rpc List    (ListAgreementsRequest)   returns (ListAgreementsResponse) {
-  }
-  rpc Cancel  (CancelAgreementRequest)  returns (CancelAgreementResponse) {
-    option (google.api.http) = { delete: "/v1/agreements/{agreement_id}" };
-  }
-}
-
-enum AgreementResponse {
-  AGREEMENT_RESPONSE_UNSPECIFIED = 0;
-  AGREEMENT_RESPONSE_ACCEPT      = 1;
-  AGREEMENT_RESPONSE_REJECT      = 2;
-}
-
-enum AgreementRole {
-  AGREEMENT_ROLE_UNSPECIFIED = 0;
-  AGREEMENT_ROLE_CREATOR     = 1; // filter: only agreements you created
-  AGREEMENT_ROLE_BUYER       = 2; // filter: only agreements you are a buyer of
-}
-
-message CreateAgreementRequest {
-  string          buyer_player_id         = 1;
-  ResourceType    resource_type           = 2;
-  float           discount_rate           = 3;
-  bool            require_non_competition = 4;
-  bool            require_msrp            = 5;
-  int64           msrp_price              = 6;
-  bool            disallow_white_labeling = 7;
-  int64           expires_at_tick         = 8; // 0 = no expiry
-}
-
-message CreateAgreementResponse {
-  string agreement_id = 1;
-}
-
-message RespondAgreementRequest {
-  string            agreement_id = 1;
-  AgreementResponse response     = 2;
-}
-
-message RespondAgreementResponse {
-  bool success = 1;
-}
-
-message AgreementSummary {
-  string          agreement_id            = 1;
-  string          creator_player_id       = 2;
-  string          buyer_player_id         = 3;
-  ResourceType    resource_type           = 4;
-  float           discount_rate           = 5;
-  AgreementStatus status                  = 6;
-  bool            require_non_competition = 7;
-  bool            require_msrp            = 8;
-  int64           msrp_price              = 9;
-  bool            disallow_white_labeling = 10;
-  int64           expires_at_tick         = 11;
-}
-
-message ListAgreementsRequest {
-  AgreementRole role = 1; // 0 = both creator and buyer
-}
-
-message ListAgreementsResponse {
-  repeated AgreementSummary agreements = 1;
-}
-
-message CancelAgreementRequest {
-  string agreement_id = 1;
-}
-
-message CancelAgreementResponse {
-  bool success = 1;
-}
 
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -283,23 +191,14 @@ service BuildingService {
   }
   rpc ListRecipes            (ListRecipesRequest)            returns (ListRecipesResponse) {
   }
-  rpc GetSupplyLinks         (GetSupplyLinksRequest)         returns (GetSupplyLinksResponse) {
-    option (google.api.http) = { get: "/v1/buildings/{building_id}/supply-links" };
+  rpc GetBuyOrders           (GetBuyOrdersRequest)           returns (GetBuyOrdersResponse) {
+    option (google.api.http) = { get: "/v1/buildings/{building_id}/buy-orders" };
   }
-  rpc AddSupplyLink          (AddSupplyLinkRequest)          returns (AddSupplyLinkResponse) {
-    option (google.api.http) = { post: "/v1/buildings/{consumer_building_id}/supply-links" body: "*" };
+  rpc SetBuyOrder            (SetBuyOrderRequest)            returns (SetBuyOrderResponse) {
+    option (google.api.http) = { put: "/v1/buildings/{building_id}/buy-orders" body: "*" };
   }
-  rpc RemoveSupplyLink       (RemoveSupplyLinkRequest)       returns (RemoveSupplyLinkResponse) {
-    option (google.api.http) = { delete: "/v1/supply-links/{supply_link_id}" };
-  }
-  rpc ListPotentialSuppliers (ListPotentialSuppliersRequest) returns (ListPotentialSuppliersResponse) {
-    option (google.api.http) = { get: "/v1/cities/{city_id}/suppliers/{resource_type}" };
-  }
-  rpc GetAutoSellConfigs     (GetAutoSellConfigsRequest)     returns (GetAutoSellConfigsResponse) {
-    option (google.api.http) = { get: "/v1/buildings/{building_id}/auto-sell" };
-  }
-  rpc SetAutoSellConfig      (SetAutoSellConfigRequest)      returns (SetAutoSellConfigResponse) {
-    option (google.api.http) = { put: "/v1/buildings/{building_id}/auto-sell" body: "*" };
+  rpc RemoveBuyOrder         (RemoveBuyOrderRequest)         returns (RemoveBuyOrderResponse) {
+    option (google.api.http) = { delete: "/v1/buy-orders/{buy_order_id}" };
   }
   rpc GetTileMarketScore     (GetTileMarketScoreRequest)     returns (GetTileMarketScoreResponse) {
     option (google.api.http) = { get: "/v1/cities/{city_id}/tiles/{tile_id}/market-score" };
@@ -312,6 +211,9 @@ service BuildingService {
   }
   rpc Renovate               (RenovateRequest)               returns (RenovateResponse) {
     option (google.api.http) = { post: "/v1/buildings/{building_id}/renovate" body: "*" };
+  }
+  rpc GetStoreInsights       (GetStoreInsightsRequest)       returns (GetStoreInsightsResponse) {
+    option (google.api.http) = { get: "/v1/buildings/{building_id}/insights" };
   }
 }
 
@@ -358,18 +260,18 @@ message BuildingInfo {
   ResourceType   output_type                  = 13; // resource this building currently produces (unspecified if no recipe set)
   int32          population_capacity          = 14; // number of citizens housed (residential buildings only; 0 otherwise)
 
-  // ── Landlord / Rent fields (residential only) ─────────────────────────
+  // -- Landlord / Rent fields (residential only) --
   int32          units                        = 15; // rentable units (1/4/20)
   int32          occupied_units               = 16; // units with tenants
   int64          rent_per_unit_cents          = 17; // monthly rent per unit in cents
-  float          freshness                    = 18; // 0–100 building condition
+  float          freshness                    = 18; // 0-100 building condition
   int64          construction_cost_cents      = 19; // cost to build in cents
   int64          for_sale_price_cents         = 20; // 0 = not listed for sale
   bool           is_renovating                = 21;
   int32          renovation_ticks_remaining   = 22;
   int64          built_at_tick                = 23;
 
-  // ── Citizen class counts (residential only) ─────────────────────────
+  // -- Citizen class counts (residential only) --
   int32          citizens_lower_bottom        = 24;
   int32          citizens_lower               = 25;
   int32          citizens_middle              = 26;
@@ -410,61 +312,51 @@ message ListRecipesResponse {
   repeated RecipeInfo recipes = 1;
 }
 
-message SupplyLinkInfo {
-  string       supply_link_id         = 1;
-  string       consumer_building_id   = 2;
-  ResourceType resource_type          = 3;
-  string       supplier_building_id   = 4;
-  string       supplier_building_name = 5;
-  int32        supplier_tile_x        = 6;
-  int32        supplier_tile_y        = 7;
-  int32        priority               = 8;
-  int64        supplier_current_price = 9;
+// -- Buy Orders --
+
+enum OrderVisibility {
+  ORDER_VISIBILITY_UNSPECIFIED    = 0;
+  ORDER_VISIBILITY_PUBLIC         = 1;
+  ORDER_VISIBILITY_PRIVATE        = 2;
+  ORDER_VISIBILITY_WITHIN_COMPANY = 3;
 }
 
-message GetSupplyLinksRequest  { string building_id = 1; }
-message GetSupplyLinksResponse { repeated SupplyLinkInfo links = 1; }
-
-message AddSupplyLinkRequest {
-  string       consumer_building_id = 1;
-  ResourceType resource_type        = 2;
-  string       supplier_building_id = 3;
-}
-message AddSupplyLinkResponse  { string supply_link_id = 1; }
-
-message RemoveSupplyLinkRequest  { string supply_link_id = 1; }
-message RemoveSupplyLinkResponse { bool success = 1; }
-
-message PotentialSupplier {
-  string building_id        = 1;
-  string building_name      = 2;
-  int32  tile_x             = 3;
-  int32  tile_y             = 4;
-  string owner_name         = 5;
-  int64  price_per_unit     = 6;
-  double quantity_available = 7;
+enum MatchPreference {
+  MATCH_PREFERENCE_UNSPECIFIED      = 0;
+  MATCH_PREFERENCE_LOWEST_PRICE     = 1;
+  MATCH_PREFERENCE_HIGHEST_QUALITY  = 2;
+  MATCH_PREFERENCE_BEST_VALUE       = 3;
 }
 
-message ListPotentialSuppliersRequest {
-  string       city_id       = 1;
-  ResourceType resource_type = 2;
+message BuyOrderInfo {
+  string          buy_order_id       = 1;
+  string          buyer_building_id  = 2;
+  ResourceType    resource_type      = 3;
+  int64           max_price_per_unit = 4;
+  double          quantity_per_tick  = 5;
+  OrderVisibility visibility         = 6;
+  MatchPreference match_preference   = 7;
+  bool            is_active          = 8;
 }
-message ListPotentialSuppliersResponse { repeated PotentialSupplier suppliers = 1; }
 
-message GetAutoSellConfigsRequest  { string building_id = 1; }
-message GetAutoSellConfigsResponse { repeated AutoSellConfigInfo configs = 1; }
-message AutoSellConfigInfo {
-  ResourceType resource_type  = 1;
-  int64        price_per_unit = 2;
-  bool         is_enabled     = 3;
+message GetBuyOrdersRequest  { string building_id = 1; }
+message GetBuyOrdersResponse { repeated BuyOrderInfo orders = 1; }
+
+message SetBuyOrderRequest {
+  string          building_id        = 1;
+  ResourceType    resource_type      = 2;
+  int64           max_price_per_unit = 3;
+  double          quantity_per_tick  = 4;
+  OrderVisibility visibility         = 5;
+  MatchPreference match_preference   = 6;
+  bool            is_active          = 7;
 }
-message SetAutoSellConfigRequest {
-  string       building_id    = 1;
-  ResourceType resource_type  = 2;
-  int64        price_per_unit = 3;
-  bool         is_enabled     = 4;
-}
-message SetAutoSellConfigResponse { bool success = 1; }
+message SetBuyOrderResponse { string buy_order_id = 1; }
+
+message RemoveBuyOrderRequest  { string buy_order_id = 1; }
+message RemoveBuyOrderResponse { bool success = 1; }
+
+// -- Tile Market Score --
 
 message GetTileMarketScoreRequest {
   string city_id = 1;
@@ -489,7 +381,7 @@ message GetBuildingSalesResponse {
   repeated SalesTick ticks = 1;
 }
 
-// ── Rent management ─────────────────────────────────────────────────────
+// -- Rent management --
 message SetRentRequest {
   string building_id         = 1;
   int64  rent_per_unit_cents = 2; // monthly rent per unit in cents
@@ -506,6 +398,45 @@ message RenovateResponse {
   bool  success                  = 1;
   int64 renovation_cost_cents    = 2;
   int32 renovation_ticks         = 3;
+}
+
+// -- Store Insights --
+
+message GetStoreInsightsRequest {
+  string building_id = 1;
+}
+
+message GetStoreInsightsResponse {
+  // Nearby citizens within shopping radius (8 tiles)
+  int32 nearby_population          = 1;
+  repeated ClassPopulation nearby_by_class = 2;
+
+  // How your prices/quality compare to market
+  repeated ResourceInsight resource_insights = 3;
+
+  // Actionable text explanations
+  repeated string tips = 4;
+
+  // Competitor stores within range
+  int32 competitor_count = 5;
+}
+
+message ClassPopulation {
+  CitizenClass citizen_class = 1;
+  int32        count         = 2;
+  int64        daily_budget_cents = 3; // budget per citizen per day
+}
+
+message ResourceInsight {
+  ResourceType resource_type      = 1;
+  int64        your_price_cents   = 2; // your current auto-sell price (0 = not listed)
+  int64        fair_price_cents   = 3; // fair market price for this resource
+  int64        market_avg_cents   = 4; // average listing price across all stores
+  double       your_quality       = 5; // avg quality of your inventory
+  double       median_quality     = 6; // city-wide median quality
+  double       your_brand_share   = 7; // your brand weight / total brand weight (0-1)
+  double       daily_demand       = 8; // total units demanded nearby per day
+  double       your_last_sale     = 9; // units you sold last tick
 }
 
 
@@ -587,6 +518,9 @@ service CityService {
   rpc ListCityBuildings (ListCityBuildingsRequest) returns (ListCityBuildingsResponse) {
     option (google.api.http) = { get: "/v1/cities/{city_id}/buildings" };
   }
+  rpc GetUtilities      (GetUtilitiesRequest)     returns (UtilitiesResponse) {
+    option (google.api.http) = { get: "/v1/cities/{city_id}/utilities" };
+  }
 }
 
 message ListCitiesRequest {}
@@ -627,6 +561,22 @@ message CityBuildingInfo {
 
 message ListCityBuildingsResponse { repeated CityBuildingInfo buildings = 1; }
 
+message GetUtilitiesRequest { string city_id = 1; }
+
+message UtilityInfo {
+  string name                  = 1;
+  double consumption           = 2;
+  int64  capacity              = 3;
+  int64  rate_cents            = 4;
+  double utilization_pct       = 5;
+  bool   is_overloaded         = 6;
+  int64  effective_rate_cents  = 7;
+}
+
+message UtilitiesResponse {
+  repeated UtilityInfo utilities = 1;
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────
 // events.proto
@@ -657,7 +607,6 @@ message GameEvent {
     BuildingConstructedEvent   building_constructed    = 14;
     ElectionAnnouncedEvent     election_announced      = 15;
     ElectionConcludedEvent     election_concluded      = 16;
-    TradeAgreementChangedEvent agreement_changed       = 17;
     BrandValueChangedEvent     brand_value_changed     = 18;
     TaxesCollectedEvent        taxes_collected         = 19;
     TileChangedEvent           tile_changed            = 20;
@@ -744,13 +693,6 @@ message ElectionConcludedEvent {
   string election_id       = 1;
   string city_id           = 2;
   string winner_player_id  = 3; // empty = AI retains control
-}
-
-message TradeAgreementChangedEvent {
-  string          agreement_id      = 1;
-  string          creator_player_id = 2;
-  string          buyer_player_id   = 3;
-  AgreementStatus new_status        = 4;
 }
 
 message BrandValueChangedEvent {
@@ -911,6 +853,9 @@ service MarketService {
   rpc Purchase              (PurchaseRequest)              returns (PurchaseResponse) {
     option (google.api.http) = { post: "/v1/offerings/{offering_id}/purchase" body: "*" };
   }
+  rpc CreateOffering        (CreateOfferingRequest)        returns (CreateOfferingResponse) {
+    option (google.api.http) = { post: "/v1/buildings/{building_id}/offerings" body: "*" };
+  }
   rpc GetMarketShare        (GetMarketShareRequest)        returns (GetMarketShareResponse) {
     option (google.api.http) = { get: "/v1/cities/{city_id}/market-share" };
   }
@@ -920,10 +865,10 @@ service MarketService {
 }
 
 enum OfferingVisibility {
-  OFFERING_VISIBILITY_UNSPECIFIED    = 0;
-  OFFERING_VISIBILITY_PUBLIC         = 1; // visible to all buyers
-  OFFERING_VISIBILITY_PRIVATE        = 2; // not listed on open market
-  OFFERING_VISIBILITY_AGREEMENT_ONLY = 3; // only available via trade agreement
+  OFFERING_VISIBILITY_UNSPECIFIED     = 0;
+  OFFERING_VISIBILITY_PUBLIC          = 1; // visible to all buyers
+  OFFERING_VISIBILITY_PRIVATE         = 2; // not listed on open market
+  OFFERING_VISIBILITY_WITHIN_COMPANY  = 3; // only visible within company
 }
 
 message ListOfferingsRequest {
@@ -932,14 +877,15 @@ message ListOfferingsRequest {
 }
 
 message Offering {
-  string             offering_id    = 1;
-  string             seller_name    = 2;
-  ResourceType       resource_type  = 3;
-  int64              price_per_unit = 4;
-  double             quantity       = 5;
-  float              quality        = 6;
-  string             brand_name     = 7; // empty = white-label
-  OfferingVisibility visibility     = 8;
+  string             offering_id     = 1;
+  string             seller_name     = 2;
+  ResourceType       resource_type   = 3;
+  int64              price_per_unit  = 4;
+  double             quantity        = 5;
+  float              quality         = 6;
+  string             brand_name      = 7; // empty = white-label
+  OfferingVisibility visibility      = 8;
+  bool               is_auto_managed = 9;
 }
 
 message ListOfferingsResponse {
@@ -965,9 +911,18 @@ message PurchaseResponse {
   float quality    = 2;
 }
 
+message CreateOfferingRequest {
+  string             building_id     = 1;
+  ResourceType       resource_type   = 2;
+  int64              price_per_unit  = 3;
+  OfferingVisibility visibility      = 4;
+  bool               is_auto_managed = 5;
+}
+message CreateOfferingResponse { string offering_id = 1; }
+
 message GetMarketShareRequest {
   string       city_id       = 1;
-  ResourceType resource_type = 2; // optional — 0 returns all resource types
+  ResourceType resource_type = 2; // optional -- 0 returns all resource types
   int32        history_ticks = 3; // how many ticks of history (default 20)
 }
 
@@ -984,7 +939,7 @@ message GetMarketShareResponse {
   repeated MarketShareDataPoint data = 1;
 }
 
-// ── Demand Utilization ────────────────────────────────────────────────────────
+// -- Demand Utilization --
 
 message GetDemandUtilizationRequest {
   string city_id       = 1;
@@ -997,7 +952,7 @@ message DemandUtilizationPoint {
   ResourceType resource_type   = 2;
   double       total_demand    = 3;   // total units citizens wanted to buy
   double       fulfilled_demand = 4;  // units actually sold
-  float        utilization_pct = 5;   // fulfilled / total × 100
+  float        utilization_pct = 5;   // fulfilled / total x 100
 }
 
 message GetDemandUtilizationResponse {
@@ -1159,7 +1114,7 @@ message CompanyTickSnapshot {
   int64 marketing_spend_cents         = 7;   // active campaign budget deducted
   int64 research_spend_cents          = 8;   // research project budget deducted
   int64 loan_interest_cents           = 9;   // loan interest payments
-  int64 transport_fees_cents          = 15;  // distance-based supply-chain transport fees (to gov treasury)
+  int64 transport_fees_cents          = 15;  // distance-based transport fees (to gov treasury)
   int64 utility_cost_cents            = 16;  // electricity + water utility charges
   int64 upkeep_cents                  = 18;  // residential building maintenance costs
   int64 rental_tax_cents              = 19;  // income tax on rental income

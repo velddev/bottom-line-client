@@ -1,6 +1,6 @@
 TradeMMO 1.0 Design document
 
-one core supply chain (needs to be extendable):
+one core production chain (needs to be extendable):
 - Food: comes from grain and meat, requires a factory, can be sold to citizen
 - Leather: comes from cattle (1 cattle produces 1-3 leather), requires a factory
 - Meat: comes from cattle (1 cattle produces 10 meat), requires a factory

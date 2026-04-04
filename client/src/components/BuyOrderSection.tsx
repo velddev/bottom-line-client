@@ -1,0 +1,676 @@
+import { useState, useEffect } from 'react';
+import { Plus, X, Trash2, ChevronDown, ChevronUp, BarChart2, Droplets, Zap } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  getBuilding, listRecipes, getBuyOrders, setBuyOrder,
+  removeBuyOrder, configureBuilding, createOffering,
+  getBuildingSales, getUtilities,
+} from '../api';
+import type { RecipeInfo, BuyOrderInfo, SalesTick } from '../types';
+import { fmtMoney } from '../types';
+
+const ALL_RESOURCES = ['food', 'grain', 'animal_feed', 'cattle', 'meat', 'leather'];
+const CONSUMER_GOODS = ['food', 'meat', 'leather'];
+
+const MATCH_PREF_LABELS: Record<string, string> = {
+  lowest_price: 'Lowest Price',
+  highest_quality: 'Highest Quality',
+  best_value: 'Best Value',
+};
+
+const VISIBILITY_LABELS: Record<string, string> = {
+  public: 'Public',
+  private: 'Private',
+  within_company: 'Company Only',
+};
+
+// ── Single buy order row ──────────────────────────────────────────────────────
+function BuyOrderRow({
+  order,
+  buildingId,
+}: {
+  order: BuyOrderInfo;
+  buildingId: string;
+}) {
+  const qc = useQueryClient();
+  const [maxPrice, setMaxPrice] = useState((order.max_price_per_unit / 100).toFixed(2));
+  const [qty, setQty] = useState(String(order.quantity_per_tick));
+  const [matchPref, setMatchPref] = useState(order.match_preference);
+  const [isActive, setIsActive] = useState(order.is_active);
+
+  useEffect(() => {
+    setMaxPrice((order.max_price_per_unit / 100).toFixed(2));
+    setQty(String(order.quantity_per_tick));
+    setMatchPref(order.match_preference);
+    setIsActive(order.is_active);
+  }, [order]);
+
+  const updateMut = useMutation({
+    mutationFn: (overrides: Partial<{ price: number; quantity: number; match: string; active: boolean }>) =>
+      setBuyOrder(
+        buildingId,
+        order.resource_type,
+        overrides.price ?? Math.round(parseFloat(maxPrice) * 100),
+        overrides.quantity ?? (parseInt(qty, 10) || order.quantity_per_tick),
+        order.visibility,
+        overrides.match ?? matchPref,
+        overrides.active ?? isActive,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['buy-orders', buildingId] }),
+  });
+
+  const removeMut = useMutation({
+    mutationFn: () => removeBuyOrder(order.buy_order_id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['buy-orders', buildingId] }),
+  });
+
+  const savePriceQty = () => {
+    const priceCents = Math.round(parseFloat(maxPrice) * 100);
+    const quantity = parseInt(qty, 10);
+    if (isNaN(priceCents) || priceCents <= 0 || isNaN(quantity) || quantity <= 0) return;
+    updateMut.mutate({ price: priceCents, quantity });
+  };
+
+  return (
+    <div className="bg-gray-100/50 rounded-lg px-3 py-2 mb-2">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-semibold text-gray-700 capitalize">{order.resource_type}</span>
+        <div className="flex items-center gap-2">
+          <button
+            disabled={updateMut.isPending}
+            onClick={() => {
+              const next = !isActive;
+              setIsActive(next);
+              updateMut.mutate({ active: next });
+            }}
+            className={`px-2 py-0.5 text-[10px] rounded font-medium transition-colors ${
+              isActive ? 'bg-emerald-600 text-white' : 'bg-gray-300 text-gray-600'
+            }`}
+          >
+            {isActive ? 'Active' : 'Paused'}
+          </button>
+          <button
+            disabled={removeMut.isPending}
+            onClick={() => removeMut.mutate()}
+            className="text-gray-400 hover:text-rose-500 transition-colors"
+            title="Remove buy order"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <label className="text-[10px] text-gray-500">
+          Max price
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={maxPrice}
+            onChange={e => setMaxPrice(e.target.value)}
+            onBlur={savePriceQty}
+            className="ml-1 w-16 px-1.5 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+          />
+        </label>
+        <label className="text-[10px] text-gray-500">
+          Qty/tick
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={qty}
+            onChange={e => setQty(e.target.value)}
+            onBlur={savePriceQty}
+            className="ml-1 w-14 px-1.5 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+          />
+        </label>
+        <label className="text-[10px] text-gray-500">
+          Match
+          <select
+            value={matchPref}
+            onChange={e => {
+              setMatchPref(e.target.value);
+              updateMut.mutate({ match: e.target.value });
+            }}
+            className="ml-1 px-1 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+          >
+            {Object.entries(MATCH_PREF_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {(updateMut.isError || removeMut.isError) && (
+        <p className="text-rose-400 text-[10px] mt-1">
+          {((updateMut.error ?? removeMut.error) as Error).message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Create buy order inline ───────────────────────────────────────────────────
+function CreateBuyOrderInline({
+  buildingId,
+  availableResources,
+}: {
+  buildingId: string;
+  availableResources: string[];
+}) {
+  const qc = useQueryClient();
+  const [resource, setResource] = useState(availableResources[0] ?? '');
+  const [maxPrice, setMaxPrice] = useState('0.10');
+  const [qty, setQty] = useState('10');
+  const [matchPref, setMatchPref] = useState('lowest_price');
+
+  const mut = useMutation({
+    mutationFn: () =>
+      setBuyOrder(
+        buildingId,
+        resource,
+        Math.round(parseFloat(maxPrice) * 100),
+        parseInt(qty, 10),
+        'public',
+        matchPref,
+        true,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['buy-orders', buildingId] });
+    },
+  });
+
+  const priceCents = Math.round(parseFloat(maxPrice) * 100);
+  const quantity = parseInt(qty, 10);
+  const valid = resource && !isNaN(priceCents) && priceCents > 0 && !isNaN(quantity) && quantity > 0;
+
+  return (
+    <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 mt-2">
+      <p className="text-[10px] text-indigo-600 font-semibold mb-1.5">NEW BUY ORDER</p>
+      <div className="flex items-end gap-2 flex-wrap">
+        <label className="text-[10px] text-gray-500">
+          Resource
+          <select
+            value={resource}
+            onChange={e => setResource(e.target.value)}
+            className="block mt-0.5 px-1 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500 capitalize"
+          >
+            {availableResources.map(r => (
+              <option key={r} value={r} className="capitalize">{r}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-[10px] text-gray-500">
+          Max price (€)
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={maxPrice}
+            onChange={e => setMaxPrice(e.target.value)}
+            className="block mt-0.5 w-16 px-1.5 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+          />
+        </label>
+        <label className="text-[10px] text-gray-500">
+          Qty/tick
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={qty}
+            onChange={e => setQty(e.target.value)}
+            className="block mt-0.5 w-14 px-1.5 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+          />
+        </label>
+        <label className="text-[10px] text-gray-500">
+          Match
+          <select
+            value={matchPref}
+            onChange={e => setMatchPref(e.target.value)}
+            className="block mt-0.5 px-1 py-0.5 text-xs bg-white border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+          >
+            {Object.entries(MATCH_PREF_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+        </label>
+        <button
+          disabled={mut.isPending || !valid}
+          onClick={() => mut.mutate()}
+          className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors disabled:opacity-40 font-medium"
+        >
+          {mut.isPending ? 'Creating…' : 'Create'}
+        </button>
+      </div>
+      {mut.isError && (
+        <p className="text-rose-400 text-[10px] mt-1">{(mut.error as Error).message}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Auto-sell offering row ────────────────────────────────────────────────────
+function AutoSellOfferingRow({
+  buildingId,
+  resourceType,
+}: {
+  buildingId: string;
+  resourceType: string;
+}) {
+  const qc = useQueryClient();
+  const [price, setPrice] = useState('0.10');
+  const [enabled, setEnabled] = useState(false);
+
+  const mut = useMutation({
+    mutationFn: () =>
+      createOffering(
+        buildingId,
+        resourceType,
+        Math.round(parseFloat(price) * 100),
+        'public',
+        true,
+      ),
+    onSuccess: () => {
+      setEnabled(true);
+      qc.invalidateQueries({ queryKey: ['offerings'] });
+    },
+  });
+
+  const priceCents = Math.round(parseFloat(price) * 100);
+  const validPrice = !isNaN(priceCents) && priceCents > 0;
+
+  return (
+    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
+      <span className="text-xs text-gray-500 shrink-0">Auto-sell at</span>
+      <input
+        type="number"
+        min="0.01"
+        step="0.01"
+        placeholder="€0.00"
+        value={price}
+        onChange={e => setPrice(e.target.value)}
+        className="w-20 px-2 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 placeholder-gray-400 outline-none focus:border-indigo-500"
+      />
+      <button
+        disabled={mut.isPending || !validPrice}
+        onClick={() => mut.mutate()}
+        className={`px-2 py-0.5 text-xs rounded transition-colors disabled:opacity-40 ${
+          enabled ? 'bg-emerald-700 hover:bg-emerald-600 text-white' : 'bg-gray-200 hover:bg-gray-600 text-gray-700'
+        }`}
+      >
+        {enabled ? 'Listed' : 'Create Listing'}
+      </button>
+    </div>
+  );
+}
+
+// ── Water utility row ─────────────────────────────────────────────────────────
+function WaterUtilityRow({ quantity, waterRateCents }: { quantity: number; waterRateCents: number | null }) {
+  return (
+    <div className="mb-3">
+      <div className="w-full flex items-center justify-between text-xs font-semibold text-gray-700 mb-1.5">
+        <span className="flex items-center gap-1 capitalize">
+          <Droplets size={12} className="text-cyan-500" />
+          water
+          <span className="text-gray-500 font-normal ml-1">× {quantity} per run</span>
+        </span>
+      </div>
+      <div className="pl-2">
+        <div className="flex items-center gap-1.5 text-xs bg-cyan-100/40 dark:bg-cyan-900/20 rounded px-2 py-1">
+          <span className="text-cyan-500 text-xs">⚡</span>
+          <span className="flex-1 text-gray-700 truncate">
+            City Water Works
+            <span className="text-gray-500 ml-1 font-normal">— utility</span>
+          </span>
+          {waterRateCents !== null && (
+            <span className="font-mono text-xs text-cyan-600 dark:text-cyan-400 shrink-0">
+              {fmtMoney(waterRateCents)}/u
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Base electricity consumption per tick by building type ─────────────────────
+const BASE_ELECTRICITY: Record<string, number> = {
+  factory: 30, store: 15, warehouse: 10, bank: 10,
+  field: 5, landmark: 5,
+  residential_low: 5, residential_medium: 10, residential_high: 15,
+};
+
+function ElectricityUtilityRow({ buildingType, electricityRateCents }: { buildingType: string; electricityRateCents: number | null }) {
+  const baseConsumption = BASE_ELECTRICITY[buildingType] ?? 5;
+  return (
+    <div className="mb-3">
+      <div className="w-full flex items-center justify-between text-xs font-semibold text-gray-700 mb-1.5">
+        <span className="flex items-center gap-1 capitalize">
+          <Zap size={12} className="text-amber-400" />
+          electricity
+          <span className="text-gray-500 font-normal ml-1">× {baseConsumption} kWh/day</span>
+        </span>
+      </div>
+      <div className="pl-2">
+        <div className="flex items-center gap-1.5 text-xs bg-amber-100/40 dark:bg-amber-900/20 rounded px-2 py-1">
+          <Zap size={12} className="text-amber-400" />
+          <span className="flex-1 text-gray-700 truncate">
+            City Power Grid
+            <span className="text-gray-500 ml-1 font-normal">— utility</span>
+          </span>
+          {electricityRateCents !== null && (
+            <span className="font-mono text-xs text-amber-600 dark:text-amber-400 shrink-0">
+              {fmtMoney(electricityRateCents)}/kWh
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Inline recipe picker (no recipe active) ───────────────────────────────────
+function RecipePicker({
+  buildingId,
+  buildingType,
+  currentWorkers,
+  recipes,
+}: {
+  buildingId: string;
+  buildingType: string;
+  currentWorkers: number;
+  recipes: RecipeInfo[];
+}) {
+  const qc = useQueryClient();
+  const [search, setSearch] = useState('');
+
+  const configureMut = useMutation({
+    mutationFn: (recipe_id: string) =>
+      configureBuilding(buildingId, recipe_id, currentWorkers || 1),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['building', buildingId] }),
+  });
+
+  const filtered = recipes.filter(r =>
+    r.output_type.toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (recipes.length === 0) {
+    return <p className="text-gray-500 text-xs">No recipes available for this building type.</p>;
+  }
+
+  return (
+    <div>
+      <p className="text-xs text-gray-500 mb-2">Select a recipe to configure supply</p>
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search recipes…"
+        className="w-full px-2 py-1.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 placeholder-gray-400 outline-none focus:border-indigo-500 mb-2"
+      />
+      <div className="space-y-1 max-h-60 overflow-y-auto">
+        {filtered.map(r => (
+          <button
+            key={r.recipe_id}
+            disabled={configureMut.isPending}
+            onClick={() => configureMut.mutate(r.recipe_id)}
+            className="w-full text-left px-3 py-2 rounded bg-gray-100/50 hover:bg-gray-200 transition-colors disabled:opacity-50 relative"
+          >
+            {configureMut.isPending && configureMut.variables === r.recipe_id && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs animate-pulse">saving…</span>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-gray-900 text-xs font-medium capitalize">{r.output_type}</span>
+              <span className="text-gray-500 text-xs">
+                ×{r.output_min}–{r.output_max} / {r.ticks_required}d
+              </span>
+            </div>
+            {r.ingredients.length > 0 && (
+              <p className="text-gray-600 text-xs mt-0.5">
+                Needs: {r.ingredients.map(i => `${i.resource_type} ×${i.quantity}`).join(', ')}
+              </p>
+            )}
+          </button>
+        ))}
+        {filtered.length === 0 && (
+          <p className="text-gray-600 text-xs px-1">No matches</p>
+        )}
+      </div>
+      {configureMut.isError && (
+        <p className="text-rose-400 text-xs mt-2">{(configureMut.error as Error).message}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Buy orders list for a given resource set ──────────────────────────────────
+function BuyOrdersList({
+  buildingId,
+  orders,
+  availableResources,
+}: {
+  buildingId: string;
+  orders: BuyOrderInfo[];
+  availableResources: string[];
+}) {
+  const [showCreate, setShowCreate] = useState(false);
+  const existing = new Set(orders.map(o => o.resource_type));
+  const remaining = availableResources.filter(r => !existing.has(r));
+
+  return (
+    <div>
+      <p className="text-xs text-gray-500 mb-2 font-medium">
+        BUY ORDERS
+        <span className="font-normal ml-1 text-gray-600">— automatically purchase from market</span>
+      </p>
+
+      {orders.length === 0 && !showCreate && (
+        <p className="text-gray-600 text-xs italic mb-2">No buy orders — resources won't be purchased automatically</p>
+      )}
+
+      {orders.map(o => (
+        <BuyOrderRow key={o.buy_order_id} order={o} buildingId={buildingId} />
+      ))}
+
+      {remaining.length > 0 && !showCreate && (
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors mt-1"
+        >
+          <Plus size={11} />
+          <span>Add buy order</span>
+        </button>
+      )}
+
+      {showCreate && remaining.length > 0 && (
+        <CreateBuyOrderInline buildingId={buildingId} availableResources={remaining} />
+      )}
+    </div>
+  );
+}
+
+// ── Store performance analytics panel ─────────────────────────────────────────
+function StoreAnalyticsPanel({ buildingId }: { buildingId: string }) {
+  const [open, setOpen] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['building-sales', buildingId],
+    queryFn: () => getBuildingSales(buildingId, 20),
+    enabled: open,
+    staleTime: 30_000,
+  });
+
+  const ticks: SalesTick[] = data?.ticks ?? [];
+
+  const byResource = ticks.reduce<Record<string, SalesTick[]>>((acc, t) => {
+    if (!acc[t.resource_type]) acc[t.resource_type] = [];
+    acc[t.resource_type].push(t);
+    return acc;
+  }, {});
+
+  const resources = Object.keys(byResource);
+
+  return (
+    <div className="mt-4 border-t border-gray-200 pt-3">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 text-xs bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-1.5 rounded-lg transition-colors font-medium"
+      >
+        <BarChart2 size={11} />
+        <span>Performance</span>
+        {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+      </button>
+
+      {open && (
+        <div className="mt-2">
+          {isLoading && <p className="text-xs text-gray-600 animate-pulse">Loading…</p>}
+          {!isLoading && ticks.length === 0 && (
+            <p className="text-xs text-gray-600">No sales recorded yet.</p>
+          )}
+          {resources.map(res => {
+            const rows = byResource[res].slice(0, 10);
+            const totalUnits = rows.reduce((s, r) => s + r.sale_volume, 0);
+            const totalRev   = rows.reduce((s, r) => s + r.revenue_cents, 0);
+            return (
+              <div key={res} className="mb-3">
+                <p className="text-xs font-medium text-gray-700 mb-1 capitalize">{res}</p>
+                <div className="text-xs text-gray-500 flex gap-4 mb-1">
+                  <span>Last {rows.length} days</span>
+                  <span>Units: <span className="text-gray-900 font-mono">{totalUnits.toFixed(1)}</span></span>
+                  <span>Revenue: <span className="text-green-400 font-mono">{fmtMoney(totalRev)}</span></span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[10px] text-gray-500">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-0.5 pr-3">Day</th>
+                        <th className="text-right pr-3">Units sold</th>
+                        <th className="text-right">Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map(r => (
+                        <tr key={r.tick} className="border-b border-gray-200">
+                          <td className="py-0.5 pr-3 font-mono">{r.tick}</td>
+                          <td className="text-right pr-3 font-mono text-gray-900">{r.sale_volume.toFixed(2)}</td>
+                          <td className="text-right font-mono text-green-400">{fmtMoney(r.revenue_cents)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main BuyOrderSection component ────────────────────────────────────────────
+export default function BuyOrderSection({
+  buildingId,
+  buildingType,
+  cityId,
+}: {
+  buildingId: string;
+  buildingType: string;
+  cityId: string;
+}) {
+  const { data: bldg } = useQuery({
+    queryKey: ['building', buildingId],
+    queryFn: () => getBuilding(buildingId),
+  });
+
+  const { data: recipesResp } = useQuery({
+    queryKey: ['recipes', buildingType],
+    queryFn: () => listRecipes(buildingType),
+    enabled: !!buildingType,
+    staleTime: 300_000,
+  });
+
+  const { data: buyOrdersResp } = useQuery({
+    queryKey: ['buy-orders', buildingId],
+    queryFn: () => getBuyOrders(buildingId),
+    staleTime: 30_000,
+  });
+
+  const orders: BuyOrderInfo[] = buyOrdersResp?.orders ?? [];
+
+  const { data: utilitiesData } = useQuery({
+    queryKey: ['utilities', cityId],
+    queryFn: () => getUtilities(cityId),
+    staleTime: 60_000,
+  });
+  const electricityRateCents = utilitiesData?.utilities?.find(
+    (u: { name: string }) => u.name.toLowerCase() === 'electricity'
+  )?.rate_cents ?? null;
+
+  if (!bldg) return <p className="text-gray-600 text-xs animate-pulse">Loading…</p>;
+
+  // Stores: buy consumer goods
+  if (buildingType === 'store') {
+    return (
+      <div>
+        <ElectricityUtilityRow buildingType={buildingType} electricityRateCents={electricityRateCents} />
+        <BuyOrdersList buildingId={buildingId} orders={orders} availableResources={CONSUMER_GOODS} />
+        <StoreAnalyticsPanel buildingId={buildingId} />
+      </div>
+    );
+  }
+
+  const recipe = (recipesResp?.recipes ?? []).find((r: RecipeInfo) => r.recipe_id === bldg.active_recipe);
+
+  if (!recipe) {
+    return (
+      <div>
+        <ElectricityUtilityRow buildingType={buildingType} electricityRateCents={electricityRateCents} />
+        <RecipePicker
+          buildingId={buildingId}
+          buildingType={buildingType}
+          currentWorkers={bldg.workers}
+          recipes={recipesResp?.recipes ?? []}
+        />
+      </div>
+    );
+  }
+
+  const waterIngredient = recipe.ingredients.find((i: { resource_type: string }) => i.resource_type === 'water');
+  const nonWaterIngredients = recipe.ingredients.filter((i: { resource_type: string }) => i.resource_type !== 'water');
+
+  const waterRateCents = utilitiesData?.utilities?.find(
+    (u: { name: string }) => u.name.toLowerCase() === 'water'
+  )?.rate_cents ?? null;
+
+  return (
+    <div>
+      <ElectricityUtilityRow buildingType={buildingType} electricityRateCents={electricityRateCents} />
+
+      {/* Recipe summary + auto-sell offering */}
+      <div className="mb-3 pb-3 border-b border-gray-200">
+        <p className="text-xs text-gray-500">
+          Produces <span className="text-gray-900 font-medium">{recipe.output_type}</span>
+          <span className="text-gray-600 ml-1">× {recipe.output_min}–{recipe.output_max} / {recipe.ticks_required}d</span>
+        </p>
+        <AutoSellOfferingRow buildingId={buildingId} resourceType={recipe.output_type} />
+      </div>
+
+      {/* Water utility row */}
+      {waterIngredient && (
+        <WaterUtilityRow quantity={waterIngredient.quantity} waterRateCents={waterRateCents} />
+      )}
+
+      {recipe.ingredients.length === 0 && (
+        <p className="text-gray-500 text-xs">No ingredients needed — no buy orders required.</p>
+      )}
+
+      {nonWaterIngredients.length > 0 && (
+        <BuyOrdersList
+          buildingId={buildingId}
+          orders={orders}
+          availableResources={nonWaterIngredients.map((i: { resource_type: string }) => i.resource_type)}
+        />
+      )}
+    </div>
+  );
+}

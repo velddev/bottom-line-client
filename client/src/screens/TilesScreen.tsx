@@ -15,7 +15,7 @@ import Modal, { Field, Input, Select } from '../components/Modal';
 import PoliticsPanel from '../components/PoliticsPanel';
 import BankPanel from '../components/BankPanel';
 import ResidentialPanel from '../components/ResidentialPanel';
-import SupplySection from '../components/SupplySection';
+import BuyOrderSection from '../components/BuyOrderSection';
 import EtaCountdown from '../components/EtaCountdown';
 import { useTickRefresh } from '../hooks/useTickRefresh';
 import CityScene3D from '../components/CityScene3D';
@@ -32,8 +32,6 @@ import SelectedBuildingOutline from '../components/SelectedBuildingOutline';
 import CompanyList from '../components/CompanyList';
 import Panel from '../components/Panel';
 import UnifiedChatPanel from '../components/UnifiedChatPanel';
-import SupplyVehicles3D from '../components/SupplyVehicles3D';
-import { useAllPlayerSupplyLinks } from '../hooks/useAllPlayerSupplyLinks';
 import { tileToWorld } from '../components/cityGrid';
 import BuildToolbar from '../components/BuildToolbar';
 import BuildConfirmDialog from '../components/BuildConfirmDialog';
@@ -436,7 +434,6 @@ export default function TilesScreen() {
   const { nextTickAt } = useTickRefresh();
   const { data: myBuildingsData } = useQuery({ queryKey: ['buildings'], queryFn: listBuildings, staleTime: 60_000, enabled: !!auth });
   const myBuildings = (myBuildingsData?.buildings ?? []) as BuildingStatus[];
-  const supplyRoutes = useAllPlayerSupplyLinks(myBuildings);
   const [citiesData, setCitiesData] = useState<{ cities: CityInfo[] } | null>(null);
   useEffect(() => { listCities().then(setCitiesData).catch(() => {}); }, []);
   const cityId = citiesData?.cities?.[0]?.city_id ?? '';
@@ -900,7 +897,6 @@ export default function TilesScreen() {
           <TileDecorations />
           <MapBorder />
           <FarmAnimals tiles={[...tiles.values()]} />
-          <SupplyVehicles3D routes={supplyRoutes} />
           {selectedTile && (
             <TileSelector3D gridX={selectedTile.grid_x} gridY={selectedTile.grid_y} />
           )}
@@ -984,7 +980,7 @@ export default function TilesScreen() {
                 {isMine && hasBuilding && !isGovBuilding && !isResidential && (
                   <Tabs
                     tabs={[
-                      { value: 'supply' as const, label: <span className="flex items-center gap-1"><Link size={11} /> Supply</span> },
+                      { value: 'supply' as const, label: <span className="flex items-center gap-1"><Link size={11} /> Orders</span> },
                       { value: 'config' as const, label: <span className="flex items-center gap-1"><Settings size={11} /> Config</span> },
                       { value: 'stock' as const, label: <span className="flex items-center gap-1"><Package size={11} /> Stock</span> },
                       ...(isStore ? [{ value: 'insights' as const, label: <span className="flex items-center gap-1"><Lightbulb size={11} /> Insights</span> }] : []),
@@ -1044,7 +1040,7 @@ export default function TilesScreen() {
 
             {/* ── Tab: Supply ─────────────────────────────────────────────── */}
             {isMine && hasBuilding && !isGovBuilding && activeTab === 'supply' && (
-              <SupplySection
+              <BuyOrderSection
                 buildingId={panelTile!.building_id}
                 buildingType={panelTile!.building_type?.toLowerCase() ?? ''}
                 cityId={cityId}

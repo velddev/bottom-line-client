@@ -1,9 +1,9 @@
 import type {
   PlayerProfile, BuildingStatus, RecipeInfo, Offering,
-  AgreementSummary, ResearchProgress, BrandSummary, BrandValueResponse,
+  BuyOrderInfo, ResearchProgress, BrandSummary, BrandValueResponse,
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
-  SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
+  GetBuildingSalesResponse,
   CompanyTickSnapshot, GameEvent, TileMarketScore, DemandUtilizationPoint,
 } from './types';
 import { createHttpApi } from './api-http';
@@ -42,10 +42,10 @@ export const listOfferings: IApiService['listOfferings'] = (...args) => api.list
 export const cancelOffering: IApiService['cancelOffering'] = (...args) => api.cancelOffering(...args);
 export const purchase: IApiService['purchase'] = (...args) => api.purchase(...args);
 export const getMarketShare: IApiService['getMarketShare'] = (...args) => api.getMarketShare(...args);
-export const listAgreements: IApiService['listAgreements'] = (...args) => api.listAgreements(...args);
-export const createAgreement: IApiService['createAgreement'] = (...args) => api.createAgreement(...args);
-export const respondAgreement: IApiService['respondAgreement'] = (...args) => api.respondAgreement(...args);
-export const cancelAgreement: IApiService['cancelAgreement'] = (...args) => api.cancelAgreement(...args);
+export const getBuyOrders: IApiService['getBuyOrders'] = (...args) => api.getBuyOrders(...args);
+export const setBuyOrder: IApiService['setBuyOrder'] = (...args) => api.setBuyOrder(...args);
+export const removeBuyOrder: IApiService['removeBuyOrder'] = (...args) => api.removeBuyOrder(...args);
+export const createOffering: IApiService['createOffering'] = (...args) => api.createOffering(...args);
 export const listResearch: IApiService['listResearch'] = () => api.listResearch();
 export const startResearch: IApiService['startResearch'] = (...args) => api.startResearch(...args);
 export const pauseResearch: IApiService['pauseResearch'] = (...args) => api.pauseResearch(...args);
@@ -69,12 +69,6 @@ export const getUtilities: IApiService['getUtilities'] = (...args) => api.getUti
 export const listTiles: IApiService['listTiles'] = (...args) => api.listTiles(...args);
 export const getTile: IApiService['getTile'] = (...args) => api.getTile(...args);
 export const purchaseTile: IApiService['purchaseTile'] = (...args) => api.purchaseTile(...args);
-export const getSupplyLinks: IApiService['getSupplyLinks'] = (...args) => api.getSupplyLinks(...args);
-export const addSupplyLink: IApiService['addSupplyLink'] = (...args) => api.addSupplyLink(...args);
-export const removeSupplyLink: IApiService['removeSupplyLink'] = (...args) => api.removeSupplyLink(...args);
-export const listPotentialSuppliers: IApiService['listPotentialSuppliers'] = (...args) => api.listPotentialSuppliers(...args);
-export const getAutoSellConfigs: IApiService['getAutoSellConfigs'] = (...args) => api.getAutoSellConfigs(...args);
-export const setAutoSellConfig: IApiService['setAutoSellConfig'] = (...args) => api.setAutoSellConfig(...args);
 export const getBuildingSales: IApiService['getBuildingSales'] = (...args) => api.getBuildingSales(...args);
 export const getStoreInsights: IApiService['getStoreInsights'] = (...args) => api.getStoreInsights(...args);
 export const setRent: IApiService['setRent'] = (...args) => api.setRent(...args);

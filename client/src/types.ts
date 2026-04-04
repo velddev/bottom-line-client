@@ -85,18 +85,15 @@ export interface Offering {
   visibility: string;
 }
 
-export interface AgreementSummary {
-  agreement_id: string;
-  creator_player_id: string;
-  buyer_player_id: string;
+export interface BuyOrderInfo {
+  buy_order_id: string;
+  buyer_building_id: string;
   resource_type: string;
-  discount_rate: number;
-  status: string;
-  require_non_competition: boolean;
-  require_msrp: boolean;
-  msrp_price: number;
-  disallow_white_labeling: boolean;
-  expires_at_tick: number;
+  max_price_per_unit: number;
+  quantity_per_tick: number;
+  visibility: string;
+  match_preference: string;
+  is_active: boolean;
 }
 
 export interface ResearchProgress {
@@ -326,35 +323,7 @@ export interface LoanActionResponse {
   message: string;
 }
 
-export interface SupplyLinkInfo {
-  supply_link_id: string;
-  consumer_building_id: string;
-  resource_type: string;
-  supplier_building_id: string;
-  supplier_building_name: string;
-  supplier_tile_x: number;
-  supplier_tile_y: number;
-  priority: number;
-  supplier_current_price: number;
-}
-
-export interface PotentialSupplier {
-  building_id: string;
-  building_name: string;
-  tile_x: number;
-  tile_y: number;
-  owner_name: string;
-  price_per_unit: number;
-  quantity_available: number;
-  transport_fee: number;
-  distance_tiles: number;
-}
-
-export interface AutoSellConfigInfo {
-  resource_type: string;
-  price_per_unit: number;
-  is_enabled: boolean;
-}
+// (Supply links removed — replaced by BuyOrders)
 
 export interface SalesTick {
   tick: number;
@@ -370,7 +339,7 @@ export interface GetBuildingSalesResponse {
 export interface CompanyTickSnapshot {
   tick: number;
   store_revenue_cents: number;
-  supply_line_sales_cents: number;
+  market_sales_revenue_cents: number;
   rental_income_cents: number;
   consumer_tax_cents: number;
   land_tax_cents: number;

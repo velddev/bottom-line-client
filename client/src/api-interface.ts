@@ -1,9 +1,9 @@
 import type {
   PlayerProfile, BuildingStatus, RecipeInfo, Offering,
-  AgreementSummary, ResearchProgress, BrandSummary, BrandValueResponse,
+  BuyOrderInfo, ResearchProgress, BrandSummary, BrandValueResponse,
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
-  SupplyLinkInfo, PotentialSupplier, AutoSellConfigInfo, GetBuildingSalesResponse,
+  GetBuildingSalesResponse,
   CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, StoreInsightsResponse,
   UtilitiesResponse,
 } from './types';
@@ -28,14 +28,12 @@ export interface IApiService {
   cancelOffering(id: string): Promise<{ success: boolean }>;
   purchase(buyer_building_id: string, offering_id: string, quantity: number): Promise<{ total_paid: number; quality: number }>;
   getMarketShare(city_id: string, resource_type?: string, history_ticks?: number): Promise<MarketShareResponse>;
-  listAgreements(role?: string): Promise<{ agreements: AgreementSummary[] }>;
-  createAgreement(data: {
-    buyer_player_id: string; resource_type: string; discount_rate: number;
-    require_non_competition: boolean; require_msrp: boolean; msrp_price: number;
-    disallow_white_labeling: boolean; expires_at_tick: number;
-  }): Promise<{ agreement_id: string }>;
-  respondAgreement(id: string, response: string): Promise<{ success: boolean }>;
-  cancelAgreement(id: string): Promise<{ success: boolean }>;
+  // ─── Buy Orders (replaces supply links + agreements) ──────────────────
+  getBuyOrders(buildingId: string): Promise<{ orders: BuyOrderInfo[] }>;
+  setBuyOrder(buildingId: string, resource_type: string, max_price_per_unit: number, quantity_per_tick: number, visibility: string, match_preference: string, is_active: boolean): Promise<{ buy_order_id: string }>;
+  removeBuyOrder(buyOrderId: string): Promise<{ success: boolean }>;
+  // ─── Sell Offerings ───────────────────────────────────────────────────
+  createOffering(buildingId: string, resource_type: string, price_per_unit: number, visibility: string, is_auto_managed: boolean): Promise<{ offering_id: string }>;
   listResearch(): Promise<{ projects: ResearchProgress[] }>;
   startResearch(resource_type: string, workers_assigned: number, budget_per_tick: number): Promise<{ project_id: string }>;
   pauseResearch(id: string, pause: boolean): Promise<{ success: boolean }>;
@@ -59,12 +57,6 @@ export interface IApiService {
   listTiles(city_id: string, min_x: number, min_y: number, max_x: number, max_y: number): Promise<ListTilesResponse>;
   getTile(tile_id: string): Promise<TileInfo>;
   purchaseTile(tile_id: string): Promise<{ tile_id: string; new_balance: number }>;
-  getSupplyLinks(buildingId: string): Promise<{ links: SupplyLinkInfo[] }>;
-  addSupplyLink(buildingId: string, resourceType: string, supplierBuildingId: string): Promise<{ supply_link_id: string }>;
-  removeSupplyLink(linkId: string): Promise<{ success: boolean }>;
-  listPotentialSuppliers(cityId: string, resourceType: string, buildingId?: string): Promise<{ suppliers: PotentialSupplier[] }>;
-  getAutoSellConfigs(buildingId: string): Promise<{ configs: AutoSellConfigInfo[] }>;
-  setAutoSellConfig(buildingId: string, resource_type: string, price_per_unit: number, is_enabled: boolean): Promise<{ success: boolean }>;
   getBuildingSales(buildingId: string, historyTicks?: number): Promise<GetBuildingSalesResponse>;
   getStoreInsights(buildingId: string): Promise<StoreInsightsResponse>;
   setRent(buildingId: string, rentPerUnitCents: number): Promise<{ success: boolean; rent_per_unit_cents: number }>;

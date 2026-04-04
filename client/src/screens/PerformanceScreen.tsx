@@ -118,7 +118,7 @@ export default function PerformanceScreen() {
     snapshots.reduce((s, r) => s + (r[key] as number), 0);
 
   const totalStoreRev    = sum('store_revenue_cents');
-  const totalSupplySales = sum('supply_line_sales_cents');
+  const totalMarketSales  = sum('market_sales_revenue_cents');
   const totalRentalInc   = sum('rental_income_cents');
   const totalRevenue     = sum('total_revenue_cents');
   const totalConTax      = sum('consumer_tax_cents');
@@ -189,7 +189,7 @@ export default function PerformanceScreen() {
                 <tbody>
                   <SectionLabel label="Revenue" />
                   <Row label="Store Sales"         value={totalStoreRev}    indent />
-                  <Row label="Supply Line Sales"   value={totalSupplySales} indent />
+                  <Row label="Market Sales"         value={totalMarketSales}  indent />
                   <Row label="Rental Income"       value={totalRentalInc}   indent />
                   <Divider />
                   <Row label="Total Revenue"       value={totalRevenue}     total />
