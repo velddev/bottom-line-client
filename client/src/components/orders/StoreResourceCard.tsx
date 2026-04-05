@@ -64,7 +64,6 @@ export function StoreResourceCard({
   const [matchPref, setMatchPref] = useState(
     existingOrder?.match_preference ?? 'best_value',
   );
-  const [sellSaved, setSellSaved] = useState(!!existingOffering);
 
   // ── Your store's sales history ──
   const { data: salesData } = useQuery({
@@ -124,7 +123,6 @@ export function StoreResourceCard({
   useEffect(() => {
     if (existingOffering) {
       setSellPrice((existingOffering.price_per_unit / 100).toFixed(2));
-      setSellSaved(true);
     }
   }, [existingOffering]);
 
@@ -140,7 +138,6 @@ export function StoreResourceCard({
     mutationFn: () =>
       createOffering(buildingId, resourceType, Math.round(parseFloat(sellPrice) * 100), 'public', true),
     onSuccess: () => {
-      setSellSaved(true);
       qc.invalidateQueries({ queryKey: ['offerings'] });
       qc.invalidateQueries({ queryKey: ['building-offerings', buildingId] });
     },
@@ -179,7 +176,7 @@ export function StoreResourceCard({
   const rawMargin = validSell && validBuy ? sellPriceCents - buyPriceCents : 0;
   const netMargin = rawMargin - electricityCostPerUnit;
 
-  const isListed = sellSaved && !!existingOrder;
+  const isListed = !!existingOffering && !!existingOrder;
   const revenueValues = resourceSales.map(t => t.revenue_cents);
   const needsSetup = !existingOrder && !existingOffering;
 
@@ -329,7 +326,7 @@ export function StoreResourceCard({
               Sell at
               <CurrencyInput
                 value={sellPrice}
-                onChange={v => { setSellPrice(v); setSellSaved(false); }}
+                onChange={v => { setSellPrice(v); }}
                 className="mt-0.5"
               />
             </label>
