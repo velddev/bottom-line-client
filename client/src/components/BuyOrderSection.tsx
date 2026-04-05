@@ -97,21 +97,24 @@ export default function BuyOrderSection({
       <div>
         <ElectricityUtilityRow buildingType={buildingType} electricityRateCents={electricityRateCents} />
 
-        <p className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-2">
+        <p className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-1">
           Store Inventory
           <span className="font-normal normal-case tracking-normal ml-1 text-gray-500">— buy from market, sell to citizens</span>
         </p>
 
-        {CONSUMER_GOODS.map(res => (
-          <StoreResourceCard
-            key={res}
-            buildingId={buildingId}
-            resourceType={res}
-            currentStock={stockMap[res] ?? 0}
-            existingOrder={ordersByResource[res]}
-            existingOffering={offeringsByResource[res]}
-          />
-        ))}
+        <div className="divide-y divide-gray-300">
+          {CONSUMER_GOODS.map(res => (
+            <StoreResourceCard
+              key={res}
+              buildingId={buildingId}
+              resourceType={res}
+              currentStock={stockMap[res] ?? 0}
+              existingOrder={ordersByResource[res]}
+              existingOffering={offeringsByResource[res]}
+              electricityRateCents={electricityRateCents}
+            />
+          ))}
+        </div>
 
         <StoreAnalyticsPanel buildingId={buildingId} />
       </div>
