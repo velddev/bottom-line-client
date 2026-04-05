@@ -982,7 +982,7 @@ export default function TilesScreen() {
                   <Tabs
                     tabs={[
                       { value: 'supply' as const, label: <span className="flex items-center gap-1"><Link size={11} /> Orders</span> },
-                      { value: 'config' as const, label: <span className="flex items-center gap-1"><Settings size={11} /> Config</span> },
+                      ...(!isStore ? [{ value: 'config' as const, label: <span className="flex items-center gap-1"><Settings size={11} /> Config</span> }] : []),
                       { value: 'stock' as const, label: <span className="flex items-center gap-1"><Package size={11} /> Stock</span> },
                       ...(isStore ? [{ value: 'insights' as const, label: <span className="flex items-center gap-1"><Lightbulb size={11} /> Insights</span> }] : []),
                     ]}
