@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Settings2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { setBuyOrder, createOffering, getBuildingSales, getPriceHistory } from '../../api';
+import { setBuyOrder, createOffering, getBuildingSales, getPriceHistory, listOfferings } from '../../api';
 import type { BuyOrderInfo, Offering, SalesTick, PriceHistoryPoint } from '../../types';
 import { fmtMoney } from '../../types';
 import { Button, Badge } from '../ui';
@@ -83,17 +83,32 @@ export function StoreResourceCard({
   const avgVolume = resourceSales.length > 0
     ? resourceSales.reduce((s, t) => s + t.sale_volume, 0) / resourceSales.length
     : 0;
-  const totalUnits = resourceSales.reduce((s, t) => s + t.sale_volume, 0);
   const totalRevenue = resourceSales.reduce((s, t) => s + t.revenue_cents, 0);
 
-  // ── City-wide market data ──
+  // ── Current market listings (always available, even before first trade) ──
+  const { data: offeringsData } = useQuery({
+    queryKey: ['city-offerings', cityId, resourceType],
+    queryFn: () => listOfferings(cityId, resourceType),
+    staleTime: 30_000,
+  });
+
+  const supplyStats = useMemo(() => {
+    const offers: Offering[] = offeringsData?.offerings ?? [];
+    if (offers.length === 0) return null;
+    const cheapest = Math.min(...offers.map(o => o.price_per_unit));
+    const totalAvailable = offers.reduce((s, o) => s + o.quantity, 0);
+    const numSellers = new Set(offers.map(o => o.seller_name)).size;
+    return { cheapest, totalAvailable, numSellers };
+  }, [offeringsData]);
+
+  // ── City-wide trade history ──
   const { data: priceData } = useQuery({
     queryKey: ['price-history', cityId],
     queryFn: () => getPriceHistory(cityId),
     staleTime: 60_000,
   });
 
-  const marketStats = useMemo(() => {
+  const marketHistory = useMemo(() => {
     const pts: PriceHistoryPoint[] = (priceData?.data ?? [])
       .filter((p: PriceHistoryPoint) => p.resource_type === resourceType)
       .sort((a: PriceHistoryPoint, b: PriceHistoryPoint) => a.tick - b.tick);
@@ -102,9 +117,8 @@ export function StoreResourceCard({
     const last10 = pts.slice(-10);
     const avgPrice = last10.reduce((s, p) => s + p.avg_price_cents, 0) / last10.length;
     const avgDemand = last10.reduce((s, p) => s + p.total_volume, 0) / last10.length;
-    const lowestPrice = Math.min(...last10.map(p => p.min_price_cents));
     const priceValues = pts.slice(-20).map(p => p.avg_price_cents);
-    return { avgPrice, avgDemand, lowestPrice, priceValues };
+    return { avgPrice, avgDemand, priceValues };
   }, [priceData, resourceType]);
 
   useEffect(() => {
@@ -219,29 +233,38 @@ export function StoreResourceCard({
 
           {/* Row 2: Market-level data */}
           <div className="flex items-center gap-4 flex-wrap text-[10px]">
-            {marketStats ? (
+            {supplyStats && (
               <>
                 <div>
-                  <span className="text-gray-500">Mkt avg </span>
-                  <span className="font-mono text-gray-900">{fmtMoney(marketStats.avgPrice)}</span>
+                  <span className="text-gray-500">Supply </span>
+                  <span className="font-mono text-gray-900">{fmtMoney(supplyStats.cheapest)}</span>
+                  <span className="text-gray-500"> cheapest</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Cheapest </span>
-                  <span className="font-mono text-gray-900">{fmtMoney(marketStats.lowestPrice)}</span>
+                  <span className="text-gray-500">Available </span>
+                  <span className="font-mono text-gray-900">{supplyStats.totalAvailable.toFixed(0)}</span>
+                  <span className="text-gray-500"> ({supplyStats.numSellers} seller{supplyStats.numSellers !== 1 ? 's' : ''})</span>
+                </div>
+              </>
+            )}
+            {marketHistory && (
+              <>
+                <div>
+                  <span className="text-gray-500">Traded at </span>
+                  <span className="font-mono text-gray-900">{fmtMoney(marketHistory.avgPrice)}</span>
+                  <span className="text-gray-500"> avg</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">City demand </span>
-                  <span className="font-mono text-gray-900">{marketStats.avgDemand.toFixed(0)}</span>
+                  <span className="text-gray-500">Vol </span>
+                  <span className="font-mono text-gray-900">{marketHistory.avgDemand.toFixed(0)}</span>
                   <span className="text-gray-500">/day</span>
                 </div>
-                {marketStats.priceValues.length >= 2 && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-gray-500">Price</span>
-                    <MiniSparkline values={marketStats.priceValues} color="#fbbf24" />
-                  </div>
+                {marketHistory.priceValues.length >= 2 && (
+                  <MiniSparkline values={marketHistory.priceValues} color="#fbbf24" />
                 )}
               </>
-            ) : (
+            )}
+            {!supplyStats && !marketHistory && (
               <span className="text-gray-500 italic">No market data yet</span>
             )}
           </div>
@@ -252,11 +275,15 @@ export function StoreResourceCard({
       {(editing || needsSetup) && (
         <div className="mt-1">
           {/* Market hint */}
-          {marketStats && (
+          {(supplyStats || marketHistory) && (
             <p className="text-[10px] text-gray-500 mb-2">
-              Market avg <span className="font-mono text-gray-700">{fmtMoney(marketStats.avgPrice)}</span>
-              {' · '}cheapest supply <span className="font-mono text-gray-700">{fmtMoney(marketStats.lowestPrice)}</span>
-              {' · '}demand <span className="font-mono text-gray-700">{marketStats.avgDemand.toFixed(0)}/day</span>
+              {supplyStats && (
+                <>Cheapest supply <span className="font-mono text-gray-700">{fmtMoney(supplyStats.cheapest)}</span></>
+              )}
+              {supplyStats && marketHistory && ' · '}
+              {marketHistory && (
+                <>Avg trade price <span className="font-mono text-gray-700">{fmtMoney(marketHistory.avgPrice)}</span></>
+              )}
             </p>
           )}
 
