@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp, BarChart2, Droplets, Zap } from 'lucide-react';
+import { Plus, Trash2, X, ChevronDown, ChevronUp, BarChart2, Droplets, Zap } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getBuilding, listRecipes, getBuyOrders, setBuyOrder,
   removeBuyOrder, configureBuilding, createOffering,
-  getBuildingSales, getUtilities,
+  getBuildingSales, getUtilities, getInventory,
 } from '../api';
 import type { RecipeInfo, BuyOrderInfo, SalesTick } from '../types';
 import { fmtMoney } from '../types';
@@ -12,19 +12,85 @@ import { Button, Badge, EmptyState, Spinner } from './ui';
 
 const CONSUMER_GOODS = ['food', 'meat', 'leather'];
 
-const MATCH_PREF_LABELS: Record<string, string> = {
-  lowest_price: 'Lowest Price',
-  highest_quality: 'Highest Quality',
-  best_value: 'Best Value',
+const MATCH_STEPS = ['lowest_price', 'best_value', 'highest_quality'] as const;
+const MATCH_LABELS: Record<string, string> = {
+  lowest_price: 'Price',
+  best_value: 'Value',
+  highest_quality: 'Quality',
 };
+
+// ── 3-step match slider ───────────────────────────────────────────────────────
+function MatchSlider({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const idx = MATCH_STEPS.indexOf(value as typeof MATCH_STEPS[number]);
+  const current = idx >= 0 ? idx : 0;
+
+  return (
+    <div className="flex items-center gap-0">
+      {MATCH_STEPS.map((step, i) => {
+        const isActive = i === current;
+        return (
+          <button
+            key={step}
+            onClick={() => onChange(step)}
+            className={`px-2 py-0.5 text-[10px] font-medium transition-colors border ${
+              i === 0 ? 'rounded-l' : i === MATCH_STEPS.length - 1 ? 'rounded-r' : ''
+            } ${
+              isActive
+                ? 'bg-indigo-600 text-gray-900 border-indigo-600'
+                : 'bg-gray-200 text-gray-600 border-gray-300 hover:bg-gray-300'
+            }`}
+          >
+            {MATCH_LABELS[step]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Currency input with € prefix ──────────────────────────────────────────────
+function CurrencyInput({
+  value,
+  onChange,
+  onBlur,
+  className = '',
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onBlur?: () => void;
+  className?: string;
+}) {
+  return (
+    <div className={`flex items-center bg-gray-100 border border-gray-200 rounded focus-within:border-indigo-500 ${className}`}>
+      <span className="text-[10px] text-gray-500 pl-1.5 select-none">€</span>
+      <input
+        type="number"
+        min="0.01"
+        step="0.01"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onBlur={onBlur}
+        className="w-14 px-1 py-0.5 text-xs bg-transparent text-gray-900 outline-none"
+      />
+    </div>
+  );
+}
 
 // ── Single buy order row ──────────────────────────────────────────────────────
 function BuyOrderRow({
   order,
   buildingId,
+  currentStock,
 }: {
   order: BuyOrderInfo;
   buildingId: string;
+  currentStock: number;
 }) {
   const qc = useQueryClient();
   const [maxPrice, setMaxPrice] = useState((order.max_price_per_unit / 100).toFixed(2));
@@ -65,6 +131,10 @@ function BuyOrderRow({
     updateMut.mutate({ price: priceCents, quantity });
   };
 
+  const priceCents = Math.round(parseFloat(maxPrice) * 100);
+  const targetQty = parseInt(qty, 10) || 0;
+  const dailyCost = !isNaN(priceCents) && targetQty > 0 ? priceCents * targetQty : 0;
+
   return (
     <div className="bg-gray-200 border border-gray-300 rounded-lg px-3 py-2 mb-2">
       <div className="flex items-center justify-between mb-1.5">
@@ -96,47 +166,46 @@ function BuyOrderRow({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-end gap-3 flex-wrap">
         <label className="text-[10px] uppercase tracking-wider text-gray-600">
           Max price
-          <input
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={maxPrice}
-            onChange={e => setMaxPrice(e.target.value)}
-            onBlur={savePriceQty}
-            className="block mt-0.5 w-16 px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
-          />
+          <CurrencyInput value={maxPrice} onChange={setMaxPrice} onBlur={savePriceQty} className="mt-0.5" />
         </label>
         <label className="text-[10px] uppercase tracking-wider text-gray-600">
-          Qty/tick
-          <input
-            type="number"
-            min="1"
-            step="1"
-            value={qty}
-            onChange={e => setQty(e.target.value)}
-            onBlur={savePriceQty}
-            className="block mt-0.5 w-14 px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
-          />
+          Target stock
+          <div className="flex items-center gap-1 mt-0.5">
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={qty}
+              onChange={e => setQty(e.target.value)}
+              onBlur={savePriceQty}
+              className="w-14 px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
+            />
+            <span className="text-[10px] text-gray-500">
+              ({currentStock.toFixed(0)} in stock)
+            </span>
+          </div>
         </label>
-        <label className="text-[10px] uppercase tracking-wider text-gray-600">
-          Match
-          <select
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-0.5">Priority</p>
+          <MatchSlider
             value={matchPref}
-            onChange={e => {
-              setMatchPref(e.target.value);
-              updateMut.mutate({ match: e.target.value });
+            onChange={v => {
+              setMatchPref(v);
+              updateMut.mutate({ match: v });
             }}
-            className="block mt-0.5 px-1 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
-          >
-            {Object.entries(MATCH_PREF_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-        </label>
+          />
+        </div>
       </div>
+
+      {dailyCost > 0 && (
+        <p className="text-[10px] text-gray-500 mt-1.5">
+          Max daily spend: <span className="text-indigo-400 font-mono">{fmtMoney(dailyCost)}</span>
+        </p>
+      )}
+
       {(updateMut.isError || removeMut.isError) && (
         <p className="text-rose-400 text-[10px] mt-1">
           {((updateMut.error ?? removeMut.error) as Error).message}
@@ -182,10 +251,18 @@ function CreateBuyOrderInline({
   const priceCents = Math.round(parseFloat(maxPrice) * 100);
   const quantity = parseInt(qty, 10);
   const valid = resource && !isNaN(priceCents) && priceCents > 0 && !isNaN(quantity) && quantity > 0;
+  const dailyCost = valid ? priceCents * quantity : 0;
 
   return (
-    <div className="bg-gray-200 border border-dashed border-gray-300 rounded-lg px-3 py-2 mt-2">
-      <p className="text-[10px] uppercase tracking-wider text-indigo-400 font-semibold mb-2">New Buy Order</p>
+    <div className="bg-gray-200 border border-gray-300 rounded-lg px-3 py-2 mt-2 relative">
+      <button
+        onClick={onClose}
+        className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 transition-colors"
+        title="Close"
+      >
+        <X size={13} />
+      </button>
+      <p className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-2">New Buy Order</p>
       <div className="flex items-end gap-2 flex-wrap">
         <label className="text-[10px] uppercase tracking-wider text-gray-600">
           Resource
@@ -201,17 +278,10 @@ function CreateBuyOrderInline({
         </label>
         <label className="text-[10px] uppercase tracking-wider text-gray-600">
           Max price
-          <input
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={maxPrice}
-            onChange={e => setMaxPrice(e.target.value)}
-            className="block mt-0.5 w-16 px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
-          />
+          <CurrencyInput value={maxPrice} onChange={setMaxPrice} className="mt-0.5" />
         </label>
         <label className="text-[10px] uppercase tracking-wider text-gray-600">
-          Qty/tick
+          Target stock
           <input
             type="number"
             min="1"
@@ -221,25 +291,19 @@ function CreateBuyOrderInline({
             className="block mt-0.5 w-14 px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
           />
         </label>
-        <label className="text-[10px] uppercase tracking-wider text-gray-600">
-          Match
-          <select
-            value={matchPref}
-            onChange={e => setMatchPref(e.target.value)}
-            className="block mt-0.5 px-1 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
-          >
-            {Object.entries(MATCH_PREF_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-        </label>
-        <div className="flex gap-1">
-          <Button size="sm" loading={mut.isPending} disabled={!valid} onClick={() => mut.mutate()}>
-            Create
-          </Button>
-          <Button size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-0.5">Priority</p>
+          <MatchSlider value={matchPref} onChange={setMatchPref} />
         </div>
+        <Button size="sm" loading={mut.isPending} disabled={!valid} onClick={() => mut.mutate()}>
+          Create
+        </Button>
       </div>
+      {dailyCost > 0 && (
+        <p className="text-[10px] text-gray-500 mt-1.5">
+          Max daily spend: <span className="text-indigo-400 font-mono">{fmtMoney(dailyCost)}</span>
+        </p>
+      )}
       {mut.isError && (
         <p className="text-rose-400 text-[10px] mt-1">{(mut.error as Error).message}</p>
       )}
@@ -280,15 +344,7 @@ function AutoSellOfferingRow({
   return (
     <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-300">
       <span className="text-xs text-gray-600 shrink-0">Auto-sell at</span>
-      <input
-        type="number"
-        min="0.01"
-        step="0.01"
-        placeholder="€0.00"
-        value={price}
-        onChange={e => setPrice(e.target.value)}
-        className="w-20 px-2 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 placeholder-gray-400 outline-none focus:border-indigo-500"
-      />
+      <CurrencyInput value={price} onChange={setPrice} />
       <Button
         size="sm"
         variant={listed ? 'secondary' : 'primary'}
@@ -331,7 +387,7 @@ function WaterUtilityRow({ quantity, waterRateCents }: { quantity: number; water
   );
 }
 
-// ── Base electricity consumption per tick by building type ─────────────────────
+// ── Base electricity consumption per day by building type ─────────────────────
 const BASE_ELECTRICITY: Record<string, number> = {
   factory: 30, store: 15, warehouse: 10, bank: 10,
   field: 5, landmark: 5,
@@ -445,10 +501,12 @@ function BuyOrdersList({
   buildingId,
   orders,
   availableResources,
+  stockMap,
 }: {
   buildingId: string;
   orders: BuyOrderInfo[];
   availableResources: string[];
+  stockMap: Record<string, number>;
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const existing = new Set(orders.map(o => o.resource_type));
@@ -458,7 +516,7 @@ function BuyOrdersList({
     <div>
       <p className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-2">
         Buy Orders
-        <span className="font-normal normal-case tracking-normal ml-1 text-gray-500">— auto-purchase from market</span>
+        <span className="font-normal normal-case tracking-normal ml-1 text-gray-500">— auto-purchase from market each day</span>
       </p>
 
       {orders.length === 0 && !showCreate && (
@@ -478,7 +536,12 @@ function BuyOrdersList({
       )}
 
       {orders.map(o => (
-        <BuyOrderRow key={o.buy_order_id} order={o} buildingId={buildingId} />
+        <BuyOrderRow
+          key={o.buy_order_id}
+          order={o}
+          buildingId={buildingId}
+          currentStock={stockMap[o.resource_type] ?? 0}
+        />
       ))}
 
       {orders.length > 0 && remaining.length > 0 && !showCreate && (
@@ -609,7 +672,19 @@ export default function BuyOrderSection({
     staleTime: 30_000,
   });
 
+  const { data: inventoryResp } = useQuery({
+    queryKey: ['inventory', buildingId],
+    queryFn: () => getInventory(buildingId),
+    staleTime: 30_000,
+  });
+
   const orders: BuyOrderInfo[] = buyOrdersResp?.orders ?? [];
+
+  // Build stock map: resource_type → total quantity in this building
+  const stockMap: Record<string, number> = {};
+  for (const item of inventoryResp?.items ?? []) {
+    stockMap[item.resource_type] = (stockMap[item.resource_type] ?? 0) + item.quantity;
+  }
 
   const { data: utilitiesData } = useQuery({
     queryKey: ['utilities', cityId],
@@ -633,7 +708,7 @@ export default function BuyOrderSection({
     return (
       <div>
         <ElectricityUtilityRow buildingType={buildingType} electricityRateCents={electricityRateCents} />
-        <BuyOrdersList buildingId={buildingId} orders={orders} availableResources={CONSUMER_GOODS} />
+        <BuyOrdersList buildingId={buildingId} orders={orders} availableResources={CONSUMER_GOODS} stockMap={stockMap} />
         <StoreAnalyticsPanel buildingId={buildingId} />
       </div>
     );
@@ -689,6 +764,7 @@ export default function BuyOrderSection({
           buildingId={buildingId}
           orders={orders}
           availableResources={nonWaterIngredients.map((i: { resource_type: string }) => i.resource_type)}
+          stockMap={stockMap}
         />
       )}
     </div>

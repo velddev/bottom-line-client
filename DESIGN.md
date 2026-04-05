@@ -7,6 +7,7 @@ Warm zinc neutrals · gold accent · data-dense · WCAG AA accessible.
 
 ## Table of Contents
 
+0. [Terminology](#0-terminology)
 1. [Principles](#1-principles)
 2. [Color Tokens](#2-color-tokens)
 3. [Dark & Light Mode](#3-dark--light-mode)
@@ -20,6 +21,16 @@ Warm zinc neutrals · gold accent · data-dense · WCAG AA accessible.
 11. [3D Overlay UI](#11-3d-overlay-ui)
 12. [Accessibility](#12-accessibility)
 13. [Do's and Don'ts](#13-dos-and-donts)
+
+---
+
+## 0. Terminology
+
+| Backend term | Client-facing term | Notes |
+|-------------|-------------------|-------|
+| `tick` | **day** | The game runs in ticks (1 tick = 1 minute real time = 1 game day). In the client we always say "day" or "days", never "tick". Exception: internal variable names may use `tick` for API compatibility, but user-visible labels must say "day". |
+| `quantity_per_tick` | **target stock** | The amount of a resource a buy order aims to keep in stock each day. |
+| `cents` | show as **€X.XX** | All monetary values are stored in cents. Always display through `fmtMoney()`. |
 
 ---
 
