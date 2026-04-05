@@ -406,12 +406,13 @@ function StoreInsightsPanel({ buildingId }: { buildingId: string }) {
       ) : (
         <div className="text-center py-4">
           <p className="text-2xl mb-2">🏷️</p>
-          <p className="text-gray-500 text-xs">No items listed for sale. Enable auto-sell to see insights.</p>
+          <p className="text-gray-500 text-xs">Set sell prices in the <span className="text-indigo-400">Orders</span> tab to start selling to citizens.</p>
+          <p className="text-gray-500 text-[10px] mt-1">Insights will appear once your store makes its first sale.</p>
         </div>
       )}
 
-      {/* Tips */}
-      {insights.tips.length > 0 && (
+      {/* Tips — only show when there are resource insights to avoid double messaging */}
+      {insights.tips.length > 0 && insights.resource_insights.length > 0 && (
         <div className="border border-indigo-400/30 bg-indigo-900 rounded-lg p-3">
           <p className="text-xs font-semibold text-indigo-400 mb-2">💡 Tips</p>
           <ul className="space-y-1.5">
