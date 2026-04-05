@@ -130,6 +130,12 @@ const ORDER_VISIBILITY: Record<string, string> = {
   within_company: 'ORDER_VISIBILITY_WITHIN_COMPANY',
 };
 
+const OFFERING_VISIBILITY: Record<string, string> = {
+  public:         'OFFERING_VISIBILITY_PUBLIC',
+  private:        'OFFERING_VISIBILITY_PRIVATE',
+  within_company: 'OFFERING_VISIBILITY_WITHIN_COMPANY',
+};
+
 function enumVal(map: Record<string, string>, val: string | undefined): string | undefined {
   if (!val) return val;
   return map[val.toLowerCase()] ?? val;
@@ -269,7 +275,7 @@ export function createHttpApi(): IApiService {
       post<{ offering_id: string }>(`/buildings/${buildingId}/offerings`, {
         resource_type:    enumVal(RESOURCE_TYPE, resource_type),
         price_per_unit,
-        visibility:       enumVal(ORDER_VISIBILITY, visibility) ?? 'ORDER_VISIBILITY_PUBLIC',
+        visibility:       enumVal(OFFERING_VISIBILITY, visibility) ?? 'OFFERING_VISIBILITY_PUBLIC',
         is_auto_managed,
       }),
 

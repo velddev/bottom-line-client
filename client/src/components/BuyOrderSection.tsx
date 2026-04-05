@@ -358,73 +358,132 @@ function AutoSellOfferingRow({
   );
 }
 
-// ── Store sell offering row (per consumer good) ───────────────────────────────
-function StoreSellRow({
+// ── Combined store resource card (buy + sell in one row) ──────────────────────
+function StoreResourceCard({
   buildingId,
   resourceType,
   currentStock,
+  existingOrder,
 }: {
   buildingId: string;
   resourceType: string;
   currentStock: number;
+  existingOrder: BuyOrderInfo | undefined;
 }) {
   const qc = useQueryClient();
-  const [price, setPrice] = useState('1.00');
-  const [saved, setSaved] = useState(false);
+  const [sellPrice, setSellPrice] = useState('1.00');
+  const [buyPrice, setBuyPrice] = useState(
+    existingOrder ? (existingOrder.max_price_per_unit / 100).toFixed(2) : '0.10',
+  );
+  const [targetStock, setTargetStock] = useState(
+    existingOrder ? String(existingOrder.quantity_per_tick) : '10',
+  );
+  const [sellSaved, setSellSaved] = useState(false);
 
-  const mut = useMutation({
+  useEffect(() => {
+    if (existingOrder) {
+      setBuyPrice((existingOrder.max_price_per_unit / 100).toFixed(2));
+      setTargetStock(String(existingOrder.quantity_per_tick));
+    }
+  }, [existingOrder]);
+
+  const sellMut = useMutation({
     mutationFn: () =>
-      createOffering(
-        buildingId,
-        resourceType,
-        Math.round(parseFloat(price) * 100),
-        'public',
-        true,
-      ),
+      createOffering(buildingId, resourceType, Math.round(parseFloat(sellPrice) * 100), 'public', true),
     onSuccess: () => {
-      setSaved(true);
+      setSellSaved(true);
       qc.invalidateQueries({ queryKey: ['offerings'] });
-      setTimeout(() => setSaved(false), 2000);
+      setTimeout(() => setSellSaved(false), 2000);
     },
   });
 
-  const priceCents = Math.round(parseFloat(price) * 100);
-  const validPrice = !isNaN(priceCents) && priceCents > 0;
+  const buyMut = useMutation({
+    mutationFn: () =>
+      setBuyOrder(
+        buildingId,
+        resourceType,
+        Math.round(parseFloat(buyPrice) * 100),
+        parseInt(targetStock, 10) || 10,
+        'public',
+        'best_value',
+        true,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['buy-orders', buildingId] }),
+  });
+
+  const removeMut = useMutation({
+    mutationFn: () => existingOrder ? removeBuyOrder(existingOrder.buy_order_id) : Promise.resolve({ success: true }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['buy-orders', buildingId] }),
+  });
+
+  const sellPriceCents = Math.round(parseFloat(sellPrice) * 100);
+  const buyPriceCents = Math.round(parseFloat(buyPrice) * 100);
+  const qty = parseInt(targetStock, 10) || 0;
+  const validSell = !isNaN(sellPriceCents) && sellPriceCents > 0;
+  const validBuy = !isNaN(buyPriceCents) && buyPriceCents > 0 && qty > 0;
+  const margin = validSell && validBuy ? sellPriceCents - buyPriceCents : 0;
 
   return (
     <div className="bg-gray-200 border border-gray-300 rounded-lg px-3 py-2 mb-2">
-      <div className="flex items-center justify-between">
+      {/* Header: resource name + stock */}
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-900 capitalize">{resourceType}</span>
-          <span className="text-[10px] text-gray-500">
-            ({currentStock.toFixed(0)} in stock)
+          <span className="text-[10px] text-gray-500 font-mono">
+            {currentStock.toFixed(0)} in stock
           </span>
         </div>
-        {saved && <Badge variant="success">Saved</Badge>}
+        {sellSaved && <Badge variant="success">Listed ✓</Badge>}
+        {margin > 0 && validSell && validBuy && (
+          <span className="text-[10px] font-mono text-emerald-400">
+            +{fmtMoney(margin)}/u margin
+          </span>
+        )}
+        {margin < 0 && validSell && validBuy && (
+          <span className="text-[10px] font-mono text-rose-400">
+            {fmtMoney(margin)}/u margin
+          </span>
+        )}
       </div>
-      <div className="flex items-center gap-2 mt-1.5">
+
+      {/* Buy + Sell controls in one row */}
+      <div className="flex items-end gap-3 flex-wrap">
         <label className="text-[10px] uppercase tracking-wider text-gray-600">
-          Sell price
-          <CurrencyInput
-            value={price}
-            onChange={v => { setPrice(v); setSaved(false); }}
-            className="mt-0.5"
+          Buy at
+          <CurrencyInput value={buyPrice} onChange={setBuyPrice} className="mt-0.5" />
+        </label>
+        <label className="text-[10px] uppercase tracking-wider text-gray-600">
+          Target
+          <input
+            type="number" min="1" step="1"
+            value={targetStock}
+            onChange={e => setTargetStock(e.target.value)}
+            className="block mt-0.5 w-12 px-1 py-0.5 text-xs bg-gray-100 border border-gray-200 rounded text-gray-900 outline-none focus:border-indigo-500"
           />
         </label>
-        <div className="pt-3">
-          <Button
-            size="sm"
-            variant={saved ? 'secondary' : 'primary'}
-            loading={mut.isPending}
-            disabled={!validPrice}
-            onClick={() => mut.mutate()}
-          >
-            {saved ? 'Listed ✓' : 'List for Sale'}
+        <label className="text-[10px] uppercase tracking-wider text-gray-600">
+          Sell at
+          <CurrencyInput value={sellPrice} onChange={v => { setSellPrice(v); setSellSaved(false); }} className="mt-0.5" />
+        </label>
+        <div className="flex gap-1 pt-2">
+          <Button size="sm" loading={buyMut.isPending || sellMut.isPending} disabled={!validBuy || !validSell}
+            onClick={() => { buyMut.mutate(); sellMut.mutate(); }}>
+            Save
           </Button>
+          {existingOrder && (
+            <Button size="sm" variant="danger" loading={removeMut.isPending}
+              onClick={() => removeMut.mutate()}>
+              <Trash2 size={11} />
+            </Button>
+          )}
         </div>
       </div>
-      {mut.isError && (
-        <p className="text-rose-400 text-[10px] mt-1">{(mut.error as Error).message}</p>
+
+      {/* Errors */}
+      {(buyMut.isError || sellMut.isError) && (
+        <p className="text-rose-400 text-[10px] mt-1">
+          {((buyMut.error ?? sellMut.error) as Error).message}
+        </p>
       )}
     </div>
   );
@@ -775,24 +834,31 @@ export default function BuyOrderSection({
     );
   }
 
-  // Stores: buy consumer goods + sell to citizens
+  // Stores: combined buy + sell per consumer good
   if (buildingType === 'store') {
+    const ordersByResource = Object.fromEntries(
+      orders.map(o => [o.resource_type, o]),
+    );
+
     return (
       <div>
         <ElectricityUtilityRow buildingType={buildingType} electricityRateCents={electricityRateCents} />
 
-        {/* Sell offerings — set retail prices */}
-        <div className="mb-4">
-          <p className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-2">
-            Sell Prices
-            <span className="font-normal normal-case tracking-normal ml-1 text-gray-500">— citizens buy from your store each day</span>
-          </p>
-          {CONSUMER_GOODS.map(res => (
-            <StoreSellRow key={res} buildingId={buildingId} resourceType={res} currentStock={stockMap[res] ?? 0} />
-          ))}
-        </div>
+        <p className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-2">
+          Store Inventory
+          <span className="font-normal normal-case tracking-normal ml-1 text-gray-500">— buy from market, sell to citizens</span>
+        </p>
 
-        <BuyOrdersList buildingId={buildingId} orders={orders} availableResources={CONSUMER_GOODS} stockMap={stockMap} />
+        {CONSUMER_GOODS.map(res => (
+          <StoreResourceCard
+            key={res}
+            buildingId={buildingId}
+            resourceType={res}
+            currentStock={stockMap[res] ?? 0}
+            existingOrder={ordersByResource[res]}
+          />
+        ))}
+
         <StoreAnalyticsPanel buildingId={buildingId} />
       </div>
     );
