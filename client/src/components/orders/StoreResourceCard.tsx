@@ -186,8 +186,7 @@ export function StoreResourceCard({
             <span className="font-mono text-gray-900">{fmtMoney(sellPriceCents)}</span>
           </div>
           <div className={netMargin > 0 ? 'text-emerald-400' : netMargin < 0 ? 'text-rose-400' : 'text-gray-500'}>
-            <span className="font-mono">~{fmtMoney(Math.abs(netMargin))}</span>
-            <span> {netMargin >= 0 ? 'profit' : 'loss'}/u</span>
+            <span className="font-mono">(~{fmtMoney(Math.abs(netMargin))}/u)</span>
           </div>
           <div>
             <span className="text-gray-500">Stock </span>
