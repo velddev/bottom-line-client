@@ -358,6 +358,78 @@ function AutoSellOfferingRow({
   );
 }
 
+// ── Store sell offering row (per consumer good) ───────────────────────────────
+function StoreSellRow({
+  buildingId,
+  resourceType,
+  currentStock,
+}: {
+  buildingId: string;
+  resourceType: string;
+  currentStock: number;
+}) {
+  const qc = useQueryClient();
+  const [price, setPrice] = useState('1.00');
+  const [saved, setSaved] = useState(false);
+
+  const mut = useMutation({
+    mutationFn: () =>
+      createOffering(
+        buildingId,
+        resourceType,
+        Math.round(parseFloat(price) * 100),
+        'public',
+        true,
+      ),
+    onSuccess: () => {
+      setSaved(true);
+      qc.invalidateQueries({ queryKey: ['offerings'] });
+      setTimeout(() => setSaved(false), 2000);
+    },
+  });
+
+  const priceCents = Math.round(parseFloat(price) * 100);
+  const validPrice = !isNaN(priceCents) && priceCents > 0;
+
+  return (
+    <div className="bg-gray-200 border border-gray-300 rounded-lg px-3 py-2 mb-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-gray-900 capitalize">{resourceType}</span>
+          <span className="text-[10px] text-gray-500">
+            ({currentStock.toFixed(0)} in stock)
+          </span>
+        </div>
+        {saved && <Badge variant="success">Saved</Badge>}
+      </div>
+      <div className="flex items-center gap-2 mt-1.5">
+        <label className="text-[10px] uppercase tracking-wider text-gray-600">
+          Sell price
+          <CurrencyInput
+            value={price}
+            onChange={v => { setPrice(v); setSaved(false); }}
+            className="mt-0.5"
+          />
+        </label>
+        <div className="pt-3">
+          <Button
+            size="sm"
+            variant={saved ? 'secondary' : 'primary'}
+            loading={mut.isPending}
+            disabled={!validPrice}
+            onClick={() => mut.mutate()}
+          >
+            {saved ? 'Listed ✓' : 'List for Sale'}
+          </Button>
+        </div>
+      </div>
+      {mut.isError && (
+        <p className="text-rose-400 text-[10px] mt-1">{(mut.error as Error).message}</p>
+      )}
+    </div>
+  );
+}
+
 // ── Water utility row ─────────────────────────────────────────────────────────
 function WaterUtilityRow({ quantity, waterRateCents }: { quantity: number; waterRateCents: number | null }) {
   return (
@@ -703,11 +775,23 @@ export default function BuyOrderSection({
     );
   }
 
-  // Stores: buy consumer goods
+  // Stores: buy consumer goods + sell to citizens
   if (buildingType === 'store') {
     return (
       <div>
         <ElectricityUtilityRow buildingType={buildingType} electricityRateCents={electricityRateCents} />
+
+        {/* Sell offerings — set retail prices */}
+        <div className="mb-4">
+          <p className="text-[10px] uppercase tracking-wider text-gray-600 font-semibold mb-2">
+            Sell Prices
+            <span className="font-normal normal-case tracking-normal ml-1 text-gray-500">— citizens buy from your store each day</span>
+          </p>
+          {CONSUMER_GOODS.map(res => (
+            <StoreSellRow key={res} buildingId={buildingId} resourceType={res} currentStock={stockMap[res] ?? 0} />
+          ))}
+        </div>
+
         <BuyOrdersList buildingId={buildingId} orders={orders} availableResources={CONSUMER_GOODS} stockMap={stockMap} />
         <StoreAnalyticsPanel buildingId={buildingId} />
       </div>
