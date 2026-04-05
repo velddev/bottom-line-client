@@ -279,6 +279,9 @@ export function createHttpApi(): IApiService {
         is_auto_managed,
       }),
 
+    getBuildingOfferings: (buildingId) =>
+      get<{ offerings: Offering[] }>(`/buildings/${buildingId}/offerings`),
+
     // ─── Research ───────────────────────────────────────────────────────────
     listResearch: () =>
       get<{ projects: ResearchProgress[] }>('/research'),

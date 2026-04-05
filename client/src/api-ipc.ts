@@ -124,6 +124,11 @@ export function createIpcApi(): IApiService {
         building_id: buildingId, resource_type, price_per_unit, visibility, is_auto_managed, apiKey: apiKey(),
       }),
 
+    getBuildingOfferings: (buildingId) =>
+      invoke<{ offerings: Offering[] }>('api:getBuildingOfferings', {
+        building_id: buildingId, apiKey: apiKey(),
+      }),
+
     // ─── Research ───────────────────────────────────────────────────────────
     listResearch: () =>
       invoke<{ projects: ResearchProgress[] }>('api:listResearch', { apiKey: apiKey() }),

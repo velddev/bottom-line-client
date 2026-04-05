@@ -34,6 +34,7 @@ export interface IApiService {
   removeBuyOrder(buyOrderId: string): Promise<{ success: boolean }>;
   // ─── Sell Offerings ───────────────────────────────────────────────────
   createOffering(buildingId: string, resource_type: string, price_per_unit: number, visibility: string, is_auto_managed: boolean): Promise<{ offering_id: string }>;
+  getBuildingOfferings(buildingId: string): Promise<{ offerings: Offering[] }>;
   listResearch(): Promise<{ projects: ResearchProgress[] }>;
   startResearch(resource_type: string, workers_assigned: number, budget_per_tick: number): Promise<{ project_id: string }>;
   pauseResearch(id: string, pause: boolean): Promise<{ success: boolean }>;

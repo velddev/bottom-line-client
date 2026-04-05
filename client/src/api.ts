@@ -46,6 +46,7 @@ export const getBuyOrders: IApiService['getBuyOrders'] = (...args) => api.getBuy
 export const setBuyOrder: IApiService['setBuyOrder'] = (...args) => api.setBuyOrder(...args);
 export const removeBuyOrder: IApiService['removeBuyOrder'] = (...args) => api.removeBuyOrder(...args);
 export const createOffering: IApiService['createOffering'] = (...args) => api.createOffering(...args);
+export const getBuildingOfferings: IApiService['getBuildingOfferings'] = (...args) => api.getBuildingOfferings(...args);
 export const listResearch: IApiService['listResearch'] = () => api.listResearch();
 export const startResearch: IApiService['startResearch'] = (...args) => api.startResearch(...args);
 export const pauseResearch: IApiService['pauseResearch'] = (...args) => api.pauseResearch(...args);

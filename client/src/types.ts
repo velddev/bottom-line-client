@@ -83,6 +83,7 @@ export interface Offering {
   quality: number;
   brand_name: string;
   visibility: string;
+  is_auto_managed: boolean;
 }
 
 export interface BuyOrderInfo {

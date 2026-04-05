@@ -3,10 +3,10 @@ import { Plus, Trash2, X, ChevronDown, ChevronUp, BarChart2, Droplets, Zap } fro
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getBuilding, listRecipes, getBuyOrders, setBuyOrder,
-  removeBuyOrder, configureBuilding, createOffering,
+  removeBuyOrder, configureBuilding, createOffering, getBuildingOfferings,
   getBuildingSales, getUtilities, getInventory,
 } from '../api';
-import type { RecipeInfo, BuyOrderInfo, SalesTick } from '../types';
+import type { RecipeInfo, BuyOrderInfo, SalesTick, Offering } from '../types';
 import { fmtMoney } from '../types';
 import { Button, Badge, EmptyState, Spinner } from './ui';
 
@@ -315,13 +315,24 @@ function CreateBuyOrderInline({
 function AutoSellOfferingRow({
   buildingId,
   resourceType,
+  existingOffering,
 }: {
   buildingId: string;
   resourceType: string;
+  existingOffering: Offering | undefined;
 }) {
   const qc = useQueryClient();
-  const [price, setPrice] = useState('0.10');
-  const [listed, setListed] = useState(false);
+  const [price, setPrice] = useState(
+    existingOffering ? (existingOffering.price_per_unit / 100).toFixed(2) : '0.10',
+  );
+  const [listed, setListed] = useState(!!existingOffering);
+
+  useEffect(() => {
+    if (existingOffering) {
+      setPrice((existingOffering.price_per_unit / 100).toFixed(2));
+      setListed(true);
+    }
+  }, [existingOffering]);
 
   const mut = useMutation({
     mutationFn: () =>
@@ -335,6 +346,7 @@ function AutoSellOfferingRow({
     onSuccess: () => {
       setListed(true);
       qc.invalidateQueries({ queryKey: ['offerings'] });
+      qc.invalidateQueries({ queryKey: ['building-offerings', buildingId] });
     },
   });
 
@@ -343,8 +355,8 @@ function AutoSellOfferingRow({
 
   return (
     <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-300">
-      <span className="text-xs text-gray-600 shrink-0">Auto-sell at</span>
-      <CurrencyInput value={price} onChange={setPrice} />
+      <span className="text-xs text-gray-600 shrink-0">Sell at</span>
+      <CurrencyInput value={price} onChange={v => { setPrice(v); setListed(false); }} />
       <Button
         size="sm"
         variant={listed ? 'secondary' : 'primary'}
@@ -352,7 +364,7 @@ function AutoSellOfferingRow({
         disabled={!validPrice}
         onClick={() => mut.mutate()}
       >
-        {listed ? 'Listed' : 'Create Listing'}
+        {listed ? 'Listed ✓' : 'List for Sale'}
       </Button>
     </div>
   );
@@ -364,21 +376,32 @@ function StoreResourceCard({
   resourceType,
   currentStock,
   existingOrder,
+  existingOffering,
 }: {
   buildingId: string;
   resourceType: string;
   currentStock: number;
   existingOrder: BuyOrderInfo | undefined;
+  existingOffering: Offering | undefined;
 }) {
   const qc = useQueryClient();
-  const [sellPrice, setSellPrice] = useState('1.00');
+  const [sellPrice, setSellPrice] = useState(
+    existingOffering ? (existingOffering.price_per_unit / 100).toFixed(2) : '1.00',
+  );
   const [buyPrice, setBuyPrice] = useState(
     existingOrder ? (existingOrder.max_price_per_unit / 100).toFixed(2) : '0.10',
   );
   const [targetStock, setTargetStock] = useState(
     existingOrder ? String(existingOrder.quantity_per_tick) : '10',
   );
-  const [sellSaved, setSellSaved] = useState(false);
+  const [sellSaved, setSellSaved] = useState(!!existingOffering);
+
+  useEffect(() => {
+    if (existingOffering) {
+      setSellPrice((existingOffering.price_per_unit / 100).toFixed(2));
+      setSellSaved(true);
+    }
+  }, [existingOffering]);
 
   useEffect(() => {
     if (existingOrder) {
@@ -393,7 +416,7 @@ function StoreResourceCard({
     onSuccess: () => {
       setSellSaved(true);
       qc.invalidateQueries({ queryKey: ['offerings'] });
-      setTimeout(() => setSellSaved(false), 2000);
+      qc.invalidateQueries({ queryKey: ['building-offerings', buildingId] });
     },
   });
 
@@ -826,6 +849,14 @@ export default function BuyOrderSection({
     (u: { name: string }) => u.name.toLowerCase() === 'electricity'
   )?.rate_cents ?? null;
 
+  const { data: offeringsResp } = useQuery({
+    queryKey: ['building-offerings', buildingId],
+    queryFn: () => getBuildingOfferings(buildingId),
+    staleTime: 30_000,
+  });
+
+  const existingOfferings: Offering[] = offeringsResp?.offerings ?? [];
+
   if (!bldg) {
     return (
       <div className="flex items-center gap-2 text-gray-500 text-xs">
@@ -838,6 +869,9 @@ export default function BuyOrderSection({
   if (buildingType === 'store') {
     const ordersByResource = Object.fromEntries(
       orders.map(o => [o.resource_type, o]),
+    );
+    const offeringsByResource = Object.fromEntries(
+      existingOfferings.map(o => [o.resource_type, o]),
     );
 
     return (
@@ -856,6 +890,7 @@ export default function BuyOrderSection({
             resourceType={res}
             currentStock={stockMap[res] ?? 0}
             existingOrder={ordersByResource[res]}
+            existingOffering={offeringsByResource[res]}
           />
         ))}
 
@@ -897,7 +932,11 @@ export default function BuyOrderSection({
           Produces <span className="text-gray-900 font-semibold capitalize">{recipe.output_type}</span>
           <span className="text-gray-500 ml-1 font-mono">× {recipe.output_min}–{recipe.output_max} / {recipe.ticks_required}d</span>
         </p>
-        <AutoSellOfferingRow buildingId={buildingId} resourceType={recipe.output_type} />
+        <AutoSellOfferingRow
+          buildingId={buildingId}
+          resourceType={recipe.output_type}
+          existingOffering={existingOfferings.find(o => o.resource_type === recipe.output_type)}
+        />
       </div>
 
       {/* Water utility row */}
