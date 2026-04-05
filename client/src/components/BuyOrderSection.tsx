@@ -12,7 +12,6 @@ import {
   StoreResourceCard,
   IngredientBuyRow,
   RecipePicker,
-  StoreAnalyticsPanel,
 } from './orders';
 
 const CONSUMER_GOODS = ['food', 'meat', 'leather'];
@@ -115,8 +114,6 @@ export default function BuyOrderSection({
             />
           ))}
         </div>
-
-        <StoreAnalyticsPanel buildingId={buildingId} />
       </div>
     );
   }
