@@ -63,7 +63,6 @@ export function StoreResourceCard({
     existingOrder?.match_preference ?? 'best_value',
   );
   const [sellSaved, setSellSaved] = useState(!!existingOffering);
-  const [dirty, setDirty] = useState(false);
 
   // Fetch per-resource sales history for this building
   const { data: salesData } = useQuery({
@@ -107,7 +106,6 @@ export function StoreResourceCard({
       createOffering(buildingId, resourceType, Math.round(parseFloat(sellPrice) * 100), 'public', true),
     onSuccess: () => {
       setSellSaved(true);
-      setDirty(false);
       qc.invalidateQueries({ queryKey: ['offerings'] });
       qc.invalidateQueries({ queryKey: ['building-offerings', buildingId] });
     },
@@ -125,7 +123,6 @@ export function StoreResourceCard({
         true,
       ),
     onSuccess: () => {
-      setDirty(false);
       qc.invalidateQueries({ queryKey: ['buy-orders', buildingId] });
     },
   });
@@ -133,6 +130,7 @@ export function StoreResourceCard({
   const save = () => {
     buyMut.mutate();
     sellMut.mutate();
+    setEditing(false);
   };
 
   const sellPriceCents = Math.round(parseFloat(sellPrice) * 100);
@@ -211,7 +209,7 @@ export function StoreResourceCard({
               Buy at
               <CurrencyInput
                 value={buyPrice}
-                onChange={v => { setBuyPrice(v); setDirty(true); }}
+                onChange={v => { setBuyPrice(v); }}
                 className="mt-0.5"
               />
             </label>
@@ -219,7 +217,7 @@ export function StoreResourceCard({
               <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-0.5">Priority</p>
               <MatchSlider
                 value={matchPref}
-                onChange={v => { setMatchPref(v); setDirty(true); }}
+                onChange={v => { setMatchPref(v); }}
               />
             </div>
           </div>
@@ -236,7 +234,7 @@ export function StoreResourceCard({
               max={MAX_STORE_CAPACITY}
               step="1"
               value={targetStock}
-              onChange={e => { setTargetStock(parseInt(e.target.value, 10)); setDirty(true); }}
+              onChange={e => { setTargetStock(parseInt(e.target.value, 10)); }}
               className="w-full h-1 bg-gray-300 rounded-full appearance-none cursor-pointer accent-indigo-500"
             />
           </div>
@@ -247,7 +245,7 @@ export function StoreResourceCard({
               Sell at
               <CurrencyInput
                 value={sellPrice}
-                onChange={v => { setSellPrice(v); setSellSaved(false); setDirty(true); }}
+                onChange={v => { setSellPrice(v); setSellSaved(false); }}
                 className="mt-0.5"
               />
             </label>
@@ -261,10 +259,10 @@ export function StoreResourceCard({
             <Button
               size="sm"
               loading={buyMut.isPending || sellMut.isPending}
-              disabled={!validBuy || !validSell || (!dirty && isListed)}
+              disabled={!validBuy || !validSell}
               onClick={save}
             >
-              {dirty ? 'Save' : 'Saved ✓'}
+              Save
             </Button>
           </div>
         </div>
