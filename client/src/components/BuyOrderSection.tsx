@@ -106,6 +106,7 @@ export default function BuyOrderSection({
             <StoreResourceCard
               key={res}
               buildingId={buildingId}
+              cityId={cityId}
               resourceType={res}
               currentStock={stockMap[res] ?? 0}
               existingOrder={ordersByResource[res]}

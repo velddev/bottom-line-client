@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Settings2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { setBuyOrder, createOffering, getBuildingSales } from '../../api';
-import type { BuyOrderInfo, Offering, SalesTick } from '../../types';
+import { setBuyOrder, createOffering, getBuildingSales, getPriceHistory } from '../../api';
+import type { BuyOrderInfo, Offering, SalesTick, PriceHistoryPoint } from '../../types';
 import { fmtMoney } from '../../types';
 import { Button, Badge } from '../ui';
 import { CurrencyInput } from './CurrencyInput';
@@ -17,8 +17,8 @@ function MiniSparkline({ values, color }: { values: number[]; color: string }) {
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
-  const w = 60;
-  const h = 16;
+  const w = 64;
+  const h = 20;
 
   const pts = values.map((v, i) => {
     const x = (i / (values.length - 1)) * w;
@@ -35,6 +35,7 @@ function MiniSparkline({ values, color }: { values: number[]; color: string }) {
 
 export function StoreResourceCard({
   buildingId,
+  cityId,
   resourceType,
   currentStock,
   existingOrder,
@@ -42,6 +43,7 @@ export function StoreResourceCard({
   electricityRateCents,
 }: {
   buildingId: string;
+  cityId: string;
   resourceType: string;
   currentStock: number;
   existingOrder: BuyOrderInfo | undefined;
@@ -64,7 +66,7 @@ export function StoreResourceCard({
   );
   const [sellSaved, setSellSaved] = useState(!!existingOffering);
 
-  // Fetch per-resource sales history for this building
+  // ── Your store's sales history ──
   const { data: salesData } = useQuery({
     queryKey: ['building-sales', buildingId],
     queryFn: () => getBuildingSales(buildingId, 10),
@@ -81,10 +83,29 @@ export function StoreResourceCard({
   const avgVolume = resourceSales.length > 0
     ? resourceSales.reduce((s, t) => s + t.sale_volume, 0) / resourceSales.length
     : 0;
+  const totalUnits = resourceSales.reduce((s, t) => s + t.sale_volume, 0);
   const totalRevenue = resourceSales.reduce((s, t) => s + t.revenue_cents, 0);
-  const avgRevPerUnit = avgVolume > 0
-    ? totalRevenue / resourceSales.reduce((s, t) => s + t.sale_volume, 0)
-    : 0;
+
+  // ── City-wide market data ──
+  const { data: priceData } = useQuery({
+    queryKey: ['price-history', cityId],
+    queryFn: () => getPriceHistory(cityId),
+    staleTime: 60_000,
+  });
+
+  const marketStats = useMemo(() => {
+    const pts: PriceHistoryPoint[] = (priceData?.data ?? [])
+      .filter((p: PriceHistoryPoint) => p.resource_type === resourceType)
+      .sort((a: PriceHistoryPoint, b: PriceHistoryPoint) => a.tick - b.tick);
+    if (pts.length === 0) return null;
+
+    const last10 = pts.slice(-10);
+    const avgPrice = last10.reduce((s, p) => s + p.avg_price_cents, 0) / last10.length;
+    const avgDemand = last10.reduce((s, p) => s + p.total_volume, 0) / last10.length;
+    const lowestPrice = Math.min(...last10.map(p => p.min_price_cents));
+    const priceValues = pts.slice(-20).map(p => p.avg_price_cents);
+    return { avgPrice, avgDemand, lowestPrice, priceValues };
+  }, [priceData, resourceType]);
 
   useEffect(() => {
     if (existingOffering) {
@@ -145,17 +166,13 @@ export function StoreResourceCard({
   const netMargin = rawMargin - electricityCostPerUnit;
 
   const isListed = sellSaved && !!existingOrder;
-
-  // Revenue sparkline values
   const revenueValues = resourceSales.map(t => t.revenue_cents);
-
-  // Auto-open edit if nothing is configured yet
   const needsSetup = !existingOrder && !existingOffering;
 
   return (
     <div className="py-3.5 border-b border-gray-300 last:border-b-0">
-      {/* Header: resource name + status + edit toggle */}
-      <div className="flex items-center justify-between mb-1.5">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-bold text-gray-900 capitalize">{resourceType}</span>
         <div className="flex items-center gap-2">
           <Badge variant={isListed ? 'success' : 'warning'}>
@@ -173,35 +190,76 @@ export function StoreResourceCard({
         </div>
       </div>
 
-      {/* Default: Stats view */}
+      {/* Default: Stats dashboard */}
       {!editing && !needsSetup && (
-        <div className="flex items-center gap-4 flex-wrap text-[10px]">
-          <div>
-            <span className="text-gray-500">Avg sold </span>
-            <span className="font-mono text-gray-900">{avgVolume > 0 ? avgVolume.toFixed(1) : '—'}</span>
-            <span className="text-gray-500">/day</span>
+        <div className="space-y-1.5">
+          {/* Row 1: Your store performance */}
+          <div className="flex items-center gap-4 flex-wrap text-[10px]">
+            <div>
+              <span className="text-gray-500">Sold </span>
+              <span className="font-mono text-gray-900">{avgVolume > 0 ? avgVolume.toFixed(1) : '—'}</span>
+              <span className="text-gray-500">/day</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Revenue </span>
+              <span className="font-mono text-gray-900">{totalRevenue > 0 ? fmtMoney(totalRevenue) : '—'}</span>
+            </div>
+            <div className={netMargin > 0 ? 'text-emerald-400' : netMargin < 0 ? 'text-rose-400' : 'text-gray-500'}>
+              <span className="font-mono">(~{fmtMoney(Math.abs(netMargin))}/u)</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Stock </span>
+              <span className="font-mono text-gray-900">{currentStock.toFixed(0)}</span>
+              <span className="text-gray-500">/{targetStock}</span>
+            </div>
+            {revenueValues.length >= 2 && (
+              <MiniSparkline values={revenueValues} color={netMargin >= 0 ? '#4ade80' : '#fb7185'} />
+            )}
           </div>
-          <div>
-            <span className="text-gray-500">Sell </span>
-            <span className="font-mono text-gray-900">{fmtMoney(sellPriceCents)}</span>
+
+          {/* Row 2: Market-level data */}
+          <div className="flex items-center gap-4 flex-wrap text-[10px]">
+            {marketStats ? (
+              <>
+                <div>
+                  <span className="text-gray-500">Mkt avg </span>
+                  <span className="font-mono text-gray-900">{fmtMoney(marketStats.avgPrice)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Cheapest </span>
+                  <span className="font-mono text-gray-900">{fmtMoney(marketStats.lowestPrice)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">City demand </span>
+                  <span className="font-mono text-gray-900">{marketStats.avgDemand.toFixed(0)}</span>
+                  <span className="text-gray-500">/day</span>
+                </div>
+                {marketStats.priceValues.length >= 2 && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-500">Price</span>
+                    <MiniSparkline values={marketStats.priceValues} color="#fbbf24" />
+                  </div>
+                )}
+              </>
+            ) : (
+              <span className="text-gray-500 italic">No market data yet</span>
+            )}
           </div>
-          <div className={netMargin > 0 ? 'text-emerald-400' : netMargin < 0 ? 'text-rose-400' : 'text-gray-500'}>
-            <span className="font-mono">(~{fmtMoney(Math.abs(netMargin))}/u)</span>
-          </div>
-          <div>
-            <span className="text-gray-500">Stock </span>
-            <span className="font-mono text-gray-900">{currentStock.toFixed(0)}</span>
-            <span className="text-gray-500">/{targetStock}</span>
-          </div>
-          {revenueValues.length >= 2 && (
-            <MiniSparkline values={revenueValues} color={netMargin >= 0 ? '#4ade80' : '#fb7185'} />
-          )}
         </div>
       )}
 
       {/* Edit mode (or first-time setup) */}
       {(editing || needsSetup) && (
         <div className="mt-1">
+          {/* Market hint */}
+          {marketStats && (
+            <p className="text-[10px] text-gray-500 mb-2">
+              Market avg <span className="font-mono text-gray-700">{fmtMoney(marketStats.avgPrice)}</span>
+              {' · '}cheapest supply <span className="font-mono text-gray-700">{fmtMoney(marketStats.lowestPrice)}</span>
+              {' · '}demand <span className="font-mono text-gray-700">{marketStats.avgDemand.toFixed(0)}/day</span>
+            </p>
+          )}
+
           {/* Buy at + Priority */}
           <div className="flex items-center gap-3 mb-2.5 flex-wrap">
             <label className="text-[10px] uppercase tracking-wider text-gray-600 shrink-0">
