@@ -3,7 +3,7 @@ import type { TileInfo } from '../types';
 const GOVERNMENT_ID = '00000000-0000-0000-0000-000000000001';
 
 export type BuildingCategory = 'store' | 'field' | 'factory' | 'warehouse'
-  | 'residential_low' | 'residential_medium' | 'residential_high';
+  | 'residential_low' | 'residential_medium' | 'residential_high' | 'mixed_use_residential';
 
 // Construction durations (must match server ConstructionTicks)
 export const CONSTRUCTION_TICKS: Record<string, number> = {
@@ -13,6 +13,7 @@ export const CONSTRUCTION_TICKS: Record<string, number> = {
   warehouse: 7,
   residential_low: 2,
   residential_medium: 5,
+  mixed_use_residential: 7,
   residential_high: 10,
 };
 
@@ -56,7 +57,7 @@ function computeSuitability(
     const decay = 1 - dist / PROXIMITY_RADIUS;
     const bt = t.building_type.toLowerCase();
     const isLandmark = bt === 'landmark';
-    const isResidential = bt.startsWith('residential');
+    const isResidential = bt.startsWith('residential') || bt === 'mixed_use_residential' || bt === 'mixeduseresidential';
     const isStore = bt === 'store';
     const isField = bt === 'field';
     const isFactory = bt === 'factory';
@@ -101,6 +102,7 @@ function computeSuitability(
       case 'residential_low':
       case 'residential_medium':
       case 'residential_high':
+      case 'mixed_use_residential':
         // Same as server: +100 landmark, -30 field/factory, +20 store
         if (isLandmark)     score += 100 * decay;
         if (isField || isFactory) score -= 30 * decay;

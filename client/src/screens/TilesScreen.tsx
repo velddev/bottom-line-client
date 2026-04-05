@@ -740,7 +740,9 @@ export default function TilesScreen() {
     : undefined;
   const isLandmark = selectedTile?.building_type?.toLowerCase() === 'landmark';
   const isBank = selectedTile?.building_type?.toLowerCase() === 'bank';
-  const isResidential = selectedTile?.building_type?.toLowerCase().startsWith('residential');
+  const isResidential = selectedTile?.building_type?.toLowerCase().startsWith('residential')
+    || selectedTile?.building_type?.toLowerCase() === 'mixed_use_residential'
+    || selectedTile?.building_type?.toLowerCase() === 'mixeduseresidential';
   const isStore = selectedTile?.building_type?.toLowerCase() === 'store';
   const isGovBuilding = isLandmark || isBank;
 
@@ -1019,7 +1021,7 @@ export default function TilesScreen() {
                       <option key={t} value={t}>{BUILDING_ICONS[t]} {t.charAt(0).toUpperCase() + t.slice(1)}</option>
                     ))}
                     <optgroup label="Residential">
-                      {(['residential_low', 'residential_medium', 'residential_high'] as const).map((t) => (
+                      {(['residential_low', 'residential_medium', 'mixed_use_residential', 'residential_high'] as const).map((t) => (
                         <option key={t} value={t}>{BUILDING_ICONS[t]} {t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
                       ))}
                     </optgroup>

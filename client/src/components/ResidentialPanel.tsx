@@ -13,9 +13,11 @@ interface Props {
 }
 
 const TIER_INFO: Record<string, { label: string; icon: string; color: string }> = {
-  residential_low:    { label: 'Small House',  icon: '🏠', color: 'text-gray-500' },
-  residential_medium: { label: 'Townhouse',    icon: '🏘️', color: 'text-blue-400' },
-  residential_high:   { label: 'Skyscraper',   icon: '🏙️', color: 'text-amber-400' },
+  residential_low:        { label: 'Small House',  icon: '🏠', color: 'text-gray-500' },
+  residential_medium:     { label: 'Townhouse',    icon: '🏘️', color: 'text-blue-400' },
+  mixed_use_residential:  { label: 'Mixed-Use',    icon: '🏬', color: 'text-emerald-400' },
+  mixeduseresidential:    { label: 'Mixed-Use',    icon: '🏬', color: 'text-emerald-400' },
+  residential_high:       { label: 'Skyscraper',   icon: '🏙️', color: 'text-amber-400' },
 };
 
 const SHOPPING_RADIUS = 8;

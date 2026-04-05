@@ -6,6 +6,11 @@ const CATEGORIES: { type: BuildingCategory; label: string; desc: string }[] = [
   { type: 'store', label: 'Store', desc: 'Sells goods directly to citizens. Place near residential areas for maximum foot traffic.' },
   { type: 'factory', label: 'Factory', desc: 'Processes raw materials into finished goods. Turns grain into food, cattle into leather, etc.' },
   { type: 'field', label: 'Field', desc: 'Grows raw resources like grain and cattle. Best placed away from the city center.' },
+  { type: 'warehouse', label: 'Warehouse', desc: 'Stores surplus goods. Place near factories and stores for efficient logistics.' },
+  { type: 'residential_low', label: 'House', desc: 'Small house for 25 citizens. Cheap to build ($350k), works on any tile.' },
+  { type: 'residential_medium', label: 'Townhouse', desc: 'Medium density housing for 100 citizens ($600k). Requires market score ≥ 30.' },
+  { type: 'mixed_use_residential', label: 'Mixed-Use', desc: 'Residential + commercial for 200 citizens ($2.5M). Needs market score ≥ 40, 1 commercial slot.' },
+  { type: 'residential_high', label: 'Skyscraper', desc: 'High-rise for 500 citizens ($20M). Requires market score ≥ 70, prime location only.' },
 ];
 
 interface Props {

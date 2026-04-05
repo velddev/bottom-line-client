@@ -32,7 +32,7 @@ export function WaterUtilityRow({ quantity, waterRateCents }: { quantity: number
 const BASE_ELECTRICITY: Record<string, number> = {
   factory: 30, store: 15, warehouse: 10, bank: 10,
   field: 5, landmark: 5,
-  residential_low: 5, residential_medium: 10, residential_high: 15,
+  residential_low: 5, residential_medium: 10, mixed_use_residential: 12, mixeduseresidential: 12, residential_high: 15,
 };
 
 export function ElectricityUtilityRow({ buildingType, electricityRateCents }: { buildingType: string; electricityRateCents: number | null }) {

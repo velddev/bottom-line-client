@@ -392,7 +392,7 @@ export interface StoreInsightsResponse {
 export const BUILDING_TYPES = ['factory', 'field', 'store', 'warehouse'] as const;
 export const BUILDING_ICONS: Record<string, string> = {
   factory: '🏭', field: '🌾', store: '🏪', warehouse: '📦', landmark: '🏛️', bank: '🏦',
-  residential_low: '🏠', residential_medium: '🏘️', residential_high: '🏙️',
+  residential_low: '🏠', residential_medium: '🏘️', residential_high: '🏙️', mixed_use_residential: '🏬',
 };
 
 export interface TileMarketScore {

@@ -55,6 +55,18 @@ export const VARIANT_MAP: Record<string, ModelVariant[]> = {
     { path: '/models/buildings/commercial/building-g.glb', scale: 0.5, yOffset: 0 },
     { path: '/models/buildings/commercial/building-i.glb', scale: 0.5, yOffset: 0 },
   ],
+  mixed_use_residential: [
+    { path: '/models/buildings/commercial/building-c.glb', scale: 0.5, yOffset: 0 },
+    { path: '/models/buildings/commercial/building-f.glb', scale: 0.5, yOffset: 0 },
+    { path: '/models/buildings/commercial/building-g.glb', scale: 0.5, yOffset: 0 },
+    { path: '/models/buildings/commercial/building-i.glb', scale: 0.5, yOffset: 0 },
+  ],
+  mixeduseresidential: [
+    { path: '/models/buildings/commercial/building-c.glb', scale: 0.5, yOffset: 0 },
+    { path: '/models/buildings/commercial/building-f.glb', scale: 0.5, yOffset: 0 },
+    { path: '/models/buildings/commercial/building-g.glb', scale: 0.5, yOffset: 0 },
+    { path: '/models/buildings/commercial/building-i.glb', scale: 0.5, yOffset: 0 },
+  ],
   residential_high: [
     { path: '/models/buildings/commercial/building-skyscraper-b.glb', scale: 0.5, yOffset: 0 },
     { path: '/models/buildings/commercial/building-skyscraper-c.glb', scale: 0.5, yOffset: 0 },

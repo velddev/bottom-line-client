@@ -110,12 +110,16 @@ const RESOURCE_TYPE: Record<string, string> = {
   food:        'RESOURCE_TYPE_FOOD',
 };
 const BUILDING_TYPE: Record<string, string> = {
-  field:     'BUILDING_TYPE_FIELD',
-  factory:   'BUILDING_TYPE_FACTORY',
-  store:     'BUILDING_TYPE_STORE',
-  warehouse: 'BUILDING_TYPE_WAREHOUSE',
-  landmark:  'BUILDING_TYPE_LANDMARK',
-  bank:      'BUILDING_TYPE_BANK',
+  field:                  'BUILDING_TYPE_FIELD',
+  factory:                'BUILDING_TYPE_FACTORY',
+  store:                  'BUILDING_TYPE_STORE',
+  warehouse:              'BUILDING_TYPE_WAREHOUSE',
+  landmark:               'BUILDING_TYPE_LANDMARK',
+  bank:                   'BUILDING_TYPE_BANK',
+  residential_low:        'BUILDING_TYPE_RESIDENTIAL_LOW',
+  residential_medium:     'BUILDING_TYPE_RESIDENTIAL_MEDIUM',
+  residential_high:       'BUILDING_TYPE_RESIDENTIAL_HIGH',
+  mixed_use_residential:  'BUILDING_TYPE_MIXED_USE_RESIDENTIAL',
 };
 
 const MATCH_PREFERENCE: Record<string, string> = {

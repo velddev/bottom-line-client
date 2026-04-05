@@ -43,6 +43,7 @@ enum BuildingType {
   BUILDING_TYPE_RESIDENTIAL_LOW      = 7; // low-density housing, capacity 25, any tile
   BUILDING_TYPE_RESIDENTIAL_MEDIUM   = 8; // medium-density housing, capacity 100, market score >= 30
   BUILDING_TYPE_RESIDENTIAL_HIGH     = 9; // high-density housing, capacity 500, market score >= 70
+  BUILDING_TYPE_MIXED_USE_RESIDENTIAL = 10; // mixed-use: 200 capacity, 8 units + commercial slot, score >= 40
 }
 
 // Lifecycle state of a building.
