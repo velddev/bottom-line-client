@@ -169,16 +169,9 @@ export function StoreResourceCard({
         </label>
         <div className="flex-1 min-w-0">
           {validSell && validBuy && (
-            <div className="flex items-center gap-2 flex-wrap text-[10px] font-mono">
-              <span className={netMargin > 0 ? 'text-emerald-400' : netMargin < 0 ? 'text-rose-400' : 'text-gray-500'}>
-                {netMargin > 0 ? '+' : ''}{fmtMoney(netMargin)}/u net
-              </span>
-              <span className="text-gray-500">
-                (buy {fmtMoney(buyPriceCents)}
-                {electricityCostPerUnit > 0 && <> + ⚡{fmtMoney(electricityCostPerUnit)}</>}
-                {' → '}sell {fmtMoney(sellPriceCents)})
-              </span>
-            </div>
+            <span className={`text-[10px] font-mono ${netMargin > 0 ? 'text-emerald-400' : netMargin < 0 ? 'text-rose-400' : 'text-gray-500'}`}>
+              ~{fmtMoney(Math.abs(netMargin))} {netMargin >= 0 ? 'profit' : 'loss'}/u
+            </span>
           )}
         </div>
         <Button
