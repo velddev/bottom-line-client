@@ -54,7 +54,7 @@ export function StoreResourceCard({
     existingOffering ? (existingOffering.price_per_unit / 100).toFixed(2) : '1.00',
   );
   const [buyPrice, setBuyPrice] = useState(
-    existingOrder ? (existingOrder.max_price_per_unit / 100).toFixed(2) : '0.10',
+    existingOrder ? (existingOrder.max_price_per_unit / 100).toFixed(2) : '0.15',
   );
   const [targetStock, setTargetStock] = useState(
     existingOrder ? existingOrder.quantity_per_tick : 10,
