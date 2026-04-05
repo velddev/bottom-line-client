@@ -408,6 +408,20 @@ export interface DemandUtilizationPoint {
   tick: number;
 }
 
+export interface PriceHistoryPoint {
+  tick: number;
+  resource_type: string;
+  avg_price_cents: number;
+  min_price_cents: number;
+  max_price_cents: number;
+  total_volume: number;
+  total_revenue: number;
+}
+
+export interface PriceHistoryResponse {
+  data: PriceHistoryPoint[];
+}
+
 export const RESOURCE_COLORS: Record<string, string> = {
   grain:       'text-yellow-400',
   water:       'text-blue-400',

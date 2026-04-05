@@ -3,7 +3,7 @@ import type {
   BuyOrderInfo, ResearchProgress, BrandSummary, BrandValueResponse,
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
-  GetBuildingSalesResponse,
+  GetBuildingSalesResponse, PriceHistoryResponse,
   CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, StoreInsightsResponse,
   UtilitiesResponse,
 } from './types';
@@ -105,6 +105,9 @@ export function createIpcApi(): IApiService {
 
     getMarketShare: (city_id, resource_type = '', history_ticks = 20) =>
       invoke<MarketShareResponse>('api:getMarketShare', { city_id, resource_type, history_ticks, apiKey: apiKey() }),
+
+    getPriceHistory: (city_id, history_ticks = 30) =>
+      invoke<PriceHistoryResponse>('api:getPriceHistory', { city_id, history_ticks, apiKey: apiKey() }),
 
     // ─── Buy Orders (replaces supply links + agreements) ──────────────────
     getBuyOrders: (buildingId) =>

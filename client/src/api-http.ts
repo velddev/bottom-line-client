@@ -3,7 +3,7 @@ import type {
   BuyOrderInfo, ResearchProgress, BrandSummary, BrandValueResponse,
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
-  GetBuildingSalesResponse,
+  GetBuildingSalesResponse, PriceHistoryResponse,
   CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, StoreInsightsResponse,
   UtilitiesResponse,
 } from './types';
@@ -251,6 +251,11 @@ export function createHttpApi(): IApiService {
     getMarketShare: (city_id, resource_type = '', history_ticks = 20) =>
       get<MarketShareResponse>(`/cities/${city_id}/market-share`, {
         ...(resource_type ? { resource_type: enumVal(RESOURCE_TYPE, resource_type) ?? resource_type } : {}),
+        history_ticks: String(history_ticks),
+      }),
+
+    getPriceHistory: (city_id, history_ticks = 30) =>
+      get<PriceHistoryResponse>(`/cities/${city_id}/price-history`, {
         history_ticks: String(history_ticks),
       }),
 

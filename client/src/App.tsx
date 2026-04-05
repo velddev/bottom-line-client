@@ -7,6 +7,7 @@ import AuthScreen from './screens/AuthScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import TilesScreen from './screens/TilesScreen';
 import PerformanceScreen from './screens/PerformanceScreen';
+import StockMarketScreen from './screens/StockMarketScreen';
 import ChatScreen from './screens/ChatScreen';
 
 function AppRoutes() {
@@ -23,6 +24,7 @@ function AppRoutes() {
             <Routes>
               <Route path="/"             element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard"    element={<DashboardScreen />} />
+              <Route path="/market"       element={<StockMarketScreen />} />
               <Route path="/performance"  element={<PerformanceScreen />} />
               <Route path="/map"          element={<TilesScreen />} />
               <Route path="/chat"         element={<ChatScreen />} />

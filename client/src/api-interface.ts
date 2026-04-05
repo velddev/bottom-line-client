@@ -3,7 +3,7 @@ import type {
   BuyOrderInfo, ResearchProgress, BrandSummary, BrandValueResponse,
   GovernmentInfo, ElectionInfo, CityInfo, CityStats, CityBuildingInfo,
   TileInfo, ListTilesResponse, MarketShareResponse, LoanInfo, LoanActionResponse,
-  GetBuildingSalesResponse,
+  GetBuildingSalesResponse, PriceHistoryResponse,
   CompanyTickSnapshot, GameEvent, ChatMessage, DmConversation, StoreInsightsResponse,
   UtilitiesResponse,
 } from './types';
@@ -28,6 +28,7 @@ export interface IApiService {
   cancelOffering(id: string): Promise<{ success: boolean }>;
   purchase(buyer_building_id: string, offering_id: string, quantity: number): Promise<{ total_paid: number; quality: number }>;
   getMarketShare(city_id: string, resource_type?: string, history_ticks?: number): Promise<MarketShareResponse>;
+  getPriceHistory(city_id: string, history_ticks?: number): Promise<PriceHistoryResponse>;
   // ─── Buy Orders (replaces supply links + agreements) ──────────────────
   getBuyOrders(buildingId: string): Promise<{ orders: BuyOrderInfo[] }>;
   setBuyOrder(buildingId: string, resource_type: string, max_price_per_unit: number, quantity_per_tick: number, visibility: string, match_preference: string, is_active: boolean): Promise<{ buy_order_id: string }>;

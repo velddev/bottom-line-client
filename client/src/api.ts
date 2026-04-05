@@ -42,6 +42,7 @@ export const listOfferings: IApiService['listOfferings'] = (...args) => api.list
 export const cancelOffering: IApiService['cancelOffering'] = (...args) => api.cancelOffering(...args);
 export const purchase: IApiService['purchase'] = (...args) => api.purchase(...args);
 export const getMarketShare: IApiService['getMarketShare'] = (...args) => api.getMarketShare(...args);
+export const getPriceHistory: IApiService['getPriceHistory'] = (...args) => api.getPriceHistory(...args);
 export const getBuyOrders: IApiService['getBuyOrders'] = (...args) => api.getBuyOrders(...args);
 export const setBuyOrder: IApiService['setBuyOrder'] = (...args) => api.setBuyOrder(...args);
 export const removeBuyOrder: IApiService['removeBuyOrder'] = (...args) => api.removeBuyOrder(...args);
